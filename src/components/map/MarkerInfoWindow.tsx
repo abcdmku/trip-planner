@@ -52,6 +52,19 @@ function formatPriceLevel(level?: number): string | null {
   return '$'.repeat(level);
 }
 
+function getRatingBadgeClasses(rating: number, userRatingsTotal?: number): string {
+  if (rating >= 4.7 && (userRatingsTotal ?? 0) > 100) {
+    return 'border-teal-400/40 bg-teal-500/15 text-teal-700 shadow-[0_0_14px_rgba(20,184,166,0.45)] dark:text-teal-300 dark:shadow-[0_0_16px_rgba(45,212,191,0.35)]';
+  }
+  if (rating >= 4) {
+    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+  }
+  if (rating >= 3) {
+    return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  }
+  return 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300';
+}
+
 export default function MarkerInfoWindow({
   item,
   place,
@@ -73,12 +86,12 @@ export default function MarkerInfoWindow({
       className="tp-map-info-window"
       pixelOffset={[0, -40]}
     >
-      <div className="relative max-h-[440px] min-w-[260px] max-w-[360px] overflow-y-auto rounded-xl border border-theme bg-theme-elevated p-2 text-theme shadow-theme-sm">
+      <div className="relative max-h-[440px] min-w-[260px] max-w-[360px] overflow-y-auto rounded-xl border border-theme bg-theme-elevated p-3 text-theme shadow-theme-sm">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/35 bg-black/65 text-white backdrop-blur transition-colors hover:bg-black/80"
+          className="absolute right-4 top-4 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/35 bg-black text-white transition-colors hover:bg-zinc-900"
         >
           <X className="h-4 w-4" />
         </button>
@@ -87,7 +100,7 @@ export default function MarkerInfoWindow({
           <img
             src={photo}
             alt={displayName}
-            className="mb-2 h-36 w-full rounded-lg object-cover pr-9"
+            className="mb-2 h-36 w-full rounded-lg object-cover"
             loading="lazy"
           />
         )}
@@ -106,7 +119,7 @@ export default function MarkerInfoWindow({
           </span>
 
           {place?.rating !== undefined && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${getRatingBadgeClasses(place.rating, place.userRatingsTotal)}`}>
               <Star className="h-3 w-3" />
               {place.rating.toFixed(1)}
               {place.userRatingsTotal ? ` (${place.userRatingsTotal})` : ''}
@@ -178,7 +191,7 @@ export default function MarkerInfoWindow({
               {place.phoneNumber && (
                 <a
                   href={`tel:${place.phoneNumber}`}
-                  className="inline-flex items-center gap-1 text-accent hover:underline"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   {place.phoneNumber}
@@ -190,7 +203,7 @@ export default function MarkerInfoWindow({
                   href={place.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-accent hover:underline"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   <Globe className="h-3.5 w-3.5" />
                   Website
@@ -202,7 +215,7 @@ export default function MarkerInfoWindow({
                   href={place.googleMapsUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-accent hover:underline"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   Open in Google Maps
                 </a>

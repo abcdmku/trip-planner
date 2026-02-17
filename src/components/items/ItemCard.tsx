@@ -51,7 +51,7 @@ export function ItemCard({
           ? 'border-accent shadow-lg shadow-accent/10 scale-[1.02]'
           : isSelected
             ? 'border-accent/80 bg-theme-highlight shadow-md shadow-accent/20 ring-1 ring-accent/35'
-            : 'border-theme bg-theme-elevated hover:border-theme-subtle hover:shadow-theme-sm'
+            : 'border-theme-subtle bg-theme-elevated hover:border-theme hover:bg-theme-subtle hover:shadow-theme-sm'
       }`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}

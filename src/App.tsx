@@ -237,6 +237,20 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     }
   }, [filteredItems, selectedItemId, setSelectedItemId]);
 
+  // Delete selected item on Delete key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' || !selectedItemId) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      e.preventDefault();
+      setSelectedItemId(null);
+      deleteItem.mutate(selectedItemId);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedItemId, setSelectedItemId, deleteItem]);
+
   useEffect(() => {
     if (!selectedLeg) return;
     const stillVisible =
@@ -459,12 +473,12 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
               onAddPlaceToItinerary={handleAddPlaceToItinerary}
             />
 
-            <div className="pointer-events-none absolute left-3 top-3 z-20">
-              <div className="pointer-events-auto inline-flex rounded-lg border border-theme bg-theme-elevated/90 p-0.5 shadow-theme-sm backdrop-blur">
+            <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2">
+              <div className="pointer-events-auto inline-flex rounded-lg border border-theme bg-theme-elevated p-1 shadow-theme-md">
                 <button
                   type="button"
                   onClick={() => setMapEventFilter('all')}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${
                     mapEventFilter === 'all'
                       ? 'bg-theme text-theme'
                       : 'text-theme-secondary hover:bg-theme-subtle hover:text-theme'
@@ -475,7 +489,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
                 <button
                   type="button"
                   onClick={() => setMapEventFilter('committed')}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${
                     mapEventFilter === 'committed'
                       ? 'bg-theme text-theme'
                       : 'text-theme-secondary hover:bg-theme-subtle hover:text-theme'
