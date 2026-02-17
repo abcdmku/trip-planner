@@ -1,0 +1,246 @@
+// ---------------------------------------------------------------------------
+// useLegs – TanStack Query hooks for leg read and recalculation operations.
+//
+// Follows the same patterns as useItems and useDays:
+//   1. Optimistic cache update via trip-store helpers
+//   2. Persist to Google Sheets via sheets-repository
+//   3. Invalidate the trip query on settle
+//   4. Rollback on error
+// ---------------------------------------------------------------------------
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTrip } from '@/hooks/useTrip';
+import { saveLegs } from '@/services/sheets-repository';
+import { mapsRepository } from '@/services/maps-repository';
+import {
+  updateLegsOptimistic,
+  invalidateTrip,
+  getTripQueryKey,
+} from '@/stores/trip-store';
+import type { Item, Leg, TransportMode, TripData } from '@/types/trip';
+
+// ---------------------------------------------------------------------------
+// Read hook
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the legs array for the given spreadsheet, derived from `useTrip`.
+ */
+export function useLegs(spreadsheetId: string | null | undefined) {
+  const { legs, isLoading, error } = useTrip(spreadsheetId);
+  return { legs, isLoading, error };
+}
+
+// ---------------------------------------------------------------------------
+// Recalculate legs mutation
+// ---------------------------------------------------------------------------
+
+interface RecalculatePayload {
+  /** Items sorted by sortOrder for a single day. */
+  items: Item[];
+  /** Default transport mode to use for all legs. */
+  defaultMode: TransportMode;
+}
+
+/**
+ * Mutation that recalculates legs between consecutive items on a day.
+ *
+ * For each consecutive pair of items (sorted by sortOrder), calls
+ * `calculateLeg` on the maps repository to obtain routing data.
+ * Replaces all existing legs for the affected item pairs and saves
+ * the full legs array to the sheet.
+ */
+export function useRecalculateLegs(spreadsheetId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<Leg[], Error, RecalculatePayload, TripData | undefined>({
+    mutationFn: async ({ items, defaultMode }) => {
+      const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
+      const newLegs: Leg[] = [];
+
+      // Compute legs for each consecutive pair.
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const fromItem = sorted[i];
+        const toItem = sorted[i + 1];
+
+        // Skip items without valid coordinates.
+        if (
+          (fromItem.lat === 0 && fromItem.lng === 0) ||
+          (toItem.lat === 0 && toItem.lng === 0)
+        ) {
+          continue;
+        }
+
+        // Use scheduled end of fromItem as departure time if available.
+        const departureTime = fromItem.scheduledEnd
+          ? new Date(fromItem.scheduledEnd)
+          : undefined;
+
+        const result = await mapsRepository.calculateLeg(
+          { lat: fromItem.lat, lng: fromItem.lng },
+          { lat: toItem.lat, lng: toItem.lng },
+          defaultMode,
+          departureTime,
+        );
+
+        if (result) {
+          newLegs.push({
+            legId: `leg-${fromItem.itemId}-${toItem.itemId}`,
+            fromItemId: fromItem.itemId,
+            toItemId: toItem.itemId,
+            mode: defaultMode,
+            departure: result.departure,
+            arrival: result.arrival,
+            durationMinutes: result.durationMinutes,
+            distanceMeters: result.distanceMeters,
+            routePathEncoded: result.routePathEncoded,
+          });
+        }
+      }
+
+      // Build the set of item IDs involved in this recalculation.
+      const involvedItemIds = new Set(sorted.map((item) => item.itemId));
+
+      // Merge: keep existing legs that are NOT between items in this day,
+      // then add the newly computed legs.
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      const existingLegs = current?.legs ?? [];
+
+      const keptLegs = existingLegs.filter(
+        (leg) =>
+          !involvedItemIds.has(leg.fromItemId) ||
+          !involvedItemIds.has(leg.toItemId),
+      );
+
+      const mergedLegs = [...keptLegs, ...newLegs];
+
+      // Persist to sheet.
+      await saveLegs(spreadsheetId, mergedLegs);
+
+      return newLegs;
+    },
+
+    onMutate: async ({ items }) => {
+      await queryClient.cancelQueries({
+        queryKey: getTripQueryKey(spreadsheetId),
+      });
+
+      // Build set of item IDs for the day being recalculated.
+      const involvedItemIds = new Set(items.map((item) => item.itemId));
+
+      // Optimistic: remove old legs for this day's items (new ones will
+      // arrive when the mutation settles).
+      const previous = updateLegsOptimistic(
+        queryClient,
+        spreadsheetId,
+        (legs) =>
+          legs.filter(
+            (leg) =>
+              !involvedItemIds.has(leg.fromItemId) ||
+              !involvedItemIds.has(leg.toItemId),
+          ),
+      );
+
+      return previous;
+    },
+
+    onError: (_err, _payload, previous) => {
+      if (previous) {
+        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+      }
+    },
+
+    onSettled: () => {
+      void invalidateTrip(queryClient, spreadsheetId);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Update single leg mode mutation
+// ---------------------------------------------------------------------------
+
+interface UpdateLegModePayload {
+  leg: Leg;
+  newMode: TransportMode;
+  fromItem: Item;
+  toItem: Item;
+}
+
+/**
+ * Mutation that recalculates a single leg with a new transport mode.
+ *
+ * Calls `mapsRepository.calculateLeg()` with the new mode, then replaces
+ * that one leg in the cache and persists the full legs array to the sheet.
+ */
+export function useUpdateLegMode(spreadsheetId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<Leg, Error, UpdateLegModePayload, TripData | undefined>({
+    mutationFn: async ({ leg, newMode, fromItem, toItem }) => {
+      const departureTime = fromItem.scheduledEnd
+        ? new Date(fromItem.scheduledEnd)
+        : undefined;
+
+      const result = await mapsRepository.calculateLeg(
+        { lat: fromItem.lat, lng: fromItem.lng },
+        { lat: toItem.lat, lng: toItem.lng },
+        newMode,
+        departureTime,
+      );
+
+      if (!result) {
+        throw new Error(`Directions unavailable for mode "${newMode}"`);
+      }
+
+      const updatedLeg: Leg = {
+        ...leg,
+        mode: newMode,
+        departure: result.departure,
+        arrival: result.arrival,
+        durationMinutes: result.durationMinutes,
+        distanceMeters: result.distanceMeters,
+        routePathEncoded: result.routePathEncoded,
+      };
+
+      // Merge into full legs array and persist.
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      const allLegs = (current?.legs ?? []).map((l) =>
+        l.legId === leg.legId ? updatedLeg : l,
+      );
+      await saveLegs(spreadsheetId, allLegs);
+
+      return updatedLeg;
+    },
+
+    onMutate: async ({ leg, newMode }) => {
+      await queryClient.cancelQueries({
+        queryKey: getTripQueryKey(spreadsheetId),
+      });
+
+      // Optimistic: update the mode immediately so the UI reflects the change.
+      const previous = updateLegsOptimistic(
+        queryClient,
+        spreadsheetId,
+        (legs) =>
+          legs.map((l) =>
+            l.legId === leg.legId ? { ...l, mode: newMode } : l,
+          ),
+      );
+
+      return previous;
+    },
+
+    onError: (_err, _payload, previous) => {
+      if (previous) {
+        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+      }
+    },
+
+    onSettled: () => {
+      void invalidateTrip(queryClient, spreadsheetId);
+    },
+  });
+}
