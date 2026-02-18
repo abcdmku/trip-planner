@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Leg, Item, Day } from '@/types/trip';
+import { toMinutesOfDay } from '@/lib/date-time';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,15 +56,14 @@ export function getFeasibilityColor(
     return { color: dayColor ?? '#4285F4', status: 'unknown' };
   }
 
-  const endTime = new Date(fromItem.scheduledEnd).getTime();
-  const startTime = new Date(toItem.scheduledStart).getTime();
+  const endMinutes = toMinutesOfDay(fromItem.scheduledEnd);
+  const startMinutes = toMinutesOfDay(toItem.scheduledStart);
 
-  // Guard against invalid dates.
-  if (isNaN(endTime) || isNaN(startTime)) {
+  if (endMinutes === null || startMinutes === null) {
     return { color: dayColor ?? '#4285F4', status: 'unknown' };
   }
 
-  const availableMinutes = (startTime - endTime) / 60_000;
+  const availableMinutes = startMinutes - endMinutes;
   const travelMinutes = leg.durationMinutes;
 
   // If the available window is zero or negative, always red.

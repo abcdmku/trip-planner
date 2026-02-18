@@ -18,6 +18,7 @@ import {
   getTripQueryKey,
 } from '@/stores/trip-store';
 import type { Item, Leg, TransportMode, RouteType, TripData } from '@/types/trip';
+import { buildDateTime } from '@/lib/date-time';
 
 // ---------------------------------------------------------------------------
 // Read hook
@@ -57,6 +58,9 @@ export function useRecalculateLegs(spreadsheetId: string) {
     mutationFn: async ({ items, defaultMode }) => {
       const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
       const newLegs: Leg[] = [];
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      const dayDateById = new Map((current?.days ?? []).map((day) => [day.dayId, day.date]));
 
       // Compute legs for each consecutive pair.
       for (let i = 0; i < sorted.length - 1; i++) {
@@ -75,9 +79,7 @@ export function useRecalculateLegs(spreadsheetId: string) {
         }
 
         // Use scheduled end of fromItem as departure time if available.
-        const departureTime = fromItem.scheduledEnd
-          ? new Date(fromItem.scheduledEnd)
-          : undefined;
+        const departureTime = buildDateTime(dayDateById.get(fromItem.dayId), fromItem.scheduledEnd);
 
         // Try directions first, fall back to straight-line if unavailable.
         let result: LegCalculation | null = null;
@@ -113,9 +115,8 @@ export function useRecalculateLegs(spreadsheetId: string) {
 
       // Merge: keep existing legs that are NOT between items in this day,
       // then add the newly computed legs.
-      const queryKey = getTripQueryKey(spreadsheetId);
-      const current = queryClient.getQueryData<TripData>(queryKey);
-      const existingLegs = current?.legs ?? [];
+      const currentAfterCalc = queryClient.getQueryData<TripData>(queryKey);
+      const existingLegs = currentAfterCalc?.legs ?? [];
 
       const keptLegs = existingLegs.filter(
         (leg) =>
@@ -191,9 +192,10 @@ export function useUpdateLegMode(spreadsheetId: string) {
     mutationFn: async ({ leg, newMode, fromItem, toItem }) => {
       const from = { lat: fromItem.lat, lng: fromItem.lng };
       const to = { lat: toItem.lat, lng: toItem.lng };
-      const departureTime = fromItem.scheduledEnd
-        ? new Date(fromItem.scheduledEnd)
-        : undefined;
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      const fromDayDate = (current?.days ?? []).find((day) => day.dayId === fromItem.dayId)?.date;
+      const departureTime = buildDateTime(fromDayDate, fromItem.scheduledEnd);
 
       // Try directions first, fall back to straight-line.
       let result: LegCalculation | null = null;
@@ -221,9 +223,8 @@ export function useUpdateLegMode(spreadsheetId: string) {
       };
 
       // Merge into full legs array and persist.
-      const queryKey = getTripQueryKey(spreadsheetId);
-      const current = queryClient.getQueryData<TripData>(queryKey);
-      const allLegs = (current?.legs ?? []).map((l) =>
+      const latest = queryClient.getQueryData<TripData>(queryKey);
+      const allLegs = (latest?.legs ?? []).map((l) =>
         l.legId === leg.legId ? updatedLeg : l,
       );
       await saveLegs(spreadsheetId, allLegs);
@@ -308,9 +309,10 @@ export function useUpdateLegRouteType(spreadsheetId: string) {
       }
 
       // 'directions' — call the Google Directions API.
-      const departureTime = fromItem.scheduledEnd
-        ? new Date(fromItem.scheduledEnd)
-        : undefined;
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      const fromDayDate = (current?.days ?? []).find((day) => day.dayId === fromItem.dayId)?.date;
+      const departureTime = buildDateTime(fromDayDate, fromItem.scheduledEnd);
 
       let result: LegCalculation | null = null;
       let finalRouteType: RouteType = 'directions';
@@ -336,9 +338,8 @@ export function useUpdateLegRouteType(spreadsheetId: string) {
         arrival: result.arrival,
       };
 
-      const queryKey = getTripQueryKey(spreadsheetId);
-      const current = queryClient.getQueryData<TripData>(queryKey);
-      const allLegs = (current?.legs ?? []).map((l) =>
+      const latest = queryClient.getQueryData<TripData>(queryKey);
+      const allLegs = (latest?.legs ?? []).map((l) =>
         l.legId === leg.legId ? updatedLeg : l,
       );
       await saveLegs(spreadsheetId, allLegs);

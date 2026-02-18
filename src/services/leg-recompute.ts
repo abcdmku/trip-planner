@@ -6,6 +6,7 @@
 import type { Item, Leg, Day, Trip, TransportMode, RouteType } from '@/types/trip';
 import { mapsRepository } from '@/services/maps-repository';
 import type { LegCalculation } from '@/services/maps-repository';
+import { buildDateTime } from '@/lib/date-time';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -81,7 +82,7 @@ export function findDirtyLegs(
  */
 export async function computeLegsForDay(
   items: Item[],
-  _day: Day,
+  day: Day,
   mode: TransportMode,
 ): Promise<Leg[]> {
   // Sort items by sortOrder.
@@ -108,9 +109,7 @@ export async function computeLegsForDay(
     const to = { lat: toItem.lat, lng: toItem.lng };
 
     // Use the scheduled end of the fromItem as departure time if available.
-    const departureTime = fromItem.scheduledEnd
-      ? new Date(fromItem.scheduledEnd)
-      : undefined;
+    const departureTime = buildDateTime(day.date, fromItem.scheduledEnd);
 
     // Try directions first, fall back to straight-line.
     let result: LegCalculation | null = null;

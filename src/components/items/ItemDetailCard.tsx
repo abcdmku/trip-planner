@@ -1,62 +1,48 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { X, MapPin, Clock, Timer, Tag, Star, ToggleLeft, ToggleRight, StickyNote, Navigation } from 'lucide-react';
-import type { Item, ItemType } from '../../types/trip';
+import { useCallback, useEffect, useState } from 'react';
+import { MapPin, Navigation, X } from 'lucide-react';
+import type { Item } from '../../types/trip';
 import { PlaceSearch } from './PlaceSearch';
 import type { PlaceSearchResult } from '../../services/maps-repository';
-
-function timeToMin(t: string): number {
-  if (!t) return 0;
-  const p = t.includes('T') ? t.split('T')[1] : t;
-  const [h, m] = p.split(':').map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
-function minToTime(m: number): string {
-  const c = Math.max(0, Math.min(1439, m));
-  return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`;
-}
+import { EventEditorForm, type EventEditorValue } from './EventEditorForm';
 
 interface ItemDetailCardProps {
   item: Item;
   dayColor?: string;
+  dayDate?: string;
   onUpdate?: (updates: Partial<Item>) => void;
   onClose?: () => void;
 }
 
-const TYPE_OPTIONS: { value: ItemType; emoji: string; label: string }[] = [
-  { value: 'attraction', emoji: '\u{1F3DB}\uFE0F', label: 'Attraction' },
-  { value: 'restaurant', emoji: '\u{1F37D}\uFE0F', label: 'Restaurant' },
-  { value: 'hotel', emoji: '\u{1F3E8}', label: 'Hotel' },
-  { value: 'transport', emoji: '\u{1F68C}', label: 'Transport' },
-  { value: 'activity', emoji: '\u{1F3AF}', label: 'Activity' },
-  { value: 'other', emoji: '\u{1F4CD}', label: 'Other' },
-];
+function itemToEditorValue(item: Item): EventEditorValue {
+  return {
+    type: item.type,
+    transportMode: item.transportMode,
+    itemRouteType: item.itemRouteType,
+    scheduledStart: item.scheduledStart,
+    scheduledEnd: item.scheduledEnd,
+    durationMinutes: item.durationMinutes,
+    notesMd: item.notesMd,
+    availabilityWindows: item.availabilityWindows,
+    timelineLocked: item.timelineLocked,
+  };
+}
 
-export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }: ItemDetailCardProps) {
-  const [start, setStart] = useState(item.scheduledStart);
-  const [end, setEnd] = useState(item.scheduledEnd);
-  const [duration, setDuration] = useState(item.durationMinutes);
-  const [type, setType] = useState(item.type);
-  const [priority, setPriority] = useState(item.priority);
-  const [optional, setOptional] = useState(item.isOptional);
-  const [notes, setNotes] = useState(item.notesMd);
+export function ItemDetailCard({
+  item,
+  dayColor = '#3B82F6',
+  dayDate,
+  onUpdate,
+  onClose,
+}: ItemDetailCardProps) {
+  const [editorValue, setEditorValue] = useState<EventEditorValue>(() => itemToEditorValue(item));
   const [showDestSearch, setShowDestSearch] = useState(false);
-  const notesRef = useRef<HTMLTextAreaElement>(null);
+
   const hasDest = item.destLat !== 0 || item.destLng !== 0;
 
-  // Sync from props when item changes externally
   useEffect(() => {
-    setStart(item.scheduledStart);
-    setEnd(item.scheduledEnd);
-    setDuration(item.durationMinutes);
-    setType(item.type);
-    setPriority(item.priority);
-    setOptional(item.isOptional);
-    setNotes(item.notesMd);
-  }, [item.itemId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const durH = Math.floor(duration / 60);
-  const durM = duration % 60;
+    setEditorValue(itemToEditorValue(item));
+    setShowDestSearch(false);
+  }, [item]);
 
   const commit = useCallback(
     (updates: Partial<Item>) => {
@@ -65,130 +51,96 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
     [onUpdate],
   );
 
-  const changeStart = useCallback(
-    (newStart: string) => {
-      setStart(newStart);
-      const newEnd = minToTime(timeToMin(newStart) + duration);
-      setEnd(newEnd);
-      commit({ scheduledStart: newStart, scheduledEnd: newEnd });
-    },
-    [duration, commit],
-  );
+  const handleEditorChange = (next: EventEditorValue) => {
+    setEditorValue(next);
+    commit({
+      type: next.type,
+      transportMode: next.transportMode,
+      itemRouteType: next.itemRouteType,
+      scheduledStart: next.scheduledStart,
+      scheduledEnd: next.scheduledEnd,
+      durationMinutes: next.durationMinutes,
+      notesMd: next.notesMd,
+      availabilityWindows: next.availabilityWindows,
+      timelineLocked: next.timelineLocked,
+      // Refresh cached route whenever mode/type changes from inline editor.
+      itemRoutePathEncoded: '',
+      itemRouteDistanceMeters: 0,
+      itemRouteDurationMinutes: 0,
+    });
+  };
 
-  const changeEnd = useCallback(
-    (newEnd: string) => {
-      setEnd(newEnd);
-      const newDur = Math.max(0, timeToMin(newEnd) - timeToMin(start));
-      setDuration(newDur);
-      commit({ scheduledEnd: newEnd, durationMinutes: newDur });
-    },
-    [start, commit],
-  );
-
-  const changeDuration = useCallback(
-    (newDur: number) => {
-      setDuration(newDur);
-      if (start) {
-        const newEnd = minToTime(timeToMin(start) + newDur);
-        setEnd(newEnd);
-        commit({ durationMinutes: newDur, scheduledEnd: newEnd });
-      } else {
-        commit({ durationMinutes: newDur });
-      }
-    },
-    [start, commit],
-  );
-
-  const handleDestSelect = useCallback(
-    (place: PlaceSearchResult) => {
-      commit({
-        destLat: place.lat,
-        destLng: place.lng,
-        destName: place.name,
-        destAddress: place.address,
-      });
-      setShowDestSearch(false);
-    },
-    [commit],
-  );
-
-  const handleClearDest = useCallback(() => {
-    commit({ destLat: 0, destLng: 0, destName: '', destAddress: '' });
-  }, [commit]);
-
-  // Auto-resize notes textarea
-  useEffect(() => {
-    const el = notesRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.max(56, el.scrollHeight)}px`;
-  }, [notes]);
+  const handleDestSelect = (place: PlaceSearchResult) => {
+    commit({
+      destLat: place.lat,
+      destLng: place.lng,
+      destName: place.name,
+      destAddress: place.address,
+      itemRoutePathEncoded: '',
+      itemRouteDistanceMeters: 0,
+      itemRouteDurationMinutes: 0,
+    });
+    setShowDestSearch(false);
+  };
 
   return (
-    <div className="animate-in rounded-xl border border-theme bg-theme-elevated shadow-theme-md overflow-hidden">
-      {/* Color accent strip */}
+    <div className="animate-in overflow-hidden rounded-xl border border-theme bg-theme-elevated shadow-theme-md">
       <div className="h-1" style={{ backgroundColor: dayColor }} />
 
-      {/* Stacked Origin / Destination header */}
-      <div className="px-3 pt-2.5 pb-2">
+      <div className="px-3 py-2">
         <div className="flex items-start gap-2">
-          {/* Visual connector: dot — line — dot */}
           <div className="flex flex-col items-center pt-1">
             <div className="h-2 w-2 rounded-full" style={{ backgroundColor: dayColor }} />
-            {(hasDest || showDestSearch) && (
+            {(hasDest || showDestSearch) ? (
               <>
-                <div className="w-px flex-1 min-h-[16px]" style={{ backgroundColor: `${dayColor}40` }} />
-                <Navigation className="h-2.5 w-2.5" style={{ color: dayColor }} />
+                <div className="w-px min-h-[12px] flex-1" style={{ backgroundColor: `${dayColor}40` }} />
+                <Navigation className="h-3 w-3" style={{ color: dayColor }} />
               </>
-            )}
+            ) : null}
           </div>
 
-          {/* Place names */}
           <div className="min-w-0 flex-1">
-            {/* Origin */}
-            <div>
-              <h4 className="text-sm font-semibold leading-snug text-theme">
-                {item.placeName}
-              </h4>
-              {item.address && (
-                <p className="mt-0.5 flex items-center gap-1 text-[10px] leading-tight text-theme-tertiary">
-                  <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-                  <span className="truncate">{item.address}</span>
-                </p>
-              )}
-            </div>
+            <h4 className="truncate text-sm font-semibold text-theme">{item.placeName}</h4>
+            {item.address ? (
+              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-theme-tertiary">
+                <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+                <span className="truncate">{item.address}</span>
+              </p>
+            ) : null}
 
-            {/* Destination (stacked below origin) */}
             {hasDest ? (
               <div className="mt-2 flex items-center gap-1.5 rounded-md bg-theme-subtle px-2 py-1.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-theme truncate">{item.destName}</p>
-                  {item.destAddress && (
-                    <p className="mt-0.5 flex items-center gap-1 text-[10px] text-theme-tertiary">
-                      <MapPin className="h-2 w-2 flex-shrink-0" />
-                      <span className="truncate">{item.destAddress}</span>
-                    </p>
-                  )}
+                  <p className="truncate text-xs font-medium text-theme">{item.destName}</p>
+                  {item.destAddress ? (
+                    <p className="truncate text-[10px] text-theme-tertiary">{item.destAddress}</p>
+                  ) : null}
                 </div>
                 <button
                   type="button"
-                  onClick={handleClearDest}
-                  className="flex-shrink-0 rounded p-0.5 text-theme-tertiary hover:text-theme-secondary"
-                  aria-label="Clear destination"
+                  onClick={() =>
+                    commit({
+                      destLat: 0,
+                      destLng: 0,
+                      destName: '',
+                      destAddress: '',
+                      itemRoutePathEncoded: '',
+                      itemRouteDistanceMeters: 0,
+                      itemRouteDurationMinutes: 0,
+                    })
+                  }
+                  className="rounded p-0.5 text-theme-tertiary hover:text-theme"
                 >
                   <X className="h-3 w-3" />
                 </button>
               </div>
             ) : showDestSearch ? (
               <div className="mt-2 space-y-1">
-                <PlaceSearch
-                  onSelect={handleDestSelect}
-                  placeholder="Search destination..."
-                />
+                <PlaceSearch onSelect={handleDestSelect} placeholder="Search destination..." />
                 <button
                   type="button"
                   onClick={() => setShowDestSearch(false)}
-                  className="text-[10px] text-theme-tertiary hover:text-theme-secondary"
+                  className="text-[10px] text-theme-tertiary hover:text-theme"
                 >
                   Cancel
                 </button>
@@ -197,164 +149,32 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
               <button
                 type="button"
                 onClick={() => setShowDestSearch(true)}
-                className="mt-1.5 rounded-md px-1.5 py-1 text-[10px] text-theme-tertiary transition-colors hover:bg-theme-subtle hover:text-theme-secondary"
+                className="mt-1 text-[10px] text-theme-tertiary hover:text-theme"
               >
                 + Add destination
               </button>
             )}
           </div>
 
-          {/* Close button */}
-          {onClose && (
+          {onClose ? (
             <button
+              type="button"
               onClick={onClose}
-              className="flex-shrink-0 rounded-md p-1 text-theme-tertiary transition-colors hover:bg-theme-subtle hover:text-theme-secondary"
-              aria-label="Close"
+              className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-theme"
             >
               <X className="h-3.5 w-3.5" />
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="mx-3 h-px bg-theme-subtle" style={{ backgroundColor: `${dayColor}18` }} />
-
-      {/* Fields */}
-      <div className="space-y-2 px-3 py-2.5">
-        {/* Type row */}
-        <div className="flex items-center gap-1.5">
-          <Tag className="h-3.5 w-3.5 flex-shrink-0 text-theme-tertiary" />
-          <select
-            value={type}
-            onChange={(e) => {
-              const v = e.target.value as ItemType;
-              setType(v);
-              commit({ type: v });
-            }}
-            className="input w-full py-1 text-xs"
-          >
-            {TYPE_OPTIONS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.emoji} {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Time row */}
-        <div className="flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5 flex-shrink-0 text-theme-tertiary" />
-          <input
-            type="time"
-            value={start}
-            onChange={(e) => changeStart(e.target.value)}
-            className="input w-full py-1 text-xs"
-          />
-          <span className="text-[10px] text-theme-tertiary">&ndash;</span>
-          <input
-            type="time"
-            value={end}
-            onChange={(e) => changeEnd(e.target.value)}
-            className="input w-full py-1 text-xs"
-          />
-        </div>
-
-        {/* Duration */}
-        <div className="flex items-center gap-1.5">
-          <Timer className="h-3.5 w-3.5 flex-shrink-0 text-theme-tertiary" />
-          <div className="flex items-center gap-0.5">
-            <input
-              type="number"
-              min={0}
-              max={23}
-              value={durH}
-              onChange={(e) => {
-                const h = Math.max(0, Math.min(23, Number(e.target.value)));
-                changeDuration(h * 60 + durM);
-              }}
-              className="input w-10 py-1 text-center text-xs"
-            />
-            <span className="text-[10px] text-theme-tertiary">h</span>
-            <input
-              type="number"
-              min={0}
-              max={59}
-              step={5}
-              value={durM}
-              onChange={(e) => {
-                const m = Math.max(0, Math.min(59, Number(e.target.value)));
-                changeDuration(durH * 60 + m);
-              }}
-              className="input w-10 py-1 text-center text-xs"
-            />
-            <span className="text-[10px] text-theme-tertiary">m</span>
-          </div>
-        </div>
-
-        {/* Priority + Optional */}
-        <div className="flex items-center gap-1.5">
-          <Star className="h-3.5 w-3.5 flex-shrink-0 text-theme-tertiary" />
-          <div className="flex flex-1 items-center gap-px">
-            {[1, 2, 3, 4, 5].map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => {
-                  const next = priority === v ? 0 : v;
-                  setPriority(next);
-                  commit({ priority: next });
-                }}
-                className="rounded p-0.5 transition-colors hover:scale-110"
-                aria-label={`Priority ${v}`}
-              >
-                <Star
-                  className="h-3.5 w-3.5 transition-colors"
-                  fill={v <= priority ? '#f59e0b' : 'none'}
-                  stroke={v <= priority ? '#f59e0b' : 'rgb(var(--color-text-tertiary))'}
-                  strokeWidth={1.5}
-                />
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const v = !optional;
-              setOptional(v);
-              commit({ isOptional: v });
-            }}
-            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors hover:bg-theme-subtle"
-            style={{ color: optional ? dayColor : undefined }}
-          >
-            {optional ? (
-              <ToggleRight className="h-4 w-4" />
-            ) : (
-              <ToggleLeft className="h-4 w-4 text-theme-tertiary" />
-            )}
-            <span className={optional ? 'font-medium' : 'text-theme-tertiary'}>
-              Optional
-            </span>
-          </button>
-        </div>
-
-        {/* Notes */}
-        <div className="flex items-start gap-1.5">
-          <StickyNote className="mt-1.5 h-3.5 w-3.5 flex-shrink-0 text-theme-tertiary" />
-          <textarea
-            ref={notesRef}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            onBlur={() => {
-              if (notes !== item.notesMd) {
-                commit({ notesMd: notes });
-              }
-            }}
-            placeholder="Notes (markdown)"
-            rows={2}
-            className="input w-full resize-none py-1.5 text-xs leading-relaxed"
-          />
-        </div>
+      <div className="px-3 pb-3">
+        <EventEditorForm
+          value={editorValue}
+          onChange={handleEditorChange}
+          compact
+          defaultDate={dayDate}
+        />
       </div>
     </div>
   );

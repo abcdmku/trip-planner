@@ -34,26 +34,34 @@ interface ItineraryListProps {
   onAddItem?: () => void;
   onItemClick?: (itemId: string) => void;
   onUpdateTrip?: (updates: Partial<Trip>) => void;
+  onExternalDragStart?: (itemId: string) => void;
+  onExternalDragEnd?: () => void;
 }
 
 function SortableItem({
   item,
   dayColor,
+  dayDate,
   isSelected,
   isExpanded,
   onToggleExpand,
   onDelete,
   onUpdate,
   onClick,
+  onExternalDragStart,
+  onExternalDragEnd,
 }: {
   item: Item;
   dayColor: string;
+  dayDate?: string;
   isSelected: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onDelete?: () => void;
   onUpdate?: (updates: Partial<Item>) => void;
   onClick?: () => void;
+  onExternalDragStart?: (itemId: string) => void;
+  onExternalDragEnd?: () => void;
 }) {
   const {
     attributes,
@@ -64,8 +72,9 @@ function SortableItem({
     isDragging,
   } = useSortable({ id: item.itemId });
 
+  const constrainedTransform = transform ? { ...transform, x: 0 } : null;
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Transform.toString(constrainedTransform),
     transition,
     zIndex: isDragging ? 10 : undefined,
   };
@@ -76,6 +85,7 @@ function SortableItem({
         <ItemDetailCard
           item={item}
           dayColor={dayColor}
+          dayDate={dayDate}
           onUpdate={onUpdate ? (updates) => onUpdate(updates) : undefined}
           onClose={onToggleExpand}
         />
@@ -90,6 +100,8 @@ function SortableItem({
           onDelete={onDelete}
           onClick={onClick}
           dragHandleProps={listeners}
+          onNativeDragStart={onExternalDragStart}
+          onNativeDragEnd={onExternalDragEnd}
         />
       )}
     </div>
@@ -109,6 +121,8 @@ export function ItineraryList({
   onAddItem,
   onItemClick,
   onUpdateTrip,
+  onExternalDragStart,
+  onExternalDragEnd,
 }: ItineraryListProps) {
   const [internalExpandedId, setInternalExpandedId] = useState<string | null>(null);
   const expandedId = expandedItemId !== undefined ? expandedItemId : internalExpandedId;
@@ -120,6 +134,7 @@ export function ItineraryList({
   );
 
   const dayColorMap = new Map(days.map((d) => [d.dayId, d.colorHex]));
+  const dayDateMap = new Map(days.map((d) => [d.dayId, d.date]));
   const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const handleDragEnd = useCallback(
@@ -174,12 +189,15 @@ export function ItineraryList({
               key={item.itemId}
               item={item}
               dayColor={dayColorMap.get(item.dayId) ?? '#3B82F6'}
+              dayDate={dayDateMap.get(item.dayId)}
               isSelected={selectedItemId === item.itemId}
               isExpanded={expandedId === item.itemId}
               onToggleExpand={() => setExpandedId(expandedId === item.itemId ? null : item.itemId)}
               onDelete={onDeleteItem ? () => onDeleteItem(item.itemId) : undefined}
               onUpdate={onUpdateItem ? (updates) => onUpdateItem(item.itemId, updates) : undefined}
               onClick={onItemClick ? () => onItemClick(item.itemId) : undefined}
+              onExternalDragStart={onExternalDragStart}
+              onExternalDragEnd={onExternalDragEnd}
             />
           ))}
 

@@ -125,6 +125,14 @@ function parseItem(raw: Record<string, string>): Item {
     destLng: Number(raw['destLng']) || 0,
     destName: raw['destName'] ?? '',
     destAddress: raw['destAddress'] ?? '',
+    transportMode: (raw['transportMode'] as TransportMode) || 'driving',
+    itemRouteType: (raw['itemRouteType'] as 'directions' | 'straight') || 'directions',
+    itemRoutePathEncoded: raw['itemRoutePathEncoded'] ?? '',
+    itemRouteDistanceMeters: Number(raw['itemRouteDistanceMeters']) || 0,
+    itemRouteDurationMinutes: Number(raw['itemRouteDurationMinutes']) || 0,
+    timelineLocked: raw['timelineLocked'] === 'TRUE',
+    travelFromItemId: raw['travelFromItemId'] ?? '',
+    travelToItemId: raw['travelToItemId'] ?? '',
   };
 }
 

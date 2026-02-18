@@ -18,6 +18,20 @@ export interface AvailabilityWindow {
   closeTime: string;  // HH:mm
 }
 
+/** Date-specific availability slot. */
+export interface AvailabilityDateSlot {
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  /** Optional extra dates that repeat this same time range. */
+  repeatDates?: string[];
+}
+
+interface AvailabilityPayloadV2 {
+  version?: 2;
+  slots?: AvailabilityDateSlot[];
+}
+
 // ---------------------------------------------------------------------------
 // parseAvailabilityWindows
 // ---------------------------------------------------------------------------
@@ -48,6 +62,126 @@ export function parseAvailabilityWindows(json: string): AvailabilityWindow[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Parse date-specific availability slots from JSON.
+ *
+ * Supports either:
+ * - Array payload with `{ date, startTime, endTime }` entries
+ * - Object payload: `{ version: 2, slots: [...] }`
+ */
+export function parseAvailabilityDateSlots(json: string): AvailabilityDateSlot[] {
+  if (!json || json.trim() === '' || json.trim() === '[]') {
+    return [];
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(json);
+    const rawSlots: unknown[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as AvailabilityPayloadV2)?.slots)
+        ? ((parsed as AvailabilityPayloadV2).slots as unknown[])
+        : [];
+
+    const slots: AvailabilityDateSlot[] = rawSlots.filter(
+      (slot): slot is AvailabilityDateSlot =>
+        typeof slot === 'object' &&
+        slot !== null &&
+        typeof (slot as AvailabilityDateSlot).date === 'string' &&
+        typeof (slot as AvailabilityDateSlot).startTime === 'string' &&
+        typeof (slot as AvailabilityDateSlot).endTime === 'string',
+    );
+
+    const expanded: AvailabilityDateSlot[] = [];
+    for (const slot of slots) {
+      expanded.push({
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      });
+      for (const repeatDate of slot.repeatDates ?? []) {
+        expanded.push({
+          date: repeatDate,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        });
+      }
+    }
+
+    return expanded;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Serialize date slots to the normalized v2 availability payload.
+ */
+export function serializeAvailabilityDateSlots(
+  slots: AvailabilityDateSlot[],
+): string {
+  if (!slots.length) return '[]';
+  return JSON.stringify({
+    version: 2,
+    slots: slots.map((slot) => ({
+      date: slot.date,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      ...(slot.repeatDates && slot.repeatDates.length > 0
+        ? { repeatDates: slot.repeatDates }
+        : {}),
+    })),
+  });
+}
+
+/**
+ * Returns all availability windows/slots that apply to a specific date.
+ *
+ * Legacy weekday windows and new date-specific slots are both supported.
+ */
+export function getAvailabilityRangesForDate(
+  availabilityJson: string,
+  date: string,
+): { startTime: string; endTime: string }[] {
+  const dateSlots = parseAvailabilityDateSlots(availabilityJson)
+    .filter((slot) => slot.date === date)
+    .map((slot) => ({ startTime: slot.startTime, endTime: slot.endTime }));
+
+  if (dateSlots.length > 0) {
+    return dateSlots;
+  }
+
+  const windows = parseAvailabilityWindows(availabilityJson);
+  if (windows.length === 0) return [];
+
+  const dayOfWeek = getDayOfWeek(date);
+  return windows
+    .filter((window) => window.dayOfWeek === undefined || window.dayOfWeek === dayOfWeek)
+    .map((window) => ({ startTime: window.openTime, endTime: window.closeTime }));
+}
+
+/**
+ * Checks whether a [startTime, endTime) interval is allowed for a date.
+ *
+ * If no availability constraints exist, returns true.
+ */
+export function isRangeAllowedForDate(
+  availabilityJson: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+): boolean {
+  const ranges = getAvailabilityRangesForDate(availabilityJson, date);
+  if (ranges.length === 0) return true;
+
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  return ranges.some((range) => {
+    const open = timeToMinutes(range.startTime);
+    const close = timeToMinutes(range.endTime);
+    return start >= open && end <= close;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +287,8 @@ export function nextAvailableSlot(
  */
 export function hasAvailabilityConstraints(item: { availabilityWindows: string }): boolean {
   const windows = parseAvailabilityWindows(item.availabilityWindows);
-  return windows.length > 0;
+  if (windows.length > 0) return true;
+  return parseAvailabilityDateSlots(item.availabilityWindows).length > 0;
 }
 
 // ---------------------------------------------------------------------------

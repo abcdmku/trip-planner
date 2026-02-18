@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import { Clock, MapPin, GripVertical, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Item } from '../../types/trip';
+import { TIMELINE_ITEM_DRAG_MIME } from '@/lib/timeline-drop';
 
 interface ItemCardProps {
   item: Item;
@@ -13,6 +15,8 @@ interface ItemCardProps {
   dragHandleProps?: Record<string, unknown>;
   /** Enable native drag for cross-day dropping on day tabs */
   enableNativeDrag?: boolean;
+  onNativeDragStart?: (itemId: string) => void;
+  onNativeDragEnd?: () => void;
 }
 
 const TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -35,13 +39,32 @@ export function ItemCard({
   onClick,
   dragHandleProps,
   enableNativeDrag = true,
+  onNativeDragStart,
+  onNativeDragEnd,
 }: ItemCardProps) {
   const typeInfo = TYPE_LABELS[item.type] || TYPE_LABELS.other;
+  const dragOriginIsHandleRef = useRef(false);
+
+  const isReorderHandleTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(target.closest('[data-reorder-handle="true"]'));
+  };
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (!enableNativeDrag) return;
+    if (!enableNativeDrag || dragOriginIsHandleRef.current || isReorderHandleTarget(e.target)) {
+      e.preventDefault();
+      dragOriginIsHandleRef.current = false;
+      return;
+    }
+    e.dataTransfer.setData(TIMELINE_ITEM_DRAG_MIME, item.itemId);
     e.dataTransfer.setData('text/plain', item.itemId);
     e.dataTransfer.effectAllowed = 'move';
+    onNativeDragStart?.(item.itemId);
+  };
+
+  const handleDragEnd = () => {
+    dragOriginIsHandleRef.current = false;
+    onNativeDragEnd?.();
   };
 
   return (
@@ -57,7 +80,11 @@ export function ItemCard({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       draggable={enableNativeDrag}
+      onPointerDownCapture={() => {
+        dragOriginIsHandleRef.current = false;
+      }}
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
       <div className="flex items-start gap-2 p-3">
         {/* Drag handle */}
@@ -65,7 +92,14 @@ export function ItemCard({
           <button
             className="mt-1 cursor-grab rounded p-0.5 text-theme-tertiary transition-colors hover:text-theme-secondary active:cursor-grabbing"
             aria-label="Drag to reorder"
+            data-reorder-handle="true"
             {...dragHandleProps}
+            onPointerDownCapture={() => {
+              dragOriginIsHandleRef.current = true;
+            }}
+            onDragStart={(event) => {
+              event.preventDefault();
+            }}
           >
             <GripVertical className="h-4 w-4" />
           </button>

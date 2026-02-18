@@ -26,6 +26,9 @@ import MarkerInfoWindow from './MarkerInfoWindow';
 import MapPlaceInfoWindow from './MapPlaceInfoWindow';
 import RouteOverlay from './RouteOverlay';
 import StartLocationMarker from './StartLocationMarker';
+import ItemRouteOverlay from './ItemRouteOverlay';
+import TimelineConnectorOverlay from './TimelineConnectorOverlay';
+import type { TimelineConnector } from '@/lib/connectors';
 
 // ---------------------------------------------------------------------------
 // MapReady context -- lets descendants know when the Google Map instance is
@@ -72,8 +75,14 @@ export interface MapShellProps {
   onMarkerClick?: (itemId: string) => void;
   /** Callback when a route segment is clicked. */
   onLegClick?: (leg: Leg) => void;
+  /** Callback when an auto timeline connector is clicked. */
+  onConnectorClick?: (connector: TimelineConnector) => void;
   /** Callback when the user changes a leg's transport mode. */
   onModeChange?: (leg: Leg, newMode: TransportMode) => void;
+  /** Derived dotted connectors between scheduled timeline items. */
+  connectors?: TimelineConnector[];
+  /** Whether to render legacy leg overlays. Defaults to false. */
+  showLegacyLegs?: boolean;
   /** Callback when the map is clicked (for adding new places). */
   onMapClick?: (lat: number, lng: number) => void;
   /** Callback when a map POI is chosen to be added to the itinerary. */
@@ -111,7 +120,10 @@ interface MapInnerProps {
   onSelectedItemChange?: (itemId: string | null) => void;
   onMarkerClick?: (itemId: string) => void;
   onLegClick?: (leg: Leg) => void;
+  onConnectorClick?: (connector: TimelineConnector) => void;
   onModeChange?: (leg: Leg, newMode: TransportMode) => void;
+  connectors: TimelineConnector[];
+  showLegacyLegs: boolean;
   onMapClick?: (lat: number, lng: number) => void;
   onAddPlaceToItinerary?: (place: PlaceSearchResult) => void;
   defaultCenter: { lat: number; lng: number };
@@ -143,7 +155,10 @@ const MapInner = memo(function MapInner({
   onSelectedItemChange,
   onMarkerClick,
   onLegClick,
+  onConnectorClick,
   onModeChange,
+  connectors,
+  showLegacyLegs,
   onMapClick,
   onAddPlaceToItinerary,
   defaultCenter,
@@ -197,6 +212,9 @@ const MapInner = memo(function MapInner({
     for (const item of visibleItems) {
       if (item.lat !== 0 || item.lng !== 0) {
         points.push({ lat: item.lat, lng: item.lng });
+      }
+      if (item.scheduledStart && (item.destLat !== 0 || item.destLng !== 0)) {
+        points.push({ lat: item.destLat, lng: item.destLng });
       }
     }
 
@@ -502,8 +520,20 @@ const MapInner = memo(function MapInner({
             />
           )}
 
-          {/* Route path polylines */}
-          {legs.length > 0 && (
+          <ItemRouteOverlay
+            items={items}
+            days={days}
+            selectedDayIds={selectedDayIds}
+          />
+
+          <TimelineConnectorOverlay
+            connectors={connectors}
+            selectedDayIds={selectedDayIds}
+            onConnectorClick={onConnectorClick}
+          />
+
+          {/* Legacy route path polylines */}
+          {showLegacyLegs && legs.length > 0 && (
             <RouteOverlay
               legs={legs}
               days={days}
@@ -546,7 +576,10 @@ export default function MapShell({
   onSelectedItemChange,
   onMarkerClick,
   onLegClick,
+  onConnectorClick,
   onModeChange,
+  connectors = [],
+  showLegacyLegs = false,
   onMapClick,
   onAddPlaceToItinerary,
   defaultCenter = DEFAULT_CENTER,
@@ -568,7 +601,10 @@ export default function MapShell({
         onSelectedItemChange={onSelectedItemChange}
         onMarkerClick={onMarkerClick}
         onLegClick={onLegClick}
+        onConnectorClick={onConnectorClick}
         onModeChange={onModeChange}
+        connectors={connectors}
+        showLegacyLegs={showLegacyLegs}
         onMapClick={onMapClick}
         onAddPlaceToItinerary={onAddPlaceToItinerary}
         defaultCenter={defaultCenter}

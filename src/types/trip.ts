@@ -67,6 +67,22 @@ export interface Item {
   destLng: number;
   destName: string;
   destAddress: string;
+  /** Item-level transport mode used for origin->destination travel rendering. */
+  transportMode: TransportMode;
+  /** Item-level route style between origin and destination. */
+  itemRouteType: RouteType;
+  /** Cached encoded polyline for item-level route (when route type is directions). */
+  itemRoutePathEncoded: string;
+  /** Cached distance for item-level route. */
+  itemRouteDistanceMeters: number;
+  /** Cached duration for item-level route. */
+  itemRouteDurationMinutes: number;
+  /** When true, item cannot be dragged/resized from the timeline. */
+  timelineLocked: boolean;
+  /** Optional source item for explicit transport events created from connectors. */
+  travelFromItemId: string;
+  /** Optional destination item for explicit transport events created from connectors. */
+  travelToItemId: string;
 }
 
 /** Route type for a leg: routed directions or straight line. */

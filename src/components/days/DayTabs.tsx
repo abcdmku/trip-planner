@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import type { Day } from '../../types/trip';
+import { resolveDraggedItemId } from '@/lib/timeline-drop';
 
 interface DayTabsProps {
   days: Day[];
@@ -14,6 +15,8 @@ interface DayTabsProps {
   onDropItem?: (dayId: string, itemId: string) => void;
   /** Currently dragging item ID for visual feedback */
   draggingItemId?: string | null;
+  /** Whether a dragged item can be dropped onto each day */
+  dropValidityByDay?: Record<string, boolean>;
 }
 
 export function DayTabs({
@@ -24,6 +27,7 @@ export function DayTabs({
   onDeleteSelectedDay,
   onDropItem,
   draggingItemId,
+  dropValidityByDay,
 }: DayTabsProps) {
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -48,15 +52,19 @@ export function DayTabs({
     conflictBehavior: 'allow',
   });
 
-  const handleDragOver = (e: React.DragEvent, _dayId: string) => {
+  const handleDragOver = (e: React.DragEvent, dayId: string) => {
+    const itemId = resolveDraggedItemId(e.dataTransfer, draggingItemId);
+    if (!itemId) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    const isValidTarget = dropValidityByDay?.[dayId] ?? true;
+    e.dataTransfer.dropEffect = isValidTarget ? 'move' : 'none';
   };
 
   const handleDrop = (e: React.DragEvent, dayId: string) => {
     e.preventDefault();
-    const itemId = e.dataTransfer.getData('text/plain');
+    const itemId = resolveDraggedItemId(e.dataTransfer, draggingItemId);
     if (itemId && onDropItem) {
+      if (dropValidityByDay && !dropValidityByDay[dayId]) return;
       onDropItem(dayId, itemId);
     }
   };
@@ -83,6 +91,7 @@ export function DayTabs({
       {days.map((day) => {
         const isSelected = day.dayId === selectedDayId;
         const isDropTarget = draggingItemId && !isSelected;
+        const isValidTarget = dropValidityByDay?.[day.dayId] ?? true;
 
         return (
           <button
@@ -94,7 +103,9 @@ export function DayTabs({
               isSelected
                 ? 'text-white shadow-sm'
                 : isDropTarget
-                  ? 'bg-accent/20 text-accent ring-2 ring-accent ring-offset-1 ring-offset-theme-elevated'
+                  ? isValidTarget
+                    ? 'bg-accent/20 text-accent ring-2 ring-accent ring-offset-1 ring-offset-theme-elevated'
+                    : 'bg-red-500/15 text-red-600 ring-2 ring-red-500 ring-offset-1 ring-offset-theme-elevated'
                   : 'bg-theme-subtle text-theme-secondary hover:bg-theme-subtle/80 hover:text-theme'
             }`}
             style={isSelected ? { backgroundColor: day.colorHex } : undefined}

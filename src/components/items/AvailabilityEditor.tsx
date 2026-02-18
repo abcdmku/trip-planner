@@ -1,92 +1,163 @@
-import { useState } from 'react';
-import { Plus, X, Clock } from 'lucide-react';
-import type { AvailabilityWindow } from '../../lib/availability';
+import { useMemo } from 'react';
+import { Clock, Plus, Trash2 } from 'lucide-react';
+import {
+  parseAvailabilityDateSlots,
+  parseAvailabilityWindows,
+  serializeAvailabilityDateSlots,
+  type AvailabilityDateSlot,
+} from '@/lib/availability';
 
 interface AvailabilityEditorProps {
-  windows: AvailabilityWindow[];
-  onChange: (windows: AvailabilityWindow[]) => void;
+  value: string;
+  onChange: (nextValue: string) => void;
+  defaultDate?: string;
 }
 
-const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function normalizeSlot(slot: AvailabilityDateSlot): AvailabilityDateSlot {
+  return {
+    date: slot.date,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+    repeatDates: (slot.repeatDates ?? []).filter(Boolean),
+  };
+}
 
-export function AvailabilityEditor({ windows, onChange }: AvailabilityEditorProps) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [newDay, setNewDay] = useState<number | undefined>(undefined);
-  const [newOpen, setNewOpen] = useState('09:00');
-  const [newClose, setNewClose] = useState('17:00');
+export function AvailabilityEditor({
+  value,
+  onChange,
+  defaultDate,
+}: AvailabilityEditorProps) {
+  const slots = useMemo(() => parseAvailabilityDateSlots(value), [value]);
+  const legacyWindows = useMemo(() => parseAvailabilityWindows(value), [value]);
+  const hasLegacyOnly = slots.length === 0 && legacyWindows.length > 0;
 
-  const handleAdd = () => {
-    onChange([...windows, { dayOfWeek: newDay, openTime: newOpen, closeTime: newClose }]);
-    setIsAdding(false);
-    setNewDay(undefined);
-    setNewOpen('09:00');
-    setNewClose('17:00');
+  const commit = (nextSlots: AvailabilityDateSlot[]) => {
+    onChange(serializeAvailabilityDateSlots(nextSlots.map(normalizeSlot)));
   };
 
-  const handleRemove = (index: number) => {
-    onChange(windows.filter((_, i) => i !== index));
+  const handleAddSlot = () => {
+    const seedDate = defaultDate ?? new Date().toISOString().slice(0, 10);
+    commit([
+      ...slots,
+      {
+        date: seedDate,
+        startTime: '09:00',
+        endTime: '10:00',
+      },
+    ]);
+  };
+
+  const handleSlotChange = (
+    index: number,
+    key: keyof AvailabilityDateSlot,
+    rawValue: string,
+  ) => {
+    const next = [...slots];
+    if (!next[index]) return;
+
+    if (key === 'repeatDates') {
+      next[index] = {
+        ...next[index],
+        repeatDates: rawValue
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
+    } else {
+      next[index] = {
+        ...next[index],
+        [key]: rawValue,
+      };
+    }
+    commit(next);
+  };
+
+  const handleDelete = (index: number) => {
+    const next = slots.filter((_, i) => i !== index);
+    commit(next);
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 rounded-lg border border-theme bg-theme-subtle p-2">
       <div className="flex items-center justify-between">
-        <label className="flex items-center gap-1.5 text-xs font-medium text-stone-500">
-          <Clock className="h-3 w-3" />
-          Availability Windows
+        <label className="flex items-center gap-1.5 text-xs font-medium text-theme-secondary">
+          <Clock className="h-3.5 w-3.5" />
+          Available Times
         </label>
         <button
-          onClick={() => setIsAdding(true)}
-          className="rounded p-0.5 text-stone-300 hover:bg-stone-100 hover:text-amber-600"
-          aria-label="Add window"
+          type="button"
+          onClick={handleAddSlot}
+          className="rounded-md p-1 text-theme-tertiary hover:bg-theme-elevated hover:text-theme"
+          aria-label="Add available time"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      {windows.length === 0 && !isAdding && (
-        <p className="text-xs text-stone-400 italic">No constraints — available anytime</p>
-      )}
-
-      {windows.map((w, i) => (
-        <div key={i} className="flex items-center gap-2 rounded-lg bg-stone-50 px-2 py-1.5">
-          <span className="text-xs text-stone-600">
-            {w.dayOfWeek !== undefined ? DAYS_OF_WEEK[w.dayOfWeek] : 'Any day'}
-          </span>
-          <span className="text-xs font-medium text-stone-700">
-            {w.openTime} – {w.closeTime}
-          </span>
-          <button
-            onClick={() => handleRemove(i)}
-            className="ml-auto rounded p-0.5 text-stone-300 hover:text-red-500"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      ))}
-
-      {isAdding && (
-        <div className="space-y-2 rounded-lg border border-stone-200 bg-white p-2">
-          <select
-            value={newDay ?? ''}
-            onChange={(e) => setNewDay(e.target.value === '' ? undefined : Number(e.target.value))}
-            className="w-full rounded border border-stone-200 px-2 py-1 text-xs outline-none focus:border-amber-400"
-          >
-            <option value="">Any day</option>
-            {DAYS_OF_WEEK.map((day, i) => (
-              <option key={i} value={i}>{day}</option>
+      {hasLegacyOnly && (
+        <div className="rounded-md border border-theme bg-theme-elevated p-2 text-[11px] text-theme-secondary">
+          <p className="mb-1 font-medium text-theme">Legacy weekly windows detected</p>
+          <div className="space-y-0.5">
+            {legacyWindows.map((window, index) => (
+              <div key={`${window.openTime}-${window.closeTime}-${index}`}>
+                {window.dayOfWeek !== undefined ? `D${window.dayOfWeek}` : 'Any day'}:{' '}
+                {window.openTime} - {window.closeTime}
+              </div>
             ))}
-          </select>
-          <div className="flex gap-2">
-            <input type="time" value={newOpen} onChange={(e) => setNewOpen(e.target.value)} className="flex-1 rounded border border-stone-200 px-2 py-1 text-xs outline-none focus:border-amber-400" />
-            <span className="text-xs text-stone-400 self-center">to</span>
-            <input type="time" value={newClose} onChange={(e) => setNewClose(e.target.value)} className="flex-1 rounded border border-stone-200 px-2 py-1 text-xs outline-none focus:border-amber-400" />
           </div>
-          <div className="flex gap-1">
-            <button onClick={handleAdd} className="rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white hover:bg-amber-600">Add</button>
-            <button onClick={() => setIsAdding(false)} className="rounded px-2 py-1 text-xs text-stone-500 hover:bg-stone-100">Cancel</button>
-          </div>
+          <p className="mt-1 text-theme-tertiary">
+            Add a slot below to switch this event to date-specific availability.
+          </p>
         </div>
       )}
+
+      {slots.length === 0 && !hasLegacyOnly && (
+        <p className="text-[11px] italic text-theme-tertiary">No constraints. Event can be placed anytime.</p>
+      )}
+
+      <div className="space-y-2">
+        {slots.map((slot, index) => (
+          <div key={`${slot.date}-${slot.startTime}-${slot.endTime}-${index}`} className="rounded-md border border-theme bg-theme-elevated p-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              <input
+                type="date"
+                value={slot.date}
+                onChange={(e) => handleSlotChange(index, 'date', e.target.value)}
+                className="input w-full py-1 text-xs"
+              />
+              <input
+                type="time"
+                value={slot.startTime}
+                onChange={(e) => handleSlotChange(index, 'startTime', e.target.value)}
+                className="input w-full py-1 text-xs"
+              />
+              <input
+                type="time"
+                value={slot.endTime}
+                onChange={(e) => handleSlotChange(index, 'endTime', e.target.value)}
+                className="input w-full py-1 text-xs"
+              />
+            </div>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <input
+                type="text"
+                value={(slot.repeatDates ?? []).join(', ')}
+                onChange={(e) => handleSlotChange(index, 'repeatDates', e.target.value)}
+                placeholder="Repeat dates (YYYY-MM-DD, comma-separated)"
+                className="input w-full py-1 text-xs"
+              />
+              <button
+                type="button"
+                onClick={() => handleDelete(index)}
+                className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-red-500"
+                aria-label="Delete available slot"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
