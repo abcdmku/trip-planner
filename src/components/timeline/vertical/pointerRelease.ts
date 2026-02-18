@@ -18,6 +18,7 @@ interface HandlePointerReleaseParams {
   itemsById: Map<string, Item>;
   callbacks: PointerCallbacks;
   lastClickRef: MutableRefObject<{ itemId: string; time: number } | null>;
+  lastBgClickRef: MutableRefObject<{ anchorMin: number; time: number } | null>;
 }
 
 export function handlePointerRelease({
@@ -26,12 +27,20 @@ export function handlePointerRelease({
   itemsById,
   callbacks,
   lastClickRef,
+  lastBgClickRef,
 }: HandlePointerReleaseParams): { didCommit: boolean } {
   const { onCreateAtTime, onUpdateItem, onItemClick, onItemDoubleClick } = callbacks;
 
   if (!pointer.activated) {
     if (pointer.action === 'create') {
-      onCreateAtTime?.(toTime(pointer.anchorMin), toTime(pointer.anchorMin + DEFAULT_DUR));
+      const now = Date.now();
+      const lastBg = lastBgClickRef.current;
+      if (lastBg && Math.abs(lastBg.anchorMin - pointer.anchorMin) < 30 && now - lastBg.time < 400) {
+        lastBgClickRef.current = null;
+        onCreateAtTime?.(toTime(pointer.anchorMin), toTime(pointer.anchorMin + DEFAULT_DUR));
+      } else {
+        lastBgClickRef.current = { anchorMin: pointer.anchorMin, time: now };
+      }
       return { didCommit: false };
     }
 

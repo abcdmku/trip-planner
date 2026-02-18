@@ -99,13 +99,13 @@ export function DayTabs({
             onClick={() => onSelectDay(day.dayId)}
             onDragOver={(e) => handleDragOver(e, day.dayId)}
             onDrop={(e) => handleDrop(e, day.dayId)}
-            className={`group flex flex-shrink-0 flex-col items-center rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+            className={`group flex flex-shrink-0 flex-col items-center rounded-lg px-2.5 py-1 text-xs font-medium transition-all duration-150 ${
               isSelected
                 ? 'text-white shadow-sm'
                 : isDropTarget
                   ? isValidTarget
-                    ? 'bg-accent/20 text-accent ring-2 ring-accent ring-offset-1 ring-offset-theme-elevated'
-                    : 'bg-red-500/15 text-red-600 ring-2 ring-red-500 ring-offset-1 ring-offset-theme-elevated'
+                    ? 'bg-accent/20 text-accent ring-2 ring-accent ring-offset-1 ring-offset-theme-elevated scale-105'
+                    : 'bg-red-500/15 text-red-600 ring-2 ring-red-500 ring-offset-1 ring-offset-theme-elevated opacity-60'
                   : 'bg-theme-subtle text-theme-secondary hover:bg-theme-subtle/80 hover:text-theme'
             }`}
             style={isSelected ? { backgroundColor: day.colorHex } : undefined}

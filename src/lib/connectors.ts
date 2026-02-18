@@ -10,6 +10,23 @@ export interface TimelineConnector {
   to: { lat: number; lng: number };
 }
 
+/**
+ * Timeline connector with positioning data for rendering in the timeline view.
+ * Includes the gap duration between items.
+ */
+export interface TimelineConnectorWithTiming {
+  id: string;
+  dayId: string;
+  fromItemId: string;
+  toItemId: string;
+  /** End minute of the fromItem (when the gap starts) */
+  fromEndMin: number;
+  /** Start minute of the toItem (when the gap ends) */
+  toStartMin: number;
+  /** Duration of the gap in minutes */
+  gapMinutes: number;
+}
+
 function hasCoordinates(lat: number, lng: number): boolean {
   return lat !== 0 || lng !== 0;
 }
@@ -77,6 +94,84 @@ export function deriveTimelineConnectors(items: Item[]): TimelineConnector[] {
         toItemId: toItem.itemId,
         from,
         to,
+      });
+    }
+  }
+
+  return connectors;
+}
+
+/**
+ * Build timeline connectors with timing data for rendering connection lines
+ * in the timeline view. Shows the gap between consecutive scheduled items.
+ *
+ * @param items - All items in the trip
+ * @param suppressedConnectorIds - Set of connector IDs to exclude (manually removed)
+ * @returns Array of connectors with timing information
+ */
+export function deriveTimelineConnectorsWithTiming(
+  items: Item[],
+  suppressedConnectorIds?: Set<string>,
+): TimelineConnectorWithTiming[] {
+  // Only consider scheduled transport items as explicit pairs
+  // (unscheduled transport items shouldn't suppress auto-connectors)
+  const explicitPairs = new Set(
+    items
+      .filter((item) => item.type === 'transport' && item.travelFromItemId && item.travelToItemId && item.scheduledStart)
+      .map((item) => `${item.travelFromItemId}::${item.travelToItemId}`),
+  );
+
+  const byDay = new Map<string, Item[]>();
+  for (const item of items) {
+    if (!item.scheduledStart) continue;
+    // Include all item types (including transport) for timeline connectors
+    const list = byDay.get(item.dayId) ?? [];
+    list.push(item);
+    byDay.set(item.dayId, list);
+  }
+
+  const connectors: TimelineConnectorWithTiming[] = [];
+
+  for (const [dayId, dayItems] of byDay) {
+    const sorted = [...dayItems].sort((a, b) => {
+      const timeDelta = (toMinutesOfDay(a.scheduledStart) ?? 0) - (toMinutesOfDay(b.scheduledStart) ?? 0);
+      if (timeDelta !== 0) return timeDelta;
+      return a.sortOrder - b.sortOrder;
+    });
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const fromItem = sorted[i];
+      const toItem = sorted[i + 1];
+
+      // Skip if there's an explicit transport item linking these
+      if (explicitPairs.has(`${fromItem.itemId}::${toItem.itemId}`)) {
+        continue;
+      }
+
+      const connectorId = `connector-${fromItem.itemId}-${toItem.itemId}`;
+
+      // Skip if this connector was manually suppressed
+      if (suppressedConnectorIds?.has(connectorId)) {
+        continue;
+      }
+
+      const fromStartMin = toMinutesOfDay(fromItem.scheduledStart) ?? 0;
+      const fromEndMin = fromItem.scheduledEnd
+        ? (toMinutesOfDay(fromItem.scheduledEnd) ?? fromStartMin + fromItem.durationMinutes)
+        : fromStartMin + fromItem.durationMinutes;
+
+      const toStartMin = toMinutesOfDay(toItem.scheduledStart) ?? 0;
+
+      const gapMinutes = Math.max(0, toStartMin - fromEndMin);
+
+      connectors.push({
+        id: connectorId,
+        dayId,
+        fromItemId: fromItem.itemId,
+        toItemId: toItem.itemId,
+        fromEndMin,
+        toStartMin,
+        gapMinutes,
       });
     }
   }

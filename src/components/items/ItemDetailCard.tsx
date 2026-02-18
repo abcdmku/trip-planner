@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { MapPin, Navigation, X } from 'lucide-react';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { MapPin, Navigation, X, Loader2 } from 'lucide-react';
 import type { Item } from '../../types/trip';
 import { PlaceSearch } from './PlaceSearch';
-import type { PlaceSearchResult } from '../../services/maps-repository';
+import { mapsRepository, type PlaceSearchResult } from '../../services/maps-repository';
 import { EventEditorForm, type EventEditorValue } from './EventEditorForm';
 
 interface ItemDetailCardProps {
@@ -36,8 +36,11 @@ export function ItemDetailCard({
 }: ItemDetailCardProps) {
   const [editorValue, setEditorValue] = useState<EventEditorValue>(() => itemToEditorValue(item));
   const [showDestSearch, setShowDestSearch] = useState(false);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const routeCalculationRef = useRef<number>(0);
 
   const hasDest = item.destLat !== 0 || item.destLng !== 0;
+  const hasOrigin = item.lat !== 0 || item.lng !== 0;
 
   useEffect(() => {
     setEditorValue(itemToEditorValue(item));
@@ -50,6 +53,80 @@ export function ItemDetailCard({
     },
     [onUpdate],
   );
+
+  // Calculate route when origin, destination, mode, or route type changes
+  const calculateRoute = useCallback(async () => {
+    if (!hasOrigin || !hasDest) return;
+    if (editorValue.itemRouteType === 'straight') {
+      // For straight lines, clear the route data (distance will be calculated on display)
+      return;
+    }
+
+    const requestId = ++routeCalculationRef.current;
+    setIsCalculatingRoute(true);
+
+    try {
+      const result = await mapsRepository.calculateLeg(
+        { lat: item.lat, lng: item.lng },
+        { lat: item.destLat, lng: item.destLng },
+        editorValue.transportMode,
+      );
+
+      // Check if this is still the latest request
+      if (requestId !== routeCalculationRef.current) return;
+
+      if (result) {
+        // Update item with calculated route data and duration
+        // Duration and endTime are bound - update duration which affects endTime
+        const updates: Partial<Item> = {
+          itemRoutePathEncoded: result.routePathEncoded,
+          itemRouteDistanceMeters: result.distanceMeters,
+          itemRouteDurationMinutes: result.durationMinutes,
+        };
+
+        // Also update the duration if it's different
+        if (result.durationMinutes > 0 && result.durationMinutes !== editorValue.durationMinutes) {
+          updates.durationMinutes = result.durationMinutes;
+
+          // Update endTime based on new duration if we have a start time
+          if (editorValue.scheduledStart) {
+            const [startHour, startMin] = editorValue.scheduledStart.split(':').map(Number);
+            const startTotalMin = startHour * 60 + startMin;
+            const endTotalMin = startTotalMin + result.durationMinutes;
+            const endHour = Math.floor(endTotalMin / 60) % 24;
+            const endMinute = endTotalMin % 60;
+            updates.scheduledEnd = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+          }
+
+          // Update local editor state too
+          setEditorValue((prev) => ({
+            ...prev,
+            durationMinutes: result.durationMinutes,
+            scheduledEnd: updates.scheduledEnd ?? prev.scheduledEnd,
+          }));
+        }
+
+        commit(updates);
+      }
+    } catch (error) {
+      console.error('Failed to calculate route:', error);
+    } finally {
+      if (requestId === routeCalculationRef.current) {
+        setIsCalculatingRoute(false);
+      }
+    }
+  }, [hasOrigin, hasDest, item.lat, item.lng, item.destLat, item.destLng, editorValue.transportMode, editorValue.itemRouteType, editorValue.durationMinutes, editorValue.scheduledStart, commit]);
+
+  // Trigger route calculation when relevant fields change
+  useEffect(() => {
+    if (hasOrigin && hasDest && editorValue.itemRouteType === 'directions') {
+      // Debounce route calculation
+      const timeoutId = setTimeout(() => {
+        calculateRoute();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [hasOrigin, hasDest, editorValue.transportMode, editorValue.itemRouteType, calculateRoute]);
 
   const handleEditorChange = (next: EventEditorValue) => {
     setEditorValue(next);
@@ -70,7 +147,8 @@ export function ItemDetailCard({
     });
   };
 
-  const handleDestSelect = (place: PlaceSearchResult) => {
+  const handleDestSelect = async (place: PlaceSearchResult) => {
+    // Clear existing route data and set destination
     commit({
       destLat: place.lat,
       destLng: place.lng,
@@ -81,6 +159,57 @@ export function ItemDetailCard({
       itemRouteDurationMinutes: 0,
     });
     setShowDestSearch(false);
+
+    // Calculate route if using directions mode and we have an origin
+    if (hasOrigin && editorValue.itemRouteType === 'directions') {
+      const requestId = ++routeCalculationRef.current;
+      setIsCalculatingRoute(true);
+
+      try {
+        const result = await mapsRepository.calculateLeg(
+          { lat: item.lat, lng: item.lng },
+          { lat: place.lat, lng: place.lng },
+          editorValue.transportMode,
+        );
+
+        if (requestId !== routeCalculationRef.current) return;
+
+        if (result) {
+          const updates: Partial<Item> = {
+            itemRoutePathEncoded: result.routePathEncoded,
+            itemRouteDistanceMeters: result.distanceMeters,
+            itemRouteDurationMinutes: result.durationMinutes,
+          };
+
+          if (result.durationMinutes > 0) {
+            updates.durationMinutes = result.durationMinutes;
+
+            if (editorValue.scheduledStart) {
+              const [startHour, startMin] = editorValue.scheduledStart.split(':').map(Number);
+              const startTotalMin = startHour * 60 + startMin;
+              const endTotalMin = startTotalMin + result.durationMinutes;
+              const endHour = Math.floor(endTotalMin / 60) % 24;
+              const endMinute = endTotalMin % 60;
+              updates.scheduledEnd = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+            }
+
+            setEditorValue((prev) => ({
+              ...prev,
+              durationMinutes: result.durationMinutes,
+              scheduledEnd: updates.scheduledEnd ?? prev.scheduledEnd,
+            }));
+          }
+
+          commit(updates);
+        }
+      } catch (error) {
+        console.error('Failed to calculate route:', error);
+      } finally {
+        if (requestId === routeCalculationRef.current) {
+          setIsCalculatingRoute(false);
+        }
+      }
+    }
   };
 
   return (
@@ -115,6 +244,12 @@ export function ItemDetailCard({
                   {item.destAddress ? (
                     <p className="truncate text-[10px] text-theme-tertiary">{item.destAddress}</p>
                   ) : null}
+                  {isCalculatingRoute && (
+                    <p className="mt-0.5 flex items-center gap-1 text-[10px] text-accent">
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      Calculating route...
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"

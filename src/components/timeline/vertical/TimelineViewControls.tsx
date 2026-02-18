@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Link2, Link2Off } from 'lucide-react';
 import type { ViewMode } from './types';
 
 interface TimelineViewControlsProps {
@@ -8,6 +8,10 @@ interface TimelineViewControlsProps {
   onPrev: () => void;
   onNext: () => void;
   onModeChange: (mode: ViewMode) => void;
+  /** Whether auto-connect lines are shown */
+  showConnectors?: boolean;
+  /** Callback to toggle auto-connect */
+  onToggleConnectors?: () => void;
 }
 
 export function TimelineViewControls({
@@ -17,6 +21,8 @@ export function TimelineViewControls({
   onPrev,
   onNext,
   onModeChange,
+  showConnectors = true,
+  onToggleConnectors,
 }: TimelineViewControlsProps) {
   return (
     <div className="flex items-center justify-between border-b border-theme bg-theme-elevated px-2 py-1.5">
@@ -26,6 +32,21 @@ export function TimelineViewControls({
       </div>
 
       <div className="flex items-center gap-1.5">
+        {onToggleConnectors && (
+          <button
+            type="button"
+            onClick={onToggleConnectors}
+            title={showConnectors ? 'Hide connection lines' : 'Show connection lines'}
+            className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+              showConnectors
+                ? 'border-accent/40 bg-accent/10 text-accent'
+                : 'border-theme text-theme-tertiary hover:bg-theme-subtle hover:text-theme'
+            }`}
+          >
+            {showConnectors ? <Link2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+          </button>
+        )}
+
         {viewMode === 'day' && (
           <div className="inline-flex overflow-hidden rounded-md border border-theme">
             <button

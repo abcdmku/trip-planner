@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { Day, Item } from '@/types/trip';
+import type { TimelineConnectorWithTiming } from '@/lib/connectors';
 import { DAY_VIEW_MAX_W, DAY_VIEW_MIN_W } from '../constants';
 import { SingleDayTimeline } from './SingleDayTimeline';
 import type { CommitExternalDrop, ExternalDragPreview, ResolveExternalDrop } from '../types';
@@ -20,6 +21,14 @@ interface DayViewPanelProps {
   onDayHeaderDrop: (e: React.DragEvent, day: Day) => void;
   onDayHeaderDragLeave: (e: React.DragEvent) => void;
   onFocusDay: (dayId: string) => void;
+  /** Timeline connectors for all days */
+  connectors?: TimelineConnectorWithTiming[];
+  /** Called when a connector line is clicked */
+  onConnectorClick?: (connector: TimelineConnectorWithTiming) => void;
+  /** Called when remove button on a connector is clicked */
+  onConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
+  /** Whether to show auto-connect lines */
+  showConnectors?: boolean;
 }
 
 export function DayViewPanel({
@@ -38,6 +47,10 @@ export function DayViewPanel({
   onDayHeaderDrop,
   onDayHeaderDragLeave,
   onFocusDay,
+  connectors = [],
+  onConnectorClick,
+  onConnectorRemove,
+  showConnectors = true,
 }: DayViewPanelProps) {
   if (!activeDay) {
     return <div className="flex h-full items-center justify-center text-sm text-theme-tertiary">Select a day</div>;
@@ -49,7 +62,9 @@ export function DayViewPanel({
       style={{ minWidth: DAY_VIEW_MIN_W, maxWidth: DAY_VIEW_MAX_W }}
     >
       <div
-        className="flex items-center justify-between border-b border-theme px-3 py-2"
+        className={`flex items-center justify-between border-b px-3 py-2 transition-colors duration-150 ${
+          dayHeaderPreview ? 'border-accent/50 bg-accent/10' : 'border-theme'
+        }`}
         onDragOver={(e) => onDayHeaderDragOver(e, activeDay)}
         onDrop={(e) => onDayHeaderDrop(e, activeDay)}
         onDragLeave={onDayHeaderDragLeave}
@@ -81,6 +96,10 @@ export function DayViewPanel({
           resolveExternalDrop={resolveExternalDrop}
           commitExternalDrop={commitExternalDrop}
           externalHeaderPreview={dayHeaderPreview}
+          connectors={connectors}
+          onConnectorClick={onConnectorClick}
+          onConnectorRemove={onConnectorRemove}
+          showConnectors={showConnectors}
         />
       </div>
     </div>

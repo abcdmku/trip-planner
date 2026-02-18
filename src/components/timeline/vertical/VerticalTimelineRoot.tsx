@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
-import { PX_PER_HR } from './constants';
-import { toMins } from './time';
-import type { VerticalTimelineProps, ViewMode } from './types';
+import { deriveTimelineConnectorsWithTiming } from '@/lib/connectors';
+import { PX_PER_HR, PX_PER_MIN, SNAP } from './constants';
+import { snapM, toMins, toTime } from './time';
+import type { CrossDayDragPreview, CrossDayMoveInfo, VerticalTimelineProps, ViewMode } from './types';
 import { useExternalTimelineDrop } from './useExternalTimelineDrop';
 import { useWindowDragCleanup } from './useWindowDragCleanup';
 import { TimelineViewControls } from './TimelineViewControls';
@@ -16,10 +17,16 @@ export function VerticalTimeline({
   selectedDayIds = [],
   selectedItemId = null,
   activeDragItemId = null,
+  onDragOverTimeline,
   onUpdateItem,
   onItemClick,
   onItemDoubleClick,
   onCreateAtTime,
+  onTimelineConnectorClick,
+  onTimelineConnectorRemove,
+  suppressedConnectorIds,
+  showTimelineConnectors = true,
+  onToggleTimelineConnectors,
 }: VerticalTimelineProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -118,6 +125,12 @@ export function VerticalTimeline({
     [globalRange.endH, globalRange.startH],
   );
 
+  // Compute timeline connectors for all items
+  const timelineConnectors = useMemo(() => {
+    if (!showTimelineConnectors) return [];
+    return deriveTimelineConnectorsWithTiming(items, suppressedConnectorIds);
+  }, [items, showTimelineConnectors, suppressedConnectorIds]);
+
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const selectedDayId = selectedDayIds.length === 1 ? selectedDayIds[0] : null;
   const effectiveDayId = selectedDayId ?? focusedDayId ?? orderedDays[0]?.dayId ?? null;
@@ -166,6 +179,100 @@ export function VerticalTimeline({
   const showPrev = viewMode === 'day' && !selectedDayId && effectiveDayIndex > 0;
   const showNext = viewMode === 'day' && !selectedDayId && effectiveDayIndex < orderedDays.length - 1;
 
+  const handleTimelineDragOver = useCallback(
+    (_e: React.DragEvent) => {
+      if (activeDragItemId) onDragOverTimeline?.(true);
+    },
+    [activeDragItemId, onDragOverTimeline],
+  );
+
+  const handleTimelineDragLeave = useCallback(
+    (e: React.DragEvent) => {
+      const relatedTarget = e.relatedTarget as Node | null;
+      if (relatedTarget && e.currentTarget.contains(relatedTarget)) return;
+      onDragOverTimeline?.(false);
+    },
+    [onDragOverTimeline],
+  );
+
+  const handleTimelineDrop = useCallback(() => {
+    onDragOverTimeline?.(false);
+  }, [onDragOverTimeline]);
+
+  // ── Cross-day drag: continuous tracking at root level ──
+
+  const [crossDayDrag, setCrossDayDrag] = useState<CrossDayDragPreview | null>(null);
+  const crossDayDragRef = useRef<CrossDayDragPreview | null>(null);
+
+  const handleCrossDayMove = useCallback(
+    (info: CrossDayMoveInfo) => {
+      if (!onUpdateItem) return;
+
+      const duration = info.origEndMin - info.origStartMin;
+
+      const findTarget = (clientX: number, clientY: number): CrossDayDragPreview | null => {
+        const refs = dayColumnRefs.current;
+        for (const day of orderedDays) {
+          const el = refs[day.dayId];
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          if (clientX >= rect.left && clientX <= rect.right) {
+            const bodyEl = el.querySelector('[data-timeline-body]') as HTMLElement | null;
+            if (!bodyEl) return null;
+            const bodyRect = bodyEl.getBoundingClientRect();
+            const rawY = clientY - bodyRect.top;
+            const startMin = snapM(
+              Math.max(0, Math.min(1440 - duration, rawY / PX_PER_MIN + globalRange.startH * 60)),
+              SNAP,
+            );
+            return { itemId: info.itemId, targetDayId: day.dayId, startMin, endMin: startMin + duration };
+          }
+        }
+        return null;
+      };
+
+      // Set initial preview
+      const initial = findTarget(info.clientX, info.clientY);
+      crossDayDragRef.current = initial;
+      setCrossDayDrag(initial);
+
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+
+      const handleMove = (e: PointerEvent) => {
+        const target = findTarget(e.clientX, e.clientY);
+        if (target) {
+          crossDayDragRef.current = target;
+          setCrossDayDrag(target);
+        }
+      };
+
+      const handleUp = () => {
+        document.removeEventListener('pointermove', handleMove);
+        document.removeEventListener('pointerup', handleUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+
+        const final = crossDayDragRef.current;
+        crossDayDragRef.current = null;
+        setCrossDayDrag(null);
+
+        if (final) {
+          onUpdateItem(final.itemId, {
+            dayId: final.targetDayId,
+            scheduledStart: toTime(final.startMin),
+            scheduledEnd: toTime(final.endMin),
+          });
+          setFocusedDayId(final.targetDayId);
+        }
+      };
+
+      document.addEventListener('pointermove', handleMove);
+      document.addEventListener('pointerup', handleUp);
+    },
+    [globalRange.startH, onUpdateItem, orderedDays],
+  );
+
   if (!orderedDays.length) {
     return <div className="flex h-full items-center justify-center text-sm text-theme-tertiary">Add a day to start planning</div>;
   }
@@ -175,6 +282,9 @@ export function VerticalTimeline({
       ref={rootRef}
       tabIndex={0}
       onPointerDownCapture={() => rootRef.current?.focus()}
+      onDragOver={handleTimelineDragOver}
+      onDragLeave={handleTimelineDragLeave}
+      onDrop={handleTimelineDrop}
       className="flex h-full min-h-0 flex-col overflow-hidden focus:outline-none"
     >
       <TimelineViewControls
@@ -192,6 +302,8 @@ export function VerticalTimeline({
           if (next) setFocusedDayId(next.dayId);
         }}
         onModeChange={setViewMode}
+        showConnectors={showTimelineConnectors}
+        onToggleConnectors={onToggleTimelineConnectors}
       />
 
       {viewMode === 'day' ? (
@@ -212,6 +324,10 @@ export function VerticalTimeline({
             onDayHeaderDrop={handleDayHeaderDrop}
             onDayHeaderDragLeave={handleDayHeaderDragLeave}
             onFocusDay={setFocusedDayId}
+            connectors={timelineConnectors}
+            onConnectorClick={onTimelineConnectorClick}
+            onConnectorRemove={onTimelineConnectorRemove}
+            showConnectors={showTimelineConnectors}
           />
         </div>
       ) : (
@@ -236,6 +352,7 @@ export function VerticalTimeline({
                     }}
                     day={day}
                     dayItems={dayItems}
+                    allItems={items}
                     globalStartH={globalRange.startH}
                     globalEndH={globalRange.endH}
                     gTotalH={gTotalH}
@@ -258,6 +375,12 @@ export function VerticalTimeline({
                     }}
                     resolveExternalDrop={resolveExternalDrop}
                     commitExternalDrop={commitExternalDrop}
+                    onMoveOutOfBounds={handleCrossDayMove}
+                    crossDayDragPreview={crossDayDrag}
+                    connectors={timelineConnectors}
+                    onConnectorClick={onTimelineConnectorClick}
+                    onConnectorRemove={onTimelineConnectorRemove}
+                    showConnectors={showTimelineConnectors}
                   />
                 );
               })}

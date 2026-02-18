@@ -24,13 +24,14 @@ import { useUpdateTrip } from './hooks/useTrip';
 import { START_LOCATION_ID } from './services/leg-recompute';
 import { saveDays } from './services/sheets-repository';
 import { mapsRepository, type PlaceSearchResult } from './services/maps-repository';
-import { deriveTimelineConnectors, type TimelineConnector } from './lib/connectors';
+import { deriveTimelineConnectors, type TimelineConnector, type TimelineConnectorWithTiming } from './lib/connectors';
 import { getDayColor } from './lib/day-colors';
 import { buildDateTime } from './lib/date-time';
 import { resolveAppendDropAfterLast, minutesToTime } from './lib/timeline-drop';
 import { Plane, FolderOpen, Loader2 } from 'lucide-react';
 import type { Day, Item, Leg, Trip, TransportMode, RouteType } from './types/trip';
 import LegInfoPopup from './components/map/LegInfoPopup';
+import { DragOverlay } from './components/items/DragOverlay';
 
 function TripSetup({
   onCreateTrip,
@@ -140,6 +141,9 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
   const [addItemInitialTravelLink, setAddItemInitialTravelLink] = useState<{ fromItemId: string; toItemId: string } | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [isDragOverTimeline, setIsDragOverTimeline] = useState(false);
+  const [suppressedConnectorIds, setSuppressedConnectorIds] = useState<Set<string>>(new Set());
+  const [showTimelineConnectors, setShowTimelineConnectors] = useState(true);
   const dragClearTimerRef = useRef<number | null>(null);
   const routeSyncInFlightRef = useRef<Set<string>>(new Set());
 
@@ -169,12 +173,14 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
 
     if (!defer) {
       setDraggingItemId(null);
+      setIsDragOverTimeline(false);
       return;
     }
 
     dragClearTimerRef.current = window.setTimeout(() => {
       dragClearTimerRef.current = null;
       setDraggingItemId(null);
+      setIsDragOverTimeline(false);
     }, 0);
   }, []);
 
@@ -510,19 +516,22 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     }
   }, [filteredItems, selectedItemId, setSelectedItemId]);
 
-  // Delete selected item on Delete key press
+  // Delete key removes item from timeline (unschedules) but keeps it in the event list
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' || !selectedItemId) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      const item = items.find((i) => i.itemId === selectedItemId);
+      if (!item || !item.scheduledStart || item.timelineLocked) return;
+
       e.preventDefault();
-      setSelectedItemId(null);
-      deleteItem.mutate(selectedItemId);
+      updateItem.mutate({ ...item, scheduledStart: '', scheduledEnd: '' });
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedItemId, setSelectedItemId, deleteItem]);
+  }, [selectedItemId, items, updateItem]);
 
   useEffect(() => {
     if (!selectedLeg) return;
@@ -580,6 +589,74 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       setShowAddItem(true);
     },
     [itemMap, resetAddItemDraft, trip],
+  );
+
+  // Handler for clicking timeline connector lines - opens travel event dialog
+  const handleTimelineConnectorClick = useCallback(
+    (connector: TimelineConnectorWithTiming) => {
+      const fromItem = itemMap.get(connector.fromItemId);
+      const toItem = itemMap.get(connector.toItemId);
+      if (!fromItem || !toItem) return;
+
+      const fromUsesDestination = (fromItem.destLat !== 0 || fromItem.destLng !== 0);
+      const origin: PlaceSearchResult = {
+        placeId: fromUsesDestination ? `item-dest-${fromItem.itemId}` : fromItem.placeId || `item-origin-${fromItem.itemId}`,
+        name: fromUsesDestination ? (fromItem.destName || `${fromItem.placeName} destination`) : fromItem.placeName,
+        address: fromUsesDestination ? fromItem.destAddress : fromItem.address,
+        lat: fromUsesDestination ? fromItem.destLat : fromItem.lat,
+        lng: fromUsesDestination ? fromItem.destLng : fromItem.lng,
+        types: [],
+      };
+
+      const destination: PlaceSearchResult = {
+        placeId: toItem.placeId || `item-origin-${toItem.itemId}`,
+        name: toItem.placeName,
+        address: toItem.address,
+        lat: toItem.lat,
+        lng: toItem.lng,
+        types: [],
+      };
+
+      const defaultMode = trip?.defaultMode ?? 'driving';
+      const defaultRouteType: RouteType =
+        defaultMode === 'flight' || defaultMode === 'other'
+          ? 'straight'
+          : 'directions';
+
+      // Use the gap timing from the connector for the travel event
+      const startTime = minutesToTime(connector.fromEndMin);
+      const endTime = minutesToTime(connector.toStartMin);
+
+      setSelectedDayId(fromItem.dayId);
+      resetAddItemDraft();
+      setMapSelectedPlace(origin);
+      setMapSelectedDestination(destination);
+      setAddItemInitialType('transport');
+      setAddItemInitialTransportMode(defaultMode);
+      setAddItemInitialRouteType(defaultRouteType);
+      setAddItemInitialAvailabilityWindows('[]');
+      setAddItemInitialTimelineLocked(false);
+      setAddItemInitialTravelLink({
+        fromItemId: fromItem.itemId,
+        toItemId: toItem.itemId,
+      });
+      // Set the scheduled time to fill the gap between items
+      setAddItemInitialTimes({ start: startTime, end: endTime });
+      setShowAddItem(true);
+    },
+    [itemMap, resetAddItemDraft, trip],
+  );
+
+  // Handler for removing a timeline connector (suppressing it)
+  const handleTimelineConnectorRemove = useCallback(
+    (connector: TimelineConnectorWithTiming) => {
+      setSuppressedConnectorIds((prev) => {
+        const next = new Set(prev);
+        next.add(connector.id);
+        return next;
+      });
+    },
+    [],
   );
 
   const handleAddDay = () => {
@@ -731,6 +808,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       const day = days.find((d) => d.dayId === dayId);
       const item = items.find((i) => i.itemId === itemId);
       if (!day || !item) return;
+      if (item.timelineLocked) return;
 
       const dayScheduledItems = getScheduledItemsForDay(dayId, item.itemId);
 
@@ -818,6 +896,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
             selectedDayIds={selectedDayIds ?? []}
             selectedItemId={selectedItemId}
             activeDragItemId={draggingItemId}
+            onDragOverTimeline={setIsDragOverTimeline}
             onUpdateItem={(id, updates) => {
               const existing = items.find((i) => i.itemId === id);
               if (existing) updateItem.mutate(mergeItemUpdates(existing, updates));
@@ -844,6 +923,11 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
               setAddItemInitialTimes({ start: startTime, end: endTime });
               setShowAddItem(true);
             }}
+            onTimelineConnectorClick={handleTimelineConnectorClick}
+            onTimelineConnectorRemove={handleTimelineConnectorRemove}
+            suppressedConnectorIds={suppressedConnectorIds}
+            showTimelineConnectors={showTimelineConnectors}
+            onToggleTimelineConnectors={() => setShowTimelineConnectors((prev) => !prev)}
           />
         }
         map={
@@ -991,6 +1075,16 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
           />
         );
       })()}
+
+      <DragOverlay
+        item={draggingItemId ? items.find((i) => i.itemId === draggingItemId) ?? null : null}
+        dayColor={
+          draggingItemId
+            ? (days.find((d) => d.dayId === items.find((i) => i.itemId === draggingItemId)?.dayId)?.colorHex ?? '#3B82F6')
+            : '#3B82F6'
+        }
+        isOverTimeline={isDragOverTimeline}
+      />
     </>
   );
 }

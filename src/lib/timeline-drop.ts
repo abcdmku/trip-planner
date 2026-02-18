@@ -86,6 +86,13 @@ export function resolveDraggedItemId(
 }
 
 export function getDragDurationMinutes(item: Item): number {
+  // Prefer existing scheduled range if both start and end are set
+  const start = toMinutesOfDay(item.scheduledStart);
+  const end = toMinutesOfDay(item.scheduledEnd);
+  if (start !== null && end !== null && end > start) {
+    return Math.max(SNAP_MINUTES, end - start);
+  }
+
   const raw = Number(item.durationMinutes);
   if (!Number.isFinite(raw) || raw <= 0) {
     return DEFAULT_DRAG_DURATION_MINUTES;

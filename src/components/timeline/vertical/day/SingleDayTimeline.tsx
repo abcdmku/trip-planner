@@ -20,6 +20,10 @@ export function SingleDayTimeline({
   resolveExternalDrop,
   commitExternalDrop,
   externalHeaderPreview = null,
+  connectors = [],
+  onConnectorClick,
+  onConnectorRemove,
+  showConnectors = true,
 }: SingleDayTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -169,12 +173,17 @@ export function SingleDayTimeline({
         <SingleDayItemLayer
           day={day}
           items={visible}
+          allItems={items}
           selectedItemId={selectedItemId}
           startH={startH}
           interaction={interaction}
           externalPreview={externalPreview}
           getItemVisualPosition={getItemVisualPosition}
           onItemPointerDown={handleItemPointerDown}
+          connectors={connectors.filter((c) => c.dayId === day.dayId)}
+          onConnectorClick={onConnectorClick}
+          onConnectorRemove={onConnectorRemove}
+          showConnectors={showConnectors}
         />
       </div>
     </div>

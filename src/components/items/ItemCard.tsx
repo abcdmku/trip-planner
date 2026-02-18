@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Clock, MapPin, GripVertical, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Clock, MapPin, GripVertical, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import type { Item } from '../../types/trip';
 import { TIMELINE_ITEM_DRAG_MIME } from '@/lib/timeline-drop';
 
@@ -44,6 +44,7 @@ export function ItemCard({
 }: ItemCardProps) {
   const typeInfo = TYPE_LABELS[item.type] || TYPE_LABELS.other;
   const dragOriginIsHandleRef = useRef(false);
+  const [isNativeDragging, setIsNativeDragging] = useState(false);
 
   const isReorderHandleTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) return false;
@@ -56,25 +57,41 @@ export function ItemCard({
       dragOriginIsHandleRef.current = false;
       return;
     }
+
+    // Hide the browser's default drag ghost
+    const ghost = document.createElement('div');
+    ghost.style.width = '1px';
+    ghost.style.height = '1px';
+    ghost.style.opacity = '0.01';
+    ghost.style.position = 'fixed';
+    ghost.style.top = '-1000px';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 0, 0);
+    requestAnimationFrame(() => ghost.remove());
+
     e.dataTransfer.setData(TIMELINE_ITEM_DRAG_MIME, item.itemId);
     e.dataTransfer.setData('text/plain', item.itemId);
     e.dataTransfer.effectAllowed = 'move';
+    setIsNativeDragging(true);
     onNativeDragStart?.(item.itemId);
   };
 
   const handleDragEnd = () => {
     dragOriginIsHandleRef.current = false;
+    setIsNativeDragging(false);
     onNativeDragEnd?.();
   };
 
   return (
     <div
       className={`group rounded-xl border transition-all ${
-        isDragging
-          ? 'border-accent shadow-lg shadow-accent/10 scale-[1.02]'
-          : isSelected
-            ? 'border-accent/80 bg-theme-highlight shadow-md shadow-accent/20 ring-1 ring-accent/35'
-            : 'border-theme-subtle bg-theme-elevated hover:border-theme hover:bg-theme-subtle hover:shadow-theme-sm'
+        isNativeDragging
+          ? 'border-dashed border-theme opacity-40 scale-[0.97]'
+          : isDragging
+            ? 'border-accent shadow-lg shadow-accent/10 scale-[1.02]'
+            : isSelected
+              ? 'border-accent/80 bg-theme-highlight shadow-md shadow-accent/20 ring-1 ring-accent/35'
+              : 'border-theme-subtle bg-theme-elevated hover:border-theme hover:bg-theme-subtle hover:shadow-theme-sm'
       }`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
@@ -118,6 +135,9 @@ export function ItemCard({
             <h4 className="truncate text-sm font-semibold text-theme">
               {item.placeName}
             </h4>
+            {item.timelineLocked && (
+              <Lock className="h-3 w-3 flex-shrink-0 text-theme-tertiary" />
+            )}
             {item.isOptional && (
               <span className="flex-shrink-0 rounded bg-theme-subtle px-1.5 py-0.5 text-[10px] font-medium text-theme-tertiary">
                 Optional

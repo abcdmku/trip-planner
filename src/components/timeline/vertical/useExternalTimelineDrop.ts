@@ -26,6 +26,19 @@ export function useExternalTimelineDrop({
       const item = itemsById.get(itemId);
       if (!item) return null;
 
+      // Locked items cannot be dropped onto the timeline
+      if (item.timelineLocked) {
+        return {
+          itemId,
+          dayId: day.dayId,
+          mode,
+          valid: false,
+          startMin: anchorMin ?? 0,
+          endMin: (anchorMin ?? 0) + (item.durationMinutes || 60),
+          durationMinutes: item.durationMinutes || 60,
+        };
+      }
+
       const scheduledItems = getScheduledItemsForDay(day.dayId, itemId);
       const resolution =
         mode === 'append'

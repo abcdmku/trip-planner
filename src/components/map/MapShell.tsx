@@ -288,11 +288,13 @@ const MapInner = memo(function MapInner({
     }
 
     const placeId = selectedItem.placeId;
-    if (!placeId) {
+    // Skip Google API lookup for empty or synthetic place IDs (from connector-created travel items)
+    const isSyntheticPlaceId = !placeId || placeId.startsWith('item-dest-') || placeId.startsWith('item-origin-') || placeId.startsWith('custom-');
+    if (isSyntheticPlaceId) {
       setSelectedMarkerPlace({
         place: null,
         isLoading: false,
-        error: 'Place details are unavailable for this stop.',
+        error: null, // Not an error - just no Google place details available
       });
       return;
     }

@@ -28,6 +28,13 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
     onFocusDay,
     resolveExternalDrop,
     commitExternalDrop,
+    onMoveOutOfBounds,
+    allItems,
+    crossDayDragPreview,
+    connectors = [],
+    onConnectorClick,
+    onConnectorRemove,
+    showConnectors = true,
   },
   ref,
 ) {
@@ -55,6 +62,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
     onItemClick,
     onItemDoubleClick,
     onCreateAtTime: onCreateAtTime ? (start, end) => onCreateAtTime(day.dayId, start, end) : undefined,
+    onMoveOutOfBounds,
   });
 
   const clearExternalPreview = useCallback(() => {
@@ -143,11 +151,21 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
     [clearExternalPreview],
   );
 
+  const hasDropPreview = externalPreview !== null;
+  const isCrossDayTarget = crossDayDragPreview?.targetDayId === day.dayId;
+  const isCrossDaySource = crossDayDragPreview !== null && crossDayDragPreview !== undefined && crossDayDragPreview.targetDayId !== day.dayId;
+
   return (
     <div
       ref={ref}
-      className={`flex-shrink-0 overflow-hidden rounded-lg border ${
-        isActive ? 'border-accent/50 shadow-theme-md' : 'border-theme'
+      className={`flex-shrink-0 overflow-hidden rounded-lg border transition-all duration-150 ${
+        isCrossDayTarget
+          ? 'border-accent/70 shadow-lg shadow-accent/15'
+          : hasDropPreview
+            ? 'border-accent/60 shadow-lg shadow-accent/10'
+            : isCrossDaySource
+              ? 'border-theme/50 opacity-80'
+              : isActive ? 'border-accent/50 shadow-theme-md' : 'border-theme'
       }`}
       style={{ width: `clamp(${MULTI_COL_MIN_W}px, 20vw, ${MULTI_COL_MAX_W}px)` }}
     >
@@ -163,6 +181,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
       <MultiDayColumnBody
         day={day}
         dayItems={dayItems}
+        allItems={allItems}
         globalStartH={globalStartH}
         globalEndH={globalEndH}
         gTotalH={gTotalH}
@@ -171,6 +190,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
         selectedItemId={selectedItemId}
         interaction={interaction}
         externalPreview={externalPreview}
+        crossDayDragPreview={crossDayDragPreview}
         contentRef={contentRef}
         onBackgroundPointerDown={handleBackgroundPointerDown}
         onPointDragOver={handlePointDragOver}
@@ -178,6 +198,10 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
         onPointDragLeave={handlePointDragLeave}
         onItemPointerDown={handleItemPointerDown}
         getItemVisualPosition={getItemVisualPosition}
+        connectors={connectors.filter((c) => c.dayId === day.dayId)}
+        onConnectorClick={onConnectorClick}
+        onConnectorRemove={onConnectorRemove}
+        showConnectors={showConnectors}
       />
     </div>
   );

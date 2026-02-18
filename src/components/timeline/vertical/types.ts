@@ -1,6 +1,7 @@
 import type { MutableRefObject, RefObject } from 'react';
 import type { Day, Item } from '@/types/trip';
 import type { ExternalDropMode } from '@/lib/timeline-drop';
+import type { TimelineConnectorWithTiming } from '@/lib/connectors';
 
 export type ViewMode = 'day' | 'multi';
 
@@ -58,10 +59,21 @@ export interface VerticalTimelineProps {
   selectedDayIds?: string[];
   selectedItemId?: string | null;
   activeDragItemId?: string | null;
+  onDragOverTimeline?: (isOver: boolean) => void;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (dayId: string, startTime: string, endTime: string) => void;
+  /** Called when a connector line is clicked in the timeline */
+  onTimelineConnectorClick?: (connector: TimelineConnectorWithTiming) => void;
+  /** Called when remove button on a connector is clicked */
+  onTimelineConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
+  /** Set of connector IDs that have been manually suppressed */
+  suppressedConnectorIds?: Set<string>;
+  /** Whether to show auto-connect lines (global toggle) */
+  showTimelineConnectors?: boolean;
+  /** Callback to toggle the showTimelineConnectors setting */
+  onToggleTimelineConnectors?: () => void;
 }
 
 export interface SingleDayTimelineProps {
@@ -76,11 +88,20 @@ export interface SingleDayTimelineProps {
   resolveExternalDrop?: ResolveExternalDrop;
   commitExternalDrop?: CommitExternalDrop;
   externalHeaderPreview?: ExternalDragPreview | null;
+  /** Timeline connectors for this day */
+  connectors?: TimelineConnectorWithTiming[];
+  /** Called when a connector line is clicked */
+  onConnectorClick?: (connector: TimelineConnectorWithTiming) => void;
+  /** Called when remove button on a connector is clicked */
+  onConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
+  /** Whether to show auto-connect lines */
+  showConnectors?: boolean;
 }
 
 export interface MultiDayColumnProps {
   day: Day;
   dayItems: Item[];
+  allItems?: Item[];
   globalStartH: number;
   globalEndH: number;
   gTotalH: number;
@@ -97,6 +118,34 @@ export interface MultiDayColumnProps {
   onFocusDay: () => void;
   resolveExternalDrop?: ResolveExternalDrop;
   commitExternalDrop?: CommitExternalDrop;
+  /** Called when a timeline block is dragged out of this column horizontally */
+  onMoveOutOfBounds?: (info: CrossDayMoveInfo) => void;
+  /** Active cross-day drag preview (managed by VerticalTimelineRoot) */
+  crossDayDragPreview?: CrossDayDragPreview | null;
+  /** Timeline connectors for this day */
+  connectors?: TimelineConnectorWithTiming[];
+  /** Called when a connector line is clicked */
+  onConnectorClick?: (connector: TimelineConnectorWithTiming) => void;
+  /** Called when remove button on a connector is clicked */
+  onConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
+  /** Whether to show auto-connect lines */
+  showConnectors?: boolean;
+}
+
+export interface CrossDayMoveInfo {
+  itemId: string;
+  clientX: number;
+  clientY: number;
+  origStartMin: number;
+  origEndMin: number;
+}
+
+/** Represents an active cross-day drag — rendered as a preview in the target column */
+export interface CrossDayDragPreview {
+  itemId: string;
+  targetDayId: string;
+  startMin: number;
+  endMin: number;
 }
 
 export interface UseTimelinePointerInteractionOptions {
@@ -109,4 +158,6 @@ export interface UseTimelinePointerInteractionOptions {
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (startTime: string, endTime: string) => void;
+  /** Called when a move drag exits the column horizontally (multi-day cross-day) */
+  onMoveOutOfBounds?: (info: CrossDayMoveInfo) => void;
 }

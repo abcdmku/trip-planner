@@ -25,23 +25,22 @@ interface UseTimelinePointerInteractionResult {
   getItemVisualPosition: (item: Item, startHour: number) => ItemVisualPosition;
 }
 
-export function useTimelinePointerInteraction({
-  dayDate,
-  contentRef,
-  getScrollTop,
-  startHourRef,
-  itemsById,
-  onUpdateItem,
-  onItemClick,
-  onItemDoubleClick,
-  onCreateAtTime,
-}: UseTimelinePointerInteractionOptions): UseTimelinePointerInteractionResult {
+export function useTimelinePointerInteraction(
+  opts: UseTimelinePointerInteractionOptions,
+): UseTimelinePointerInteractionResult {
   const ptrRef = useRef<PtrTrack | null>(null);
   const rafRef = useRef(0);
   const lastClickRef = useRef<{ itemId: string; time: number } | null>(null);
+  const lastBgClickRef = useRef<{ anchorMin: number; time: number } | null>(null);
   const [interaction, setInteraction] = useState<Interaction>({ type: 'idle' });
 
-  const docMove = useCallback((e: PointerEvent) => {
+  // ── Keep a ref to the latest options so stable handlers always read fresh values ──
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
+
+  // ── Stable document-level handlers (never recreated) ──
+
+  const stableDocMove = useCallback((e: PointerEvent) => {
     const pointer = ptrRef.current;
     if (!pointer) return;
 
@@ -49,7 +48,36 @@ export function useTimelinePointerInteraction({
     if (!pointer.activated && Math.abs(deltaY) < DRAG_THRESH) return;
     pointer.activated = true;
 
-    const rawY = e.clientY - pointer.containerTop + getScrollTop();
+    const { contentRef, onMoveOutOfBounds, startHourRef } = optsRef.current;
+
+    // Cross-day detection: if moving an item and pointer leaves column bounds
+    if (pointer.action === 'move' && pointer.itemId && onMoveOutOfBounds) {
+      const el = contentRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX > rect.right) {
+          // Cancel the local drag
+          document.removeEventListener('pointermove', stableDocMove);
+          document.removeEventListener('pointerup', stableDocUp);
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          const info = {
+            itemId: pointer.itemId,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            origStartMin: pointer.origStartMin ?? 0,
+            origEndMin: pointer.origEndMin ?? 0,
+          };
+          ptrRef.current = null;
+          setInteraction({ type: 'idle' });
+          onMoveOutOfBounds(info);
+          return;
+        }
+      }
+    }
+
+    const scrollTop = optsRef.current.getScrollTop();
+    const rawY = e.clientY - pointer.containerTop + scrollTop;
     const currentMin = snapM(
       Math.max(0, Math.min(1440, rawY / PX_PER_MIN + startHourRef.current * 60)),
       SNAP,
@@ -98,12 +126,12 @@ export function useTimelinePointerInteraction({
         break;
       }
     }
-  }, [getScrollTop, startHourRef]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- reads from optsRef
 
-  const docUp = useCallback(() => {
+  const stableDocUp = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
-    document.removeEventListener('pointermove', docMove);
-    document.removeEventListener('pointerup', docUp);
+    document.removeEventListener('pointermove', stableDocMove);
+    document.removeEventListener('pointerup', stableDocUp);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
 
@@ -114,6 +142,9 @@ export function useTimelinePointerInteraction({
       setInteraction({ type: 'idle' });
       return;
     }
+
+    const { dayDate, itemsById, onCreateAtTime, onUpdateItem, onItemClick, onItemDoubleClick } =
+      optsRef.current;
 
     const { didCommit } = handlePointerRelease({
       pointer,
@@ -126,6 +157,7 @@ export function useTimelinePointerInteraction({
         onItemDoubleClick,
       },
       lastClickRef,
+      lastBgClickRef,
     });
 
     if (didCommit) {
@@ -134,17 +166,18 @@ export function useTimelinePointerInteraction({
     }
 
     setInteraction({ type: 'idle' });
-  }, [dayDate, docMove, itemsById, onCreateAtTime, onItemClick, onItemDoubleClick, onUpdateItem]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- reads from optsRef
 
+  // Cleanup only on unmount (stable handlers never change)
   useEffect(() => {
     return () => {
-      document.removeEventListener('pointermove', docMove);
-      document.removeEventListener('pointerup', docUp);
+      document.removeEventListener('pointermove', stableDocMove);
+      document.removeEventListener('pointerup', stableDocUp);
       cancelAnimationFrame(rafRef.current);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [docMove, docUp]);
+  }, [stableDocMove, stableDocUp]);
 
   const beginTrack = useCallback(
     (
@@ -154,6 +187,7 @@ export function useTimelinePointerInteraction({
       origStart?: number,
       origEnd?: number,
     ) => {
+      const { contentRef, getScrollTop, startHourRef } = optsRef.current;
       const contentElement = contentRef.current;
       if (!contentElement) return;
 
@@ -183,10 +217,10 @@ export function useTimelinePointerInteraction({
         curDelta: 0,
       };
 
-      document.addEventListener('pointermove', docMove);
-      document.addEventListener('pointerup', docUp);
+      document.addEventListener('pointermove', stableDocMove);
+      document.addEventListener('pointerup', stableDocUp);
     },
-    [contentRef, docMove, docUp, getScrollTop, startHourRef],
+    [stableDocMove, stableDocUp],
   );
 
   const handleBackgroundPointerDown = useCallback(
@@ -203,7 +237,7 @@ export function useTimelinePointerInteraction({
       e.stopPropagation();
 
       if (item.timelineLocked) {
-        onItemClick?.(item.itemId);
+        optsRef.current.onItemClick?.(item.itemId);
         return;
       }
 
@@ -221,7 +255,7 @@ export function useTimelinePointerInteraction({
         beginTrack('move', e, item.itemId, startMin, endMin);
       }
     },
-    [beginTrack, onItemClick],
+    [beginTrack],
   );
 
   const getItemVisualPosition = useCallback(
