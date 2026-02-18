@@ -3,10 +3,15 @@
 // a Google Sheet via the sheets-repository service.
 // ---------------------------------------------------------------------------
 
-import { useQuery } from '@tanstack/react-query';
-import { loadTrip } from '@/services/sheets-repository';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { loadTrip, saveTrip } from '@/services/sheets-repository';
 import { useAuth } from '@/hooks/useAuth';
-import type { TripData } from '@/types/trip';
+import type { Trip, TripData } from '@/types/trip';
+import {
+  updateTripOptimistic,
+  invalidateTrip,
+  getTripQueryKey,
+} from '@/stores/trip-store';
 
 /**
  * Fetches and caches the full trip dataset for a given spreadsheet.
@@ -59,4 +64,46 @@ export function useTrip(spreadsheetId: string | null | undefined) {
     /** Manually trigger a refetch. */
     refetch: query.refetch,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Update trip mutation
+// ---------------------------------------------------------------------------
+
+/**
+ * Mutation that updates the Trip metadata row (e.g. start location).
+ * Uses optimistic updates and persists to the "Trip" tab.
+ */
+export function useUpdateTrip(spreadsheetId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, Trip, TripData | undefined>({
+    mutationFn: async (updatedTrip: Trip) => {
+      await saveTrip(spreadsheetId, updatedTrip);
+    },
+
+    onMutate: async (updatedTrip) => {
+      await queryClient.cancelQueries({
+        queryKey: getTripQueryKey(spreadsheetId),
+      });
+
+      const previous = updateTripOptimistic(
+        queryClient,
+        spreadsheetId,
+        () => updatedTrip,
+      );
+
+      return previous;
+    },
+
+    onError: (_err, _payload, previous) => {
+      if (previous) {
+        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+      }
+    },
+
+    onSettled: () => {
+      void invalidateTrip(queryClient, spreadsheetId);
+    },
+  });
 }

@@ -42,6 +42,26 @@ export interface DistanceMatrixEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Haversine distance (metres) between two lat/lng points
+// ---------------------------------------------------------------------------
+
+function haversineDistance(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6_371_000; // Earth radius in metres
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h =
+    sinLat * sinLat +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLng * sinLng;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// ---------------------------------------------------------------------------
 // Helper: wait for the google.maps global to be available
 // ---------------------------------------------------------------------------
 
@@ -280,6 +300,24 @@ class MapsRepository {
       console.error('calculateLeg failed:', error);
       return null;
     }
+  }
+
+  /**
+   * Calculate a straight-line (as the crow flies) leg between two points.
+   * Uses the Haversine formula — no API call needed.
+   */
+  calculateStraightLeg(
+    from: { lat: number; lng: number },
+    to: { lat: number; lng: number },
+  ): LegCalculation {
+    const distanceMeters = haversineDistance(from, to);
+    return {
+      durationMinutes: 0,
+      distanceMeters: Math.round(distanceMeters),
+      routePathEncoded: '',
+      departure: '',
+      arrival: '',
+    };
   }
 
   async getDistanceMatrix(

@@ -6,7 +6,8 @@
 // ---------------------------------------------------------------------------
 
 import { useMemo } from 'react';
-import type { Leg, Day, Item, TransportMode } from '@/types/trip';
+import type { Leg, Day, Item, Trip, TransportMode } from '@/types/trip';
+import { START_LOCATION_ID } from '@/services/leg-recompute';
 import { getFeasibilityColor, getDayColorForItem } from '@/lib/route-feasibility';
 import { getMidpoint } from './RoutePath';
 import RoutePath from './RoutePath';
@@ -25,6 +26,8 @@ export interface RouteOverlayProps {
   selectedDayIds?: string[];
   /** All items in the trip (used to resolve fromItemId -> dayId). */
   items: Item[];
+  /** Trip metadata (used for start location coordinates). */
+  trip?: Trip | null;
   /** Optional callback when a route segment is clicked. */
   onLegClick?: (leg: Leg) => void;
   /** Callback when the user changes a leg's transport mode. */
@@ -42,6 +45,7 @@ export default function RouteOverlay({
   days,
   selectedDayIds,
   items,
+  trip,
   onLegClick,
   onModeChange,
   recalculatingLegIds,
@@ -65,41 +69,81 @@ export default function RouteOverlay({
   const visibleLegs = useMemo(() => {
     return legs
       .map((leg) => {
-        const fromItem = itemMap.get(leg.fromItemId);
+        const isStartLeg = leg.fromItemId === START_LOCATION_ID;
+
+        // Resolve from/to positions.
+        let fromPos: { lat: number; lng: number } | null = null;
+        let fromItem: Item | undefined;
+
+        if (isStartLeg && trip && (trip.startLat !== 0 || trip.startLng !== 0)) {
+          fromPos = { lat: trip.startLat, lng: trip.startLng };
+        } else {
+          fromItem = itemMap.get(leg.fromItemId);
+          if (fromItem) {
+            fromPos = { lat: fromItem.lat, lng: fromItem.lng };
+          }
+        }
+
         const toItem = itemMap.get(leg.toItemId);
-        if (!fromItem || !toItem) return null;
+        if (!fromPos || !toItem) return null;
 
-        // Filter by selected days.
-        if (selectedDaySet && !selectedDaySet.has(fromItem.dayId)) return null;
+        // Filter by selected days (use toItem's day for start legs).
+        if (selectedDaySet) {
+          const dayId = isStartLeg ? toItem.dayId : (fromItem?.dayId ?? toItem.dayId);
+          if (!selectedDaySet.has(dayId)) return null;
+        }
 
-        // Skip legs without a route polyline.
-        if (!leg.routePathEncoded) return null;
+        // For straight-line legs, we render via fromLatLng/toLatLng.
+        const isStraight = leg.routeType === 'straight' || !leg.routePathEncoded;
+
+        // Skip legs without a route polyline AND without straight-line data.
+        if (!leg.routePathEncoded && !isStraight) return null;
 
         // Compute feasibility colour.
-        const dayColor = getDayColorForItem(fromItem, dayMap);
-        const feasibility = getFeasibilityColor(leg, fromItem, toItem, dayColor);
+        // For start legs, use a neutral colour since there's no fromItem schedule.
+        let feasibility;
+        if (isStartLeg || !fromItem) {
+          const dayColor = toItem ? getDayColorForItem(toItem, dayMap) : '#4285F4';
+          feasibility = { color: dayColor, status: 'unknown' as const };
+        } else {
+          const dayColor = getDayColorForItem(fromItem, dayMap);
+          feasibility = getFeasibilityColor(leg, fromItem, toItem, dayColor);
+        }
 
-        return { leg, fromItem, toItem, feasibility };
+        const toPos = { lat: toItem.lat, lng: toItem.lng };
+
+        return { leg, fromItem, toItem, fromPos, toPos, feasibility, isStraight };
       })
       .filter(
         (entry): entry is NonNullable<typeof entry> => entry !== null,
       );
-  }, [legs, itemMap, dayMap, selectedDaySet]);
+  }, [legs, itemMap, dayMap, selectedDaySet, trip]);
 
   return (
     <>
-      {visibleLegs.map(({ leg, feasibility }) => (
+      {visibleLegs.map(({ leg, fromPos, toPos, feasibility, isStraight }) => (
         <RoutePath
           key={leg.legId}
-          encodedPath={leg.routePathEncoded}
+          encodedPath={isStraight ? '' : leg.routePathEncoded}
+          fromLatLng={isStraight ? fromPos : undefined}
+          toLatLng={isStraight ? toPos : undefined}
           color={feasibility.color}
           weight={4}
           opacity={0.75}
           onClick={onLegClick ? () => onLegClick(leg) : undefined}
         />
       ))}
-      {visibleLegs.map(({ leg, feasibility }) => {
-        const midpoint = getMidpoint(leg.routePathEncoded);
+      {visibleLegs.map(({ leg, fromPos, toPos, feasibility, isStraight }) => {
+        // For straight-line legs, midpoint is the geographic midpoint.
+        let midpoint: { lat: number; lng: number } | null;
+        if (isStraight) {
+          midpoint = {
+            lat: (fromPos.lat + toPos.lat) / 2,
+            lng: (fromPos.lng + toPos.lng) / 2,
+          };
+        } else {
+          midpoint = getMidpoint(leg.routePathEncoded);
+        }
         if (!midpoint) return null;
 
         return (

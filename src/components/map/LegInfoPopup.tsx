@@ -4,7 +4,7 @@
 // Displays travel mode icon, duration, distance, and from/to names.
 // ---------------------------------------------------------------------------
 
-import type { Leg, Item, TransportMode } from '@/types/trip';
+import type { Leg, Item, TransportMode, RouteType } from '@/types/trip';
 import { getFeasibilityColor, type FeasibilityStatus } from '@/lib/route-feasibility';
 import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
 
@@ -18,6 +18,7 @@ export interface LegInfoPopupProps {
   toItem: Item;
   onClose: () => void;
   onModeChange?: (mode: TransportMode) => void;
+  onRouteTypeChange?: (routeType: RouteType) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,7 @@ const SELECTABLE_MODES: { mode: TransportMode; label: string }[] = [
   { mode: 'walking', label: 'Walk' },
   { mode: 'bicycling', label: 'Bike' },
   { mode: 'transit', label: 'Transit' },
+  { mode: 'flight', label: 'Flight' },
 ];
 
 const FEASIBILITY_LABELS: Record<FeasibilityStatus, string> = {
@@ -75,12 +77,18 @@ const FEASIBILITY_LABELS: Record<FeasibilityStatus, string> = {
   unknown: '',
 };
 
+const ROUTE_TYPES: { type: RouteType; label: string }[] = [
+  { type: 'directions', label: 'Routed' },
+  { type: 'straight', label: 'Straight' },
+];
+
 export default function LegInfoPopup({
   leg,
   fromItem,
   toItem,
   onClose,
   onModeChange,
+  onRouteTypeChange,
 }: LegInfoPopupProps) {
   useEscapeHotkey(true, onClose);
 
@@ -172,6 +180,34 @@ export default function LegInfoPopup({
                 >
                   <ModeIcon mode={mode} size="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Route type selector */}
+        {onRouteTypeChange && (
+          <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Route type</div>
+            <div className="flex gap-1">
+              {ROUTE_TYPES.map(({ type, label }) => (
+                <button
+                  key={type}
+                  title={label}
+                  onClick={() => onRouteTypeChange(type)}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    type === (leg.routeType ?? 'directions')
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {type === 'directions' ? (
+                    <RouteIcon />
+                  ) : (
+                    <StraightLineIcon />
+                  )}
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
@@ -277,6 +313,37 @@ function DistanceIcon() {
         d="M5.37 2.257a1.25 1.25 0 0 1 1.26 0l3.5 2.03A1.25 1.25 0 0 1 10.75 5.5v4.691l-2.5-1.45V5.5L6 4.345 3.75 5.5v3.241l2.5 1.45v2.5L2.87 10.662A1.25 1.25 0 0 1 2.25 9.5V5.5c0-.45.242-.866.634-1.088l2.5-1.45-.014-.005Zm5.38 5.434 2.5 1.45V5.5l-2.5-1.45v3.641Zm0 2.5v2.5l2.866-1.662a1.25 1.25 0 0 0 .634-1.088V5.5a1.25 1.25 0 0 0-.62-1.08l-3.5-2.03a1.25 1.25 0 0 0-1.26 0L5.25 4.654v2.5l2.5 1.45v3.241l2.87-1.662.13-.075v-.892Z"
         clipRule="evenodd"
       />
+    </svg>
+  );
+}
+
+function RouteIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className="h-3.5 w-3.5 flex-shrink-0"
+    >
+      <path
+        fillRule="evenodd"
+        d="M3.25 2a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0V4.56l2.22 2.22a.75.75 0 0 0 1.06 0L9 5.06l3.22 3.22a.75.75 0 1 0 1.06-1.06l-3.75-3.75a.75.75 0 0 0-1.06 0L6.75 5.19 4.56 3H6.5a.75.75 0 0 0 0-1.5h-3.25ZM2.5 10.75a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H3.25a.75.75 0 0 1-.75-.75Zm0 2.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function StraightLineIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className="h-3.5 w-3.5 flex-shrink-0"
+    >
+      <path d="M13.78 2.22a.75.75 0 0 1 0 1.06l-10.5 10.5a.75.75 0 0 1-1.06-1.06l10.5-10.5a.75.75 0 0 1 1.06 0Z" />
+      <path d="M14 2.75a.75.75 0 0 0-.75-.75h-3.5a.75.75 0 0 0 0 1.5h2v2a.75.75 0 0 0 1.5 0v-2.75Z" />
     </svg>
   );
 }

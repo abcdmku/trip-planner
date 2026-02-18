@@ -11,13 +11,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTrip } from '@/hooks/useTrip';
 import { saveLegs } from '@/services/sheets-repository';
-import { mapsRepository } from '@/services/maps-repository';
+import { mapsRepository, type LegCalculation } from '@/services/maps-repository';
 import {
   updateLegsOptimistic,
   invalidateTrip,
   getTripQueryKey,
 } from '@/stores/trip-store';
-import type { Item, Leg, TransportMode, TripData } from '@/types/trip';
+import type { Item, Leg, TransportMode, RouteType, TripData } from '@/types/trip';
 
 // ---------------------------------------------------------------------------
 // Read hook
@@ -63,10 +63,13 @@ export function useRecalculateLegs(spreadsheetId: string) {
         const fromItem = sorted[i];
         const toItem = sorted[i + 1];
 
+        const from = { lat: fromItem.lat, lng: fromItem.lng };
+        const to = { lat: toItem.lat, lng: toItem.lng };
+
         // Skip items without valid coordinates.
         if (
-          (fromItem.lat === 0 && fromItem.lng === 0) ||
-          (toItem.lat === 0 && toItem.lng === 0)
+          (from.lat === 0 && from.lng === 0) ||
+          (to.lat === 0 && to.lng === 0)
         ) {
           continue;
         }
@@ -76,26 +79,33 @@ export function useRecalculateLegs(spreadsheetId: string) {
           ? new Date(fromItem.scheduledEnd)
           : undefined;
 
-        const result = await mapsRepository.calculateLeg(
-          { lat: fromItem.lat, lng: fromItem.lng },
-          { lat: toItem.lat, lng: toItem.lng },
-          defaultMode,
-          departureTime,
-        );
-
-        if (result) {
-          newLegs.push({
-            legId: `leg-${fromItem.itemId}-${toItem.itemId}`,
-            fromItemId: fromItem.itemId,
-            toItemId: toItem.itemId,
-            mode: defaultMode,
-            departure: result.departure,
-            arrival: result.arrival,
-            durationMinutes: result.durationMinutes,
-            distanceMeters: result.distanceMeters,
-            routePathEncoded: result.routePathEncoded,
-          });
+        // Try directions first, fall back to straight-line if unavailable.
+        let result: LegCalculation | null = null;
+        let routeType: RouteType = 'directions';
+        try {
+          result = await mapsRepository.calculateLeg(from, to, defaultMode, departureTime);
+        } catch {
+          // Directions API failed — will fall back below.
         }
+
+        if (!result) {
+          // Fall back to straight-line leg (no API call needed).
+          result = mapsRepository.calculateStraightLeg(from, to);
+          routeType = 'straight';
+        }
+
+        newLegs.push({
+          legId: `leg-${fromItem.itemId}-${toItem.itemId}`,
+          fromItemId: fromItem.itemId,
+          toItemId: toItem.itemId,
+          mode: defaultMode,
+          departure: result.departure,
+          arrival: result.arrival,
+          durationMinutes: result.durationMinutes,
+          distanceMeters: result.distanceMeters,
+          routePathEncoded: result.routePathEncoded,
+          routeType,
+        });
       }
 
       // Build the set of item IDs involved in this recalculation.
@@ -179,24 +189,30 @@ export function useUpdateLegMode(spreadsheetId: string) {
 
   return useMutation<Leg, Error, UpdateLegModePayload, TripData | undefined>({
     mutationFn: async ({ leg, newMode, fromItem, toItem }) => {
+      const from = { lat: fromItem.lat, lng: fromItem.lng };
+      const to = { lat: toItem.lat, lng: toItem.lng };
       const departureTime = fromItem.scheduledEnd
         ? new Date(fromItem.scheduledEnd)
         : undefined;
 
-      const result = await mapsRepository.calculateLeg(
-        { lat: fromItem.lat, lng: fromItem.lng },
-        { lat: toItem.lat, lng: toItem.lng },
-        newMode,
-        departureTime,
-      );
+      // Try directions first, fall back to straight-line.
+      let result: LegCalculation | null = null;
+      let routeType: RouteType = leg.routeType;
+      try {
+        result = await mapsRepository.calculateLeg(from, to, newMode, departureTime);
+      } catch {
+        // Directions API failed — fall back below.
+      }
 
       if (!result) {
-        throw new Error(`Directions unavailable for mode "${newMode}"`);
+        result = mapsRepository.calculateStraightLeg(from, to);
+        routeType = 'straight';
       }
 
       const updatedLeg: Leg = {
         ...leg,
         mode: newMode,
+        routeType,
         departure: result.departure,
         arrival: result.arrival,
         durationMinutes: result.durationMinutes,
@@ -227,6 +243,119 @@ export function useUpdateLegMode(spreadsheetId: string) {
         (legs) =>
           legs.map((l) =>
             l.legId === leg.legId ? { ...l, mode: newMode } : l,
+          ),
+      );
+
+      return previous;
+    },
+
+    onError: (_err, _payload, previous) => {
+      if (previous) {
+        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+      }
+    },
+
+    onSettled: () => {
+      void invalidateTrip(queryClient, spreadsheetId);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Update single leg route type mutation
+// ---------------------------------------------------------------------------
+
+interface UpdateLegRouteTypePayload {
+  leg: Leg;
+  newRouteType: RouteType;
+  fromItem: Item;
+  toItem: Item;
+}
+
+/**
+ * Mutation that toggles a single leg between 'directions' and 'straight'.
+ *
+ * When switching to 'straight', uses `calculateStraightLeg` (no API call).
+ * When switching to 'directions', calls `calculateLeg` for routed path.
+ */
+export function useUpdateLegRouteType(spreadsheetId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<Leg, Error, UpdateLegRouteTypePayload, TripData | undefined>({
+    mutationFn: async ({ leg, newRouteType, fromItem, toItem }) => {
+      const from = { lat: fromItem.lat, lng: fromItem.lng };
+      const to = { lat: toItem.lat, lng: toItem.lng };
+
+      if (newRouteType === 'straight') {
+        const calc = mapsRepository.calculateStraightLeg(from, to);
+        const updatedLeg: Leg = {
+          ...leg,
+          routeType: 'straight',
+          durationMinutes: calc.durationMinutes,
+          distanceMeters: calc.distanceMeters,
+          routePathEncoded: calc.routePathEncoded,
+          departure: calc.departure,
+          arrival: calc.arrival,
+        };
+
+        const queryKey = getTripQueryKey(spreadsheetId);
+        const current = queryClient.getQueryData<TripData>(queryKey);
+        const allLegs = (current?.legs ?? []).map((l) =>
+          l.legId === leg.legId ? updatedLeg : l,
+        );
+        await saveLegs(spreadsheetId, allLegs);
+        return updatedLeg;
+      }
+
+      // 'directions' — call the Google Directions API.
+      const departureTime = fromItem.scheduledEnd
+        ? new Date(fromItem.scheduledEnd)
+        : undefined;
+
+      let result: LegCalculation | null = null;
+      let finalRouteType: RouteType = 'directions';
+      try {
+        result = await mapsRepository.calculateLeg(from, to, leg.mode, departureTime);
+      } catch {
+        // Directions API failed — fall back below.
+      }
+
+      if (!result) {
+        // Fall back to straight-line if directions unavailable.
+        result = mapsRepository.calculateStraightLeg(from, to);
+        finalRouteType = 'straight';
+      }
+
+      const updatedLeg: Leg = {
+        ...leg,
+        routeType: finalRouteType,
+        durationMinutes: result.durationMinutes,
+        distanceMeters: result.distanceMeters,
+        routePathEncoded: result.routePathEncoded,
+        departure: result.departure,
+        arrival: result.arrival,
+      };
+
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      const allLegs = (current?.legs ?? []).map((l) =>
+        l.legId === leg.legId ? updatedLeg : l,
+      );
+      await saveLegs(spreadsheetId, allLegs);
+      return updatedLeg;
+    },
+
+    onMutate: async ({ leg, newRouteType }) => {
+      await queryClient.cancelQueries({
+        queryKey: getTripQueryKey(spreadsheetId),
+      });
+
+      const previous = updateLegsOptimistic(
+        queryClient,
+        spreadsheetId,
+        (legs) =>
+          legs.map((l) =>
+            l.legId === leg.legId ? { ...l, routeType: newRouteType } : l,
           ),
       );
 

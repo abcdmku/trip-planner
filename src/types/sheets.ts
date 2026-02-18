@@ -35,6 +35,10 @@ export const TRIP_SCHEMA: SheetSchema = {
         'startDate',
         'endDate',
         'defaultMode',
+        'startLat',
+        'startLng',
+        'startName',
+        'startAddress',
       ],
     },
     {
@@ -68,6 +72,10 @@ export const TRIP_SCHEMA: SheetSchema = {
         'isOptional',
         'priority',
         'sortOrder',
+        'destLat',
+        'destLng',
+        'destName',
+        'destAddress',
       ],
     },
     {
@@ -82,6 +90,7 @@ export const TRIP_SCHEMA: SheetSchema = {
         'durationMinutes',
         'distanceMeters',
         'routePathEncoded',
+        'routeType',
       ],
     },
     {

@@ -77,6 +77,10 @@ function parseTrip(raw: Record<string, string>): Trip {
     startDate: raw['startDate'] ?? '',
     endDate: raw['endDate'] ?? '',
     defaultMode: (raw['defaultMode'] as TransportMode) || 'driving',
+    startLat: Number(raw['startLat']) || 0,
+    startLng: Number(raw['startLng']) || 0,
+    startName: raw['startName'] ?? '',
+    startAddress: raw['startAddress'] ?? '',
   };
 }
 
@@ -117,6 +121,10 @@ function parseItem(raw: Record<string, string>): Item {
     isOptional: raw['isOptional'] === 'TRUE',
     priority: Number(raw['priority']) || 0,
     sortOrder: Number(raw['sortOrder']) || 0,
+    destLat: Number(raw['destLat']) || 0,
+    destLng: Number(raw['destLng']) || 0,
+    destName: raw['destName'] ?? '',
+    destAddress: raw['destAddress'] ?? '',
   };
 }
 
@@ -131,6 +139,7 @@ function parseLeg(raw: Record<string, string>): Leg {
     durationMinutes: Number(raw['durationMinutes']) || 0,
     distanceMeters: Number(raw['distanceMeters']) || 0,
     routePathEncoded: raw['routePathEncoded'] ?? '',
+    routeType: (raw['routeType'] as 'directions' | 'straight') || 'directions',
   };
 }
 
@@ -274,7 +283,7 @@ export async function loadTrip(spreadsheetId: string): Promise<TripData> {
   const trip: Trip =
     tripRows.length > 0
       ? parseTrip(rowToObject(tripHeaders, tripRows[0]))
-      : { id: '', name: '', baseTimezone: 'UTC', startDate: '', endDate: '', defaultMode: 'driving' };
+      : { id: '', name: '', baseTimezone: 'UTC', startDate: '', endDate: '', defaultMode: 'driving', startLat: 0, startLng: 0, startName: '', startAddress: '' };
 
   // -- Days (index 1) --
   const daysHeaders = columnsFor('Days');

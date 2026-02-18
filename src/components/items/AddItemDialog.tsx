@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Loader2, MapPin } from 'lucide-react';
+import { X, Plus, Loader2, MapPin, Navigation } from 'lucide-react';
 import { PlaceSearch } from './PlaceSearch';
 import type { PlaceSearchResult } from '../../services/maps-repository';
 import type { ItemType } from '../../types/trip';
@@ -19,6 +19,10 @@ interface AddItemDialogProps {
     notesMd: string;
     scheduledStart: string;
     scheduledEnd: string;
+    destLat: number;
+    destLng: number;
+    destName: string;
+    destAddress: string;
   }) => void;
   isSubmitting?: boolean;
   /** Optional initial place from map POI click */
@@ -64,6 +68,7 @@ export function AddItemDialog({ isOpen, onClose, onAdd, isSubmitting, initialPla
   const [scheduledEnd, setScheduledEnd] = useState('');
   const [notes, setNotes] = useState('');
   const [customName, setCustomName] = useState('');
+  const [destPlace, setDestPlace] = useState<PlaceSearchResult | null>(null);
 
   // Preload either a map-selected place or raw clicked coordinates.
   useEffect(() => {
@@ -129,6 +134,10 @@ export function AddItemDialog({ isOpen, onClose, onAdd, isSubmitting, initialPla
       notesMd: notes,
       scheduledStart,
       scheduledEnd,
+      destLat: destPlace?.lat ?? 0,
+      destLng: destPlace?.lng ?? 0,
+      destName: destPlace?.name ?? '',
+      destAddress: destPlace?.address ?? '',
     });
     // Reset
     setSelectedPlace(null);
@@ -138,6 +147,7 @@ export function AddItemDialog({ isOpen, onClose, onAdd, isSubmitting, initialPla
     setNotes('');
     setScheduledStart('');
     setScheduledEnd('');
+    setDestPlace(null);
   };
 
   return (
@@ -154,45 +164,94 @@ export function AddItemDialog({ isOpen, onClose, onAdd, isSubmitting, initialPla
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Stacked Origin + Destination */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-theme-secondary">Place</label>
-            {isCustomLocation ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-3 py-2 text-sm">
-                  <MapPin className="h-4 w-4 text-blue-500" />
-                  <span className="text-blue-600 dark:text-blue-400">Location from map</span>
-                  <span className="text-xs text-blue-500/70">{selectedPlace?.address}</span>
-                  <button type="button" onClick={() => { setSelectedPlace(null); setCustomName(''); }} className="ml-auto text-blue-400 hover:text-blue-600">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+            <label className="mb-1 block text-sm font-medium text-theme-secondary">Route</label>
+            <div className="rounded-xl border border-theme bg-theme p-3">
+              <div className="flex gap-2.5">
+                {/* Visual connector: dot — line — arrow */}
+                <div className="flex flex-col items-center pt-2.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-accent" />
+                  <div className="w-px flex-1 min-h-[12px] bg-accent/30" />
+                  <Navigation className="h-3 w-3 text-accent/60" />
                 </div>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Enter a name for this location..."
-                  className="input"
-                  autoFocus
-                />
-              </div>
-            ) : (
-              <>
-                <PlaceSearch onSelect={(place) => {
-                  setSelectedPlace(place);
-                  if (place.types.length > 0) {
-                    setType(inferItemType(place.types));
-                  }
-                }} />
-                {selectedPlace && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-accent/10 px-3 py-2 text-sm">
-                    <span className="font-medium text-accent">{selectedPlace.name}</span>
-                    <button type="button" onClick={() => setSelectedPlace(null)} className="ml-auto text-accent/60 hover:text-accent">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+
+                <div className="min-w-0 flex-1 space-y-2">
+                  {/* Origin */}
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-theme-tertiary">Origin</span>
+                    {isCustomLocation ? (
+                      <div className="mt-0.5 space-y-1.5">
+                        <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-2.5 py-1.5 text-xs">
+                          <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                          <span className="text-blue-600 dark:text-blue-400">Map location</span>
+                          <span className="text-[10px] text-blue-500/70">{selectedPlace?.address}</span>
+                          <button type="button" onClick={() => { setSelectedPlace(null); setCustomName(''); }} className="ml-auto text-blue-400 hover:text-blue-600">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={customName}
+                          onChange={(e) => setCustomName(e.target.value)}
+                          placeholder="Name this location..."
+                          className="input text-sm"
+                          autoFocus
+                        />
+                      </div>
+                    ) : selectedPlace ? (
+                      <div className="mt-0.5 flex items-center gap-2 rounded-lg bg-accent/10 px-2.5 py-1.5 text-xs">
+                        <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-accent">{selectedPlace.name}</span>
+                          {selectedPlace.address && (
+                            <p className="truncate text-[10px] text-accent/70">{selectedPlace.address}</p>
+                          )}
+                        </div>
+                        <button type="button" onClick={() => setSelectedPlace(null)} className="text-accent/60 hover:text-accent flex-shrink-0">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-0.5">
+                        <PlaceSearch onSelect={(place) => {
+                          setSelectedPlace(place);
+                          if (place.types.length > 0) {
+                            setType(inferItemType(place.types));
+                          }
+                        }} placeholder="Search origin..." />
+                      </div>
+                    )}
                   </div>
-                )}
-              </>
-            )}
+
+                  {/* Destination */}
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-theme-tertiary">Destination <span className="normal-case font-normal">(optional)</span></span>
+                    {destPlace ? (
+                      <div className="mt-0.5 flex items-center gap-2 rounded-lg bg-accent/10 px-2.5 py-1.5 text-xs">
+                        <Navigation className="h-3.5 w-3.5 text-accent flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-accent">{destPlace.name}</span>
+                          {destPlace.address && (
+                            <p className="truncate text-[10px] text-accent/70">{destPlace.address}</p>
+                          )}
+                        </div>
+                        <button type="button" onClick={() => setDestPlace(null)} className="text-accent/60 hover:text-accent flex-shrink-0">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-0.5">
+                        <PlaceSearch
+                          onSelect={setDestPlace}
+                          placeholder="Search destination..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div>

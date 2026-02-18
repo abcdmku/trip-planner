@@ -94,6 +94,7 @@ function buildEstimatedLeg(
     durationMinutes: travelMinutes,
     distanceMeters: 0,
     routePathEncoded: '',
+    routeType: 'directions',
   };
 }
 

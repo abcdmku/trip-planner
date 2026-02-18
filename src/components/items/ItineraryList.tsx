@@ -17,12 +17,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ItemCard } from './ItemCard';
 import { ItemDetailCard } from './ItemDetailCard';
-import type { Item, Day } from '../../types/trip';
+import { TripEndpointRow } from './TripEndpointRow';
+import type { Item, Day, Trip } from '../../types/trip';
 import { ListPlus } from 'lucide-react';
 
 interface ItineraryListProps {
   items: Item[];
   days: Day[];
+  trip?: Trip | null;
   selectedItemId?: string | null;
   expandedItemId?: string | null;
   onExpandedItemChange?: (id: string | null) => void;
@@ -31,6 +33,7 @@ interface ItineraryListProps {
   onDeleteItem?: (itemId: string) => void;
   onAddItem?: () => void;
   onItemClick?: (itemId: string) => void;
+  onUpdateTrip?: (updates: Partial<Trip>) => void;
 }
 
 function SortableItem({
@@ -96,6 +99,7 @@ function SortableItem({
 export function ItineraryList({
   items,
   days,
+  trip,
   selectedItemId = null,
   expandedItemId,
   onExpandedItemChange,
@@ -104,6 +108,7 @@ export function ItineraryList({
   onDeleteItem,
   onAddItem,
   onItemClick,
+  onUpdateTrip,
 }: ItineraryListProps) {
   const [internalExpandedId, setInternalExpandedId] = useState<string | null>(null);
   const expandedId = expandedItemId !== undefined ? expandedItemId : internalExpandedId;
@@ -160,6 +165,10 @@ export function ItineraryList({
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={sorted.map((i) => i.itemId)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2 p-2">
+          {trip && onUpdateTrip && (
+            <TripEndpointRow trip={trip} onUpdate={onUpdateTrip} />
+          )}
+
           {sorted.map((item) => (
             <SortableItem
               key={item.itemId}

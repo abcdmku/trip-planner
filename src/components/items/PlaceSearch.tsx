@@ -66,16 +66,16 @@ export function PlaceSearch({ onSelect, placeholder = 'Search for a place...' }:
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
           placeholder={placeholder}
-          className="input pl-10 pr-10"
+          className="input w-full pl-10 pr-10"
           role="combobox"
           aria-expanded={isOpen}
           aria-autocomplete="list"
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
           {isSearching ? (
             <Loader2 className="h-4 w-4 animate-spin text-theme-tertiary" />
           ) : query ? (
-            <button onClick={() => { setQuery(''); setResults([]); setIsOpen(false); }} className="text-theme-tertiary hover:text-theme-secondary">
+            <button onClick={() => { setQuery(''); setResults([]); setIsOpen(false); }} className="flex items-center justify-center text-theme-tertiary hover:text-theme-secondary">
               <X className="h-4 w-4" />
             </button>
           ) : null}
@@ -83,7 +83,7 @@ export function PlaceSearch({ onSelect, placeholder = 'Search for a place...' }:
       </div>
 
       {isOpen && results.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-theme bg-theme-elevated py-1 shadow-theme-lg" role="listbox">
+        <ul className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-theme bg-theme-elevated py-1 shadow-theme-lg" role="listbox">
           {results.map((place) => (
             <li key={place.placeId}>
               <button

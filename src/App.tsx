@@ -19,12 +19,14 @@ import { createSpreadsheet } from './lib/google-api';
 import { openSheetPicker } from './lib/google-picker';
 import { useAddDay, useDeleteDay, useUpdateDay } from './hooks/useDays';
 import { useAddItem, useUpdateItem, useDeleteItem, useReorderItems } from './hooks/useItems';
-import { useLegs, useUpdateLegMode, useRecalculateLegs } from './hooks/useLegs';
+import { useLegs, useUpdateLegMode, useUpdateLegRouteType, useRecalculateLegs } from './hooks/useLegs';
+import { useUpdateTrip } from './hooks/useTrip';
+import { START_LOCATION_ID } from './services/leg-recompute';
 import { saveDays } from './services/sheets-repository';
 import type { PlaceSearchResult } from './services/maps-repository';
 import { getDayColor } from './lib/day-colors';
 import { Plane, FolderOpen, Loader2 } from 'lucide-react';
-import type { Day, Item, Leg, TransportMode } from './types/trip';
+import type { Day, Item, Leg, Trip, TransportMode, RouteType } from './types/trip';
 import LegInfoPopup from './components/map/LegInfoPopup';
 
 function TripSetup({
@@ -134,7 +136,9 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
   const updateItem = useUpdateItem(spreadsheetId);
   const deleteItem = useDeleteItem(spreadsheetId);
   const reorderItems = useReorderItems(spreadsheetId);
+  const updateTrip = useUpdateTrip(spreadsheetId);
   const updateLegMode = useUpdateLegMode(spreadsheetId);
+  const updateLegRouteType = useUpdateLegRouteType(spreadsheetId);
   const recalculateLegs = useRecalculateLegs(spreadsheetId);
 
   // Build item lookup for leg info popup
@@ -143,12 +147,18 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     [items],
   );
 
-  // Auto-calculate legs when items exist but legs are empty
-  useEffect(() => {
-    if (items.length < 2 || legs.length > 0 || recalculateLegs.isPending) return;
-    const defaultMode = trip?.defaultMode ?? 'driving';
+  // Auto-calculate legs when items exist but no legs cover them.
+  // Uses a stable fingerprint to avoid re-running on every render.
+  const itemFingerprint = useMemo(
+    () => items.map((i) => `${i.itemId}:${i.sortOrder}:${i.dayId}`).join(','),
+    [items],
+  );
 
-    // Group items by day and recalculate for each day
+  useEffect(() => {
+    if (items.length < 2 || recalculateLegs.isPending) return;
+
+    // Check if existing legs already cover the current item pairs.
+    const legKeys = new Set(legs.map((l) => `${l.fromItemId}::${l.toItemId}`));
     const dayGroups = new Map<string, Item[]>();
     for (const item of items) {
       const group = dayGroups.get(item.dayId) ?? [];
@@ -156,12 +166,40 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       dayGroups.set(item.dayId, group);
     }
 
+    let needsRecalc = false;
+    const groupsToRecalc: Item[][] = [];
+
     for (const dayItems of dayGroups.values()) {
-      if (dayItems.length >= 2) {
-        recalculateLegs.mutate({ items: dayItems, defaultMode });
+      const sorted = [...dayItems].sort((a, b) => a.sortOrder - b.sortOrder);
+      if (sorted.length < 2) continue;
+      let dayNeedsRecalc = false;
+      for (let i = 0; i < sorted.length - 1; i++) {
+        if (!legKeys.has(`${sorted[i].itemId}::${sorted[i + 1].itemId}`)) {
+          dayNeedsRecalc = true;
+          break;
+        }
+      }
+      if (dayNeedsRecalc) {
+        needsRecalc = true;
+        groupsToRecalc.push(sorted);
       }
     }
-  }, [items.length, legs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!needsRecalc) return;
+
+    const defaultMode = trip?.defaultMode ?? 'driving';
+    for (const dayItems of groupsToRecalc) {
+      recalculateLegs.mutate({ items: dayItems, defaultMode });
+    }
+  }, [itemFingerprint, legs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUpdateTrip = useCallback(
+    (updates: Partial<Trip>) => {
+      if (!trip) return;
+      updateTrip.mutate({ ...trip, ...updates });
+    },
+    [trip, updateTrip],
+  );
 
   const handleModeChange = useCallback(
     (leg: Leg, newMode: TransportMode) => {
@@ -171,6 +209,45 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       updateLegMode.mutate({ leg, newMode, fromItem, toItem });
     },
     [itemMap, updateLegMode],
+  );
+
+  const handleRouteTypeChange = useCallback(
+    (leg: Leg, newRouteType: RouteType) => {
+      // For start-location legs, use trip coords as fromItem substitute.
+      let fromItem: Item | undefined;
+      if (leg.fromItemId === START_LOCATION_ID && trip) {
+        // Create a synthetic item for the start location position.
+        fromItem = {
+          itemId: START_LOCATION_ID,
+          dayId: '',
+          placeId: '',
+          placeName: trip.startName,
+          lat: trip.startLat,
+          lng: trip.startLng,
+          address: trip.startAddress,
+          type: 'other',
+          scheduledStart: '',
+          scheduledEnd: '',
+          durationMinutes: 0,
+          notesMd: '',
+          photoUrls: [],
+          availabilityWindows: '[]',
+          isOptional: false,
+          priority: 0,
+          sortOrder: 0,
+          destLat: 0,
+          destLng: 0,
+          destName: '',
+          destAddress: '',
+        };
+      } else {
+        fromItem = itemMap.get(leg.fromItemId);
+      }
+      const toItem = itemMap.get(leg.toItemId);
+      if (!fromItem || !toItem) return;
+      updateLegRouteType.mutate({ leg, newRouteType, fromItem, toItem });
+    },
+    [itemMap, updateLegRouteType, trip],
   );
 
   const handleLegClick = useCallback(
@@ -327,6 +404,10 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       notesMd: string;
       scheduledStart: string;
       scheduledEnd: string;
+      destLat: number;
+      destLng: number;
+      destName: string;
+      destAddress: string;
     }) => {
       const targetDayId = selectedDayId ?? days[0]?.dayId ?? '';
       // Calculate sortOrder based on items in the same day, not globally
@@ -349,6 +430,10 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
         isOptional: false,
         priority: 0,
         sortOrder: itemsInDay.length,
+        destLat: data.destLat,
+        destLng: data.destLng,
+        destName: data.destName,
+        destAddress: data.destAddress,
       });
       setShowAddItem(false);
       setMapSelectedPlace(null);
@@ -396,6 +481,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
           <ItineraryList
             items={filteredItems}
             days={days}
+            trip={trip}
             selectedItemId={selectedItemId}
             expandedItemId={expandedItemId}
             onExpandedItemChange={setExpandedItemId}
@@ -420,6 +506,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
               setSelectedItemId(id);
               setActiveTab('itinerary');
             }}
+            onUpdateTrip={handleUpdateTrip}
           />
         }
         timeline={
@@ -463,6 +550,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
               items={mapItems}
               legs={legs}
               days={days}
+              trip={trip}
               selectedDayIds={selectedDayIds}
               selectedItemId={selectedItemId}
               onSelectedItemChange={setSelectedItemId}
@@ -540,7 +628,34 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       />
 
       {selectedLeg && (() => {
-        const fromItem = itemMap.get(selectedLeg.fromItemId);
+        let fromItem: Item | undefined;
+        if (selectedLeg.fromItemId === START_LOCATION_ID && trip) {
+          fromItem = {
+            itemId: START_LOCATION_ID,
+            dayId: '',
+            placeId: '',
+            placeName: trip.startName || 'Start',
+            lat: trip.startLat,
+            lng: trip.startLng,
+            address: trip.startAddress,
+            type: 'other',
+            scheduledStart: '',
+            scheduledEnd: '',
+            durationMinutes: 0,
+            notesMd: '',
+            photoUrls: [],
+            availabilityWindows: '[]',
+            isOptional: false,
+            priority: 0,
+            sortOrder: 0,
+            destLat: 0,
+            destLng: 0,
+            destName: '',
+            destAddress: '',
+          };
+        } else {
+          fromItem = itemMap.get(selectedLeg.fromItemId);
+        }
         const toItem = itemMap.get(selectedLeg.toItemId);
         if (!fromItem || !toItem) return null;
         return (
@@ -551,6 +666,10 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
             onClose={() => setSelectedLeg(null)}
             onModeChange={(mode) => {
               handleModeChange(selectedLeg, mode);
+              setSelectedLeg(null);
+            }}
+            onRouteTypeChange={(routeType) => {
+              handleRouteTypeChange(selectedLeg, routeType);
               setSelectedLeg(null);
             }}
           />
@@ -589,7 +708,7 @@ function TripDashboard() {
           range: "'Trip'!A2",
           valueInputOption: 'RAW',
           resource: {
-            values: [[crypto.randomUUID(), name, timezone, startDate, endDate, 'driving']],
+            values: [[crypto.randomUUID(), name, timezone, startDate, endDate, 'driving', 0, 0, '', '']],
           },
         });
 

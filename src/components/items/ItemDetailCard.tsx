@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { X, MapPin, Clock, Timer, Tag, Star, ToggleLeft, ToggleRight, StickyNote } from 'lucide-react';
+import { X, MapPin, Clock, Timer, Tag, Star, ToggleLeft, ToggleRight, StickyNote, Navigation } from 'lucide-react';
 import type { Item, ItemType } from '../../types/trip';
+import { PlaceSearch } from './PlaceSearch';
+import type { PlaceSearchResult } from '../../services/maps-repository';
 
 function timeToMin(t: string): number {
   if (!t) return 0;
@@ -38,7 +40,9 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
   const [priority, setPriority] = useState(item.priority);
   const [optional, setOptional] = useState(item.isOptional);
   const [notes, setNotes] = useState(item.notesMd);
+  const [showDestSearch, setShowDestSearch] = useState(false);
   const notesRef = useRef<HTMLTextAreaElement>(null);
+  const hasDest = item.destLat !== 0 || item.destLng !== 0;
 
   // Sync from props when item changes externally
   useEffect(() => {
@@ -64,7 +68,6 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
   const changeStart = useCallback(
     (newStart: string) => {
       setStart(newStart);
-      // Recalculate end from start + duration
       const newEnd = minToTime(timeToMin(newStart) + duration);
       setEnd(newEnd);
       commit({ scheduledStart: newStart, scheduledEnd: newEnd });
@@ -75,7 +78,6 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
   const changeEnd = useCallback(
     (newEnd: string) => {
       setEnd(newEnd);
-      // Recalculate duration from start → end
       const newDur = Math.max(0, timeToMin(newEnd) - timeToMin(start));
       setDuration(newDur);
       commit({ scheduledEnd: newEnd, durationMinutes: newDur });
@@ -86,7 +88,6 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
   const changeDuration = useCallback(
     (newDur: number) => {
       setDuration(newDur);
-      // Recalculate end from start + new duration
       if (start) {
         const newEnd = minToTime(timeToMin(start) + newDur);
         setEnd(newEnd);
@@ -98,7 +99,22 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
     [start, commit],
   );
 
-  const currentType = TYPE_OPTIONS.find((t) => t.value === type) ?? TYPE_OPTIONS[5];
+  const handleDestSelect = useCallback(
+    (place: PlaceSearchResult) => {
+      commit({
+        destLat: place.lat,
+        destLng: place.lng,
+        destName: place.name,
+        destAddress: place.address,
+      });
+      setShowDestSearch(false);
+    },
+    [commit],
+  );
+
+  const handleClearDest = useCallback(() => {
+    commit({ destLat: 0, destLng: 0, destName: '', destAddress: '' });
+  }, [commit]);
 
   // Auto-resize notes textarea
   useEffect(() => {
@@ -113,29 +129,92 @@ export function ItemDetailCard({ item, dayColor = '#3B82F6', onUpdate, onClose }
       {/* Color accent strip */}
       <div className="h-1" style={{ backgroundColor: dayColor }} />
 
-      {/* Header */}
-      <div className="flex items-start gap-2 px-3 pt-2.5 pb-2">
-        <span className="mt-0.5 text-sm leading-none">{currentType.emoji}</span>
-        <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-semibold leading-snug text-theme">
-            {item.placeName}
-          </h4>
-          {item.address && (
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] leading-tight text-theme-tertiary">
-              <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-              <span className="truncate">{item.address}</span>
-            </p>
+      {/* Stacked Origin / Destination header */}
+      <div className="px-3 pt-2.5 pb-2">
+        <div className="flex items-start gap-2">
+          {/* Visual connector: dot — line — dot */}
+          <div className="flex flex-col items-center pt-1">
+            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: dayColor }} />
+            {(hasDest || showDestSearch) && (
+              <>
+                <div className="w-px flex-1 min-h-[16px]" style={{ backgroundColor: `${dayColor}40` }} />
+                <Navigation className="h-2.5 w-2.5" style={{ color: dayColor }} />
+              </>
+            )}
+          </div>
+
+          {/* Place names */}
+          <div className="min-w-0 flex-1">
+            {/* Origin */}
+            <div>
+              <h4 className="text-sm font-semibold leading-snug text-theme">
+                {item.placeName}
+              </h4>
+              {item.address && (
+                <p className="mt-0.5 flex items-center gap-1 text-[10px] leading-tight text-theme-tertiary">
+                  <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+                  <span className="truncate">{item.address}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Destination (stacked below origin) */}
+            {hasDest ? (
+              <div className="mt-2 flex items-center gap-1.5 rounded-md bg-theme-subtle px-2 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-theme truncate">{item.destName}</p>
+                  {item.destAddress && (
+                    <p className="mt-0.5 flex items-center gap-1 text-[10px] text-theme-tertiary">
+                      <MapPin className="h-2 w-2 flex-shrink-0" />
+                      <span className="truncate">{item.destAddress}</span>
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearDest}
+                  className="flex-shrink-0 rounded p-0.5 text-theme-tertiary hover:text-theme-secondary"
+                  aria-label="Clear destination"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : showDestSearch ? (
+              <div className="mt-2 space-y-1">
+                <PlaceSearch
+                  onSelect={handleDestSelect}
+                  placeholder="Search destination..."
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDestSearch(false)}
+                  className="text-[10px] text-theme-tertiary hover:text-theme-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowDestSearch(true)}
+                className="mt-1.5 rounded-md px-1.5 py-1 text-[10px] text-theme-tertiary transition-colors hover:bg-theme-subtle hover:text-theme-secondary"
+              >
+                + Add destination
+              </button>
+            )}
+          </div>
+
+          {/* Close button */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex-shrink-0 rounded-md p-1 text-theme-tertiary transition-colors hover:bg-theme-subtle hover:text-theme-secondary"
+              aria-label="Close"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="flex-shrink-0 rounded-md p-1 text-theme-tertiary transition-colors hover:bg-theme-subtle hover:text-theme-secondary"
-            aria-label="Close"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
       </div>
 
       {/* Divider */}

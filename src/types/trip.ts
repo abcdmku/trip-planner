@@ -27,6 +27,10 @@ export interface Trip {
   startDate: string; // ISO date  e.g. "2025-08-01"
   endDate: string;   // ISO date
   defaultMode: TransportMode;
+  startLat: number;
+  startLng: number;
+  startName: string;
+  startAddress: string;
 }
 
 /** A single calendar day within the trip ("Days" tab). */
@@ -58,7 +62,15 @@ export interface Item {
   isOptional: boolean;
   priority: number;
   sortOrder: number;
+  /** Optional destination (e.g. arrival airport for a flight). */
+  destLat: number;
+  destLng: number;
+  destName: string;
+  destAddress: string;
 }
+
+/** Route type for a leg: routed directions or straight line. */
+export type RouteType = 'directions' | 'straight';
 
 /** A travel leg connecting two items ("Legs" tab). */
 export interface Leg {
@@ -72,6 +84,7 @@ export interface Leg {
   durationMinutes: number;
   distanceMeters: number;
   routePathEncoded: string; // encoded polyline
+  routeType: RouteType;
 }
 
 /** An audit-trail entry for collaborative editing ("History" tab). */

@@ -17,7 +17,7 @@ import {
   type MapMouseEvent,
   type ColorScheme,
 } from '@vis.gl/react-google-maps';
-import type { Item, Leg, Day, TransportMode } from '../../types/trip';
+import type { Item, Leg, Day, Trip, TransportMode } from '../../types/trip';
 import { useTheme } from '../../hooks/useTheme';
 import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
 import { mapsRepository, type PlaceSearchResult } from '../../services/maps-repository';
@@ -25,6 +25,7 @@ import ItemMarker from './ItemMarker';
 import MarkerInfoWindow from './MarkerInfoWindow';
 import MapPlaceInfoWindow from './MapPlaceInfoWindow';
 import RouteOverlay from './RouteOverlay';
+import StartLocationMarker from './StartLocationMarker';
 
 // ---------------------------------------------------------------------------
 // MapReady context -- lets descendants know when the Google Map instance is
@@ -59,6 +60,8 @@ export interface MapShellProps {
   legs?: Leg[];
   /** Days in the trip (used for route path colouring). */
   days?: Day[];
+  /** Trip metadata (for start location). */
+  trip?: Trip | null;
   /** Filter markers to only these day IDs. */
   selectedDayIds?: string[];
   /** Optional externally controlled selected marker/item ID. */
@@ -102,6 +105,7 @@ interface MapInnerProps {
   items: Item[];
   legs: Leg[];
   days: Day[];
+  trip?: Trip | null;
   selectedDayIds?: string[];
   selectedItemId?: string | null;
   onSelectedItemChange?: (itemId: string | null) => void;
@@ -133,6 +137,7 @@ const MapInner = memo(function MapInner({
   items,
   legs,
   days,
+  trip,
   selectedDayIds,
   selectedItemId,
   onSelectedItemChange,
@@ -180,29 +185,40 @@ const MapInner = memo(function MapInner({
   // -----------------------------------------------------------------------
   // Auto-fit bounds to show all visible markers
   // -----------------------------------------------------------------------
+  const hasStartLocation = trip && (trip.startLat !== 0 || trip.startLng !== 0);
+
   useEffect(() => {
-    if (!map || visibleItems.length === 0) return;
+    if (!map) return;
 
-    // Only items with valid coordinates
-    const withCoords = visibleItems.filter(
-      (item) => item.lat !== 0 || item.lng !== 0,
-    );
+    // Collect all points to include in bounds.
+    const points: { lat: number; lng: number }[] = [];
 
-    if (withCoords.length === 0) return;
+    // Add visible items with valid coordinates.
+    for (const item of visibleItems) {
+      if (item.lat !== 0 || item.lng !== 0) {
+        points.push({ lat: item.lat, lng: item.lng });
+      }
+    }
 
-    if (withCoords.length === 1) {
-      // Single marker: center on it with a reasonable zoom
-      map.panTo({ lat: withCoords[0].lat, lng: withCoords[0].lng });
+    // Add start location if set.
+    if (hasStartLocation) {
+      points.push({ lat: trip.startLat, lng: trip.startLng });
+    }
+
+    if (points.length === 0) return;
+
+    if (points.length === 1) {
+      map.panTo(points[0]);
       map.setZoom(15);
       return;
     }
 
     const bounds = new google.maps.LatLngBounds();
-    for (const item of withCoords) {
-      bounds.extend({ lat: item.lat, lng: item.lng });
+    for (const point of points) {
+      bounds.extend(point);
     }
     map.fitBounds(bounds, BOUNDS_PADDING);
-  }, [map, visibleItems]);
+  }, [map, visibleItems, hasStartLocation, trip]);
 
   // -----------------------------------------------------------------------
   // Marker click handler
@@ -478,12 +494,21 @@ const MapInner = memo(function MapInner({
             />
           )}
 
+          {/* Start location marker */}
+          {hasStartLocation && (
+            <StartLocationMarker
+              position={{ lat: trip.startLat, lng: trip.startLng }}
+              name={trip.startName}
+            />
+          )}
+
           {/* Route path polylines */}
           {legs.length > 0 && (
             <RouteOverlay
               legs={legs}
               days={days}
               items={items}
+              trip={trip}
               selectedDayIds={selectedDayIds}
               onLegClick={onLegClick}
               onModeChange={onModeChange}
@@ -515,6 +540,7 @@ export default function MapShell({
   items = [],
   legs = [],
   days = [],
+  trip,
   selectedDayIds,
   selectedItemId,
   onSelectedItemChange,
@@ -536,6 +562,7 @@ export default function MapShell({
         items={items}
         legs={legs}
         days={days}
+        trip={trip}
         selectedDayIds={selectedDayIds}
         selectedItemId={selectedItemId}
         onSelectedItemChange={onSelectedItemChange}

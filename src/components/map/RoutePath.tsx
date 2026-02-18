@@ -23,6 +23,10 @@ export interface RoutePathProps {
   trimMeters?: number;
   /** Optional click handler for the polyline. */
   onClick?: () => void;
+  /** Start point for straight-line rendering (when encodedPath is empty). */
+  fromLatLng?: { lat: number; lng: number };
+  /** End point for straight-line rendering (when encodedPath is empty). */
+  toLatLng?: { lat: number; lng: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -136,37 +140,61 @@ export default function RoutePath({
   opacity = 0.7,
   trimMeters = 60,
   onClick,
+  fromLatLng,
+  toLatLng,
 }: RoutePathProps) {
   const map = useMap();
   const bgPolylineRef = useRef<google.maps.Polyline | null>(null);
   const fgPolylineRef = useRef<google.maps.Polyline | null>(null);
   const listenerRef = useRef<google.maps.MapsEventListener | null>(null);
 
-  useEffect(() => {
-    if (!map || !encodedPath) return;
+  // Determine if this is a straight-line (2-point geodesic) leg.
+  const isStraightLine = !encodedPath && fromLatLng && toLatLng;
 
-    if (!google.maps.geometry?.encoding) {
-      console.warn('RoutePath: google.maps.geometry.encoding is not available');
-      return;
+  useEffect(() => {
+    if (!map) return;
+
+    // Need either an encoded path or from/to coords for straight-line.
+    if (!encodedPath && !isStraightLine) return;
+
+    let pathToRender: google.maps.LatLng[];
+
+    if (isStraightLine) {
+      pathToRender = [
+        new google.maps.LatLng(fromLatLng.lat, fromLatLng.lng),
+        new google.maps.LatLng(toLatLng.lat, toLatLng.lng),
+      ];
+    } else {
+      if (!google.maps.geometry?.encoding) {
+        console.warn('RoutePath: google.maps.geometry.encoding is not available');
+        return;
+      }
+      const decodedPath = google.maps.geometry.encoding.decodePath(encodedPath);
+      pathToRender = trimPath(decodedPath, trimMeters);
     }
 
-    const decodedPath = google.maps.geometry.encoding.decodePath(encodedPath);
-    const trimmedPath = trimPath(decodedPath, trimMeters);
+    // Dashed line symbol for straight-line legs.
+    const dashSymbol: google.maps.Symbol = {
+      path: 'M 0,-1 0,1',
+      strokeOpacity: 1,
+      strokeWeight: weight,
+      scale: weight,
+    };
 
     // --- Background (wider, semi-transparent) polyline for depth ---
     if (bgPolylineRef.current) {
-      bgPolylineRef.current.setPath(trimmedPath);
+      bgPolylineRef.current.setPath(pathToRender);
       bgPolylineRef.current.setOptions({
         strokeColor: color,
-        strokeWeight: weight + 3,
-        strokeOpacity: opacity * 0.25,
+        strokeWeight: isStraightLine ? 0 : weight + 3,
+        strokeOpacity: isStraightLine ? 0 : opacity * 0.25,
       });
     } else {
       bgPolylineRef.current = new google.maps.Polyline({
-        path: trimmedPath,
+        path: pathToRender,
         strokeColor: color,
-        strokeWeight: weight + 3,
-        strokeOpacity: opacity * 0.25,
+        strokeWeight: isStraightLine ? 0 : weight + 3,
+        strokeOpacity: isStraightLine ? 0 : opacity * 0.25,
         geodesic: true,
         map,
         zIndex: 1,
@@ -175,21 +203,42 @@ export default function RoutePath({
 
     // --- Foreground polyline ---
     if (fgPolylineRef.current) {
-      fgPolylineRef.current.setPath(trimmedPath);
-      fgPolylineRef.current.setOptions({
-        strokeColor: color,
-        strokeWeight: weight,
-        strokeOpacity: opacity,
-      });
+      fgPolylineRef.current.setPath(pathToRender);
+      if (isStraightLine) {
+        fgPolylineRef.current.setOptions({
+          strokeColor: color,
+          strokeWeight: 0,
+          strokeOpacity: 0,
+          icons: [{
+            icon: dashSymbol,
+            offset: '0',
+            repeat: `${weight * 4}px`,
+          }],
+        });
+      } else {
+        fgPolylineRef.current.setOptions({
+          strokeColor: color,
+          strokeWeight: weight,
+          strokeOpacity: opacity,
+          icons: [],
+        });
+      }
     } else {
       fgPolylineRef.current = new google.maps.Polyline({
-        path: trimmedPath,
+        path: pathToRender,
         strokeColor: color,
-        strokeWeight: weight,
-        strokeOpacity: opacity,
+        strokeWeight: isStraightLine ? 0 : weight,
+        strokeOpacity: isStraightLine ? 0 : opacity,
         geodesic: true,
         map,
         zIndex: 2,
+        ...(isStraightLine && {
+          icons: [{
+            icon: dashSymbol,
+            offset: '0',
+            repeat: `${weight * 4}px`,
+          }],
+        }),
       });
     }
 
@@ -216,7 +265,7 @@ export default function RoutePath({
         fgPolylineRef.current = null;
       }
     };
-  }, [map, encodedPath, color, weight, opacity, trimMeters, onClick]);
+  }, [map, encodedPath, color, weight, opacity, trimMeters, onClick, isStraightLine, fromLatLng, toLatLng]);
 
   return null;
 }

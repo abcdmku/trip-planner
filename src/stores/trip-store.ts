@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryClient } from '@tanstack/react-query';
-import type { Day, Item, Leg, TripData } from '@/types/trip';
+import type { Day, Item, Leg, Trip, TripData } from '@/types/trip';
 
 // ---------------------------------------------------------------------------
 // Query key factory
@@ -43,6 +43,30 @@ export function invalidateTrip(
 // ---------------------------------------------------------------------------
 // Optimistic update helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Snapshot the current trip data, apply `updater` to the trip metadata, and
+ * write the result back into the cache.
+ *
+ * Returns the **previous** `TripData` so the caller can rollback on error.
+ */
+export function updateTripOptimistic(
+  queryClient: QueryClient,
+  spreadsheetId: string,
+  updater: (trip: Trip) => Trip,
+): TripData | undefined {
+  const queryKey = getTripQueryKey(spreadsheetId);
+  const previous = queryClient.getQueryData<TripData>(queryKey);
+
+  if (previous) {
+    queryClient.setQueryData<TripData>(queryKey, {
+      ...previous,
+      trip: updater(previous.trip),
+    });
+  }
+
+  return previous;
+}
 
 /**
  * Snapshot the current trip data, apply `updater` to the items array, and
