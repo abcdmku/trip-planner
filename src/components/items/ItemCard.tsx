@@ -6,6 +6,7 @@ import { TIMELINE_ITEM_DRAG_MIME } from '@/lib/timeline-drop';
 interface ItemCardProps {
   item: Item;
   dayColor?: string;
+  dayColors?: string[];
   isSelected?: boolean;
   isExpanded?: boolean;
   isDragging?: boolean;
@@ -31,6 +32,7 @@ const TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
 export function ItemCard({
   item,
   dayColor = '#3B82F6',
+  dayColors,
   isSelected = false,
   isExpanded = false,
   isDragging = false,
@@ -43,6 +45,7 @@ export function ItemCard({
   onNativeDragEnd,
 }: ItemCardProps) {
   const typeInfo = TYPE_LABELS[item.type] || TYPE_LABELS.other;
+  const visibleDayColors = (dayColors && dayColors.length > 0 ? dayColors : [dayColor]).filter(Boolean);
   const dragOriginIsHandleRef = useRef(false);
   const [isNativeDragging, setIsNativeDragging] = useState(false);
 
@@ -124,9 +127,13 @@ export function ItemCard({
 
         {/* Color bar */}
         <div
-          className="mt-1 h-10 w-1 flex-shrink-0 rounded-full"
-          style={{ backgroundColor: dayColor }}
-        />
+          className="mt-1 flex h-10 w-1.5 flex-shrink-0 flex-col gap-px overflow-hidden rounded-full"
+          title={visibleDayColors.length > 1 ? `Appears on ${visibleDayColors.length} days` : undefined}
+        >
+          {visibleDayColors.map((color, index) => (
+            <div key={`${color}-${index}`} className="flex-1" style={{ backgroundColor: color }} />
+          ))}
+        </div>
 
         {/* Content */}
         <div className="min-w-0 flex-1">
@@ -135,6 +142,17 @@ export function ItemCard({
             <h4 className="truncate text-sm font-semibold text-theme">
               {item.placeName}
             </h4>
+            {visibleDayColors.length > 1 && (
+              <span className="flex flex-shrink-0 items-center gap-0.5" aria-label={`Appears on ${visibleDayColors.length} days`}>
+                {visibleDayColors.map((color, index) => (
+                  <span
+                    key={`dot-${color}-${index}`}
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </span>
+            )}
             {item.timelineLocked && (
               <Lock className="h-3 w-3 flex-shrink-0 text-theme-tertiary" />
             )}

@@ -85,6 +85,8 @@ export interface MapShellProps {
   showLegacyLegs?: boolean;
   /** Callback when the map is clicked (for adding new places). */
   onMapClick?: (lat: number, lng: number) => void;
+  /** Callback when an item-level route line is clicked. */
+  onItemRouteClick?: (itemId: string) => void;
   /** Callback when a map POI is chosen to be added to the itinerary. */
   onAddPlaceToItinerary?: (place: PlaceSearchResult) => void;
   /** Optional initial center; defaults to (0, 0). */
@@ -106,6 +108,10 @@ const GOOGLE_MAPS_API_KEY: string =
 const GOOGLE_MAP_LIBRARIES = ['places', 'geometry'];
 const BOUNDS_PADDING = 60; // px padding when fitting bounds
 
+function formatCoordForSignature(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(6) : 'NaN';
+}
+
 // ---------------------------------------------------------------------------
 // Inner map component that can use the useMap hook (must be inside APIProvider)
 // ---------------------------------------------------------------------------
@@ -125,6 +131,7 @@ interface MapInnerProps {
   connectors: TimelineConnector[];
   showLegacyLegs: boolean;
   onMapClick?: (lat: number, lng: number) => void;
+  onItemRouteClick?: (itemId: string) => void;
   onAddPlaceToItinerary?: (place: PlaceSearchResult) => void;
   defaultCenter: { lat: number; lng: number };
   defaultZoom: number;
@@ -160,6 +167,7 @@ const MapInner = memo(function MapInner({
   connectors,
   showLegacyLegs,
   onMapClick,
+  onItemRouteClick,
   onAddPlaceToItinerary,
   defaultCenter,
   defaultZoom,
@@ -173,6 +181,7 @@ const MapInner = memo(function MapInner({
   const placeLookupRequestIdRef = useRef(0);
   const markerLookupRequestIdRef = useRef(0);
   const placeDetailsCacheRef = useRef<globalThis.Map<string, PlaceSearchResult | null>>(new globalThis.Map());
+  const lastAutoFitSignatureRef = useRef<string | null>(null);
 
   const map = useMap();
 
@@ -202,28 +211,58 @@ const MapInner = memo(function MapInner({
   // -----------------------------------------------------------------------
   const hasStartLocation = trip && (trip.startLat !== 0 || trip.startLng !== 0);
 
-  useEffect(() => {
-    if (!map) return;
-
-    // Collect all points to include in bounds.
+  const autoFitTargets = useMemo(() => {
     const points: { lat: number; lng: number }[] = [];
+    const signatureParts: string[] = [];
 
-    // Add visible items with valid coordinates.
     for (const item of visibleItems) {
       if (item.lat !== 0 || item.lng !== 0) {
         points.push({ lat: item.lat, lng: item.lng });
+        signatureParts.push(
+          `item:${item.itemId}:${formatCoordForSignature(item.lat)}:${formatCoordForSignature(item.lng)}`,
+        );
       }
+
       if (item.scheduledStart && (item.destLat !== 0 || item.destLng !== 0)) {
         points.push({ lat: item.destLat, lng: item.destLng });
+        signatureParts.push(
+          `dest:${item.itemId}:${formatCoordForSignature(item.destLat)}:${formatCoordForSignature(item.destLng)}`,
+        );
       }
     }
 
-    // Add start location if set.
-    if (hasStartLocation) {
+    if (hasStartLocation && trip) {
       points.push({ lat: trip.startLat, lng: trip.startLng });
+      signatureParts.push(
+        `start:${formatCoordForSignature(trip.startLat)}:${formatCoordForSignature(trip.startLng)}`,
+      );
     }
 
-    if (points.length === 0) return;
+    signatureParts.sort();
+
+    return {
+      points,
+      signature: signatureParts.join('|'),
+    };
+  }, [hasStartLocation, trip, visibleItems]);
+
+  useEffect(() => {
+    // A recreated map instance should get one fresh fit even if the point set is unchanged.
+    lastAutoFitSignatureRef.current = null;
+  }, [map]);
+
+  useEffect(() => {
+    if (!map) return;
+    const { points, signature } = autoFitTargets;
+
+    if (points.length === 0) {
+      lastAutoFitSignatureRef.current = null;
+      return;
+    }
+    if (!signature) return;
+    if (lastAutoFitSignatureRef.current === signature) return;
+
+    lastAutoFitSignatureRef.current = signature;
 
     if (points.length === 1) {
       map.panTo(points[0]);
@@ -236,7 +275,7 @@ const MapInner = memo(function MapInner({
       bounds.extend(point);
     }
     map.fitBounds(bounds, BOUNDS_PADDING);
-  }, [map, visibleItems, hasStartLocation, trip]);
+  }, [autoFitTargets, map]);
 
   // -----------------------------------------------------------------------
   // Marker click handler
@@ -250,6 +289,17 @@ const MapInner = memo(function MapInner({
       onMarkerClick?.(itemId);
     },
     [onMarkerClick, setSelectedItem],
+  );
+
+  const handleItemRouteClick = useCallback(
+    (item: Item) => {
+      placeLookupRequestIdRef.current += 1;
+      setSelectedMapPlace(null);
+      setSelectedMarkerPlace(null);
+      setSelectedItem(null);
+      onItemRouteClick?.(item.itemId);
+    },
+    [onItemRouteClick, setSelectedItem],
   );
 
   const handleInfoWindowClose = useCallback(() => {
@@ -526,6 +576,7 @@ const MapInner = memo(function MapInner({
             items={items}
             days={days}
             selectedDayIds={selectedDayIds}
+            onItemRouteClick={handleItemRouteClick}
           />
 
           <TimelineConnectorOverlay
@@ -583,6 +634,7 @@ export default function MapShell({
   connectors = [],
   showLegacyLegs = false,
   onMapClick,
+  onItemRouteClick,
   onAddPlaceToItinerary,
   defaultCenter = DEFAULT_CENTER,
   defaultZoom = DEFAULT_ZOOM,
@@ -608,6 +660,7 @@ export default function MapShell({
         connectors={connectors}
         showLegacyLegs={showLegacyLegs}
         onMapClick={onMapClick}
+        onItemRouteClick={onItemRouteClick}
         onAddPlaceToItinerary={onAddPlaceToItinerary}
         defaultCenter={defaultCenter}
         defaultZoom={defaultZoom}

@@ -32,6 +32,17 @@ interface AvailabilityPayloadV2 {
   slots?: AvailabilityDateSlot[];
 }
 
+const GOOGLE_WEEKDAY_INDEX_TO_DAY_OF_WEEK = [1, 2, 3, 4, 5, 6, 0] as const;
+const ENGLISH_DAY_TO_DAY_OF_WEEK: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
 // ---------------------------------------------------------------------------
 // parseAvailabilityWindows
 // ---------------------------------------------------------------------------
@@ -62,6 +73,102 @@ export function parseAvailabilityWindows(json: string): AvailabilityWindow[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Serialize legacy weekly windows (array payload).
+ */
+export function serializeAvailabilityWindows(windows: AvailabilityWindow[]): string {
+  if (!windows.length) return '[]';
+  return JSON.stringify(
+    windows.map((window) => ({
+      ...(window.dayOfWeek !== undefined ? { dayOfWeek: window.dayOfWeek } : {}),
+      openTime: window.openTime,
+      closeTime: window.closeTime,
+    })),
+  );
+}
+
+/**
+ * Convert Google Maps `opening_hours.weekday_text` into legacy weekday windows.
+ */
+export function parseGoogleWeekdayTextToAvailabilityWindows(
+  weekdayText?: string[] | null,
+): AvailabilityWindow[] {
+  if (!Array.isArray(weekdayText) || weekdayText.length === 0) return [];
+
+  const windows: AvailabilityWindow[] = [];
+
+  weekdayText.forEach((line, index) => {
+    if (typeof line !== 'string' || line.trim() === '') return;
+
+    const colonIndex = line.indexOf(':');
+    const rawDayLabel = colonIndex >= 0 ? line.slice(0, colonIndex).trim() : '';
+    const rawHours = colonIndex >= 0 ? line.slice(colonIndex + 1).trim() : line.trim();
+    const normalizedDayLabel = rawDayLabel.toLowerCase();
+
+    const dayOfWeek =
+      ENGLISH_DAY_TO_DAY_OF_WEEK[normalizedDayLabel] ??
+      GOOGLE_WEEKDAY_INDEX_TO_DAY_OF_WEEK[index];
+
+    const normalizedHours = rawHours
+      .replace(/[\u00A0\u2009\u202F]/g, ' ')
+      .replace(/[–—−]/g, '-')
+      .trim();
+
+    if (!normalizedHours || /closed/i.test(normalizedHours)) {
+      return;
+    }
+
+    if (/open\s+24\s+hours/i.test(normalizedHours)) {
+      windows.push({
+        dayOfWeek,
+        openTime: '00:00',
+        closeTime: '23:59',
+      });
+      return;
+    }
+
+    const ranges = normalizedHours
+      .split(',')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    for (const range of ranges) {
+      const match = range.match(/^(.+?)\s*-\s*(.+)$/);
+      if (!match) continue;
+
+      const openTime = parseGoogleHourLabel(match[1]);
+      const closeTime = parseGoogleHourLabel(match[2]);
+      if (!openTime || !closeTime) continue;
+
+      const openMinutes = timeToMinutes(openTime);
+      const closeMinutes = timeToMinutes(closeTime);
+
+      if (closeMinutes <= openMinutes) {
+        // Split overnight ranges because the stored model is same-day only.
+        windows.push({
+          dayOfWeek,
+          openTime,
+          closeTime: '23:59',
+        });
+        windows.push({
+          dayOfWeek: (dayOfWeek + 1) % 7,
+          openTime: '00:00',
+          closeTime,
+        });
+        continue;
+      }
+
+      windows.push({
+        dayOfWeek,
+        openTime,
+        closeTime,
+      });
+    }
+  });
+
+  return windows;
 }
 
 /**
@@ -306,4 +413,30 @@ function getDayOfWeek(date: string): number {
   const [year, month, day] = date.split('-').map(Number);
   // Month is 0-indexed in JS Date; use UTC to avoid TZ shifts.
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function parseGoogleHourLabel(label: string): string | null {
+  const normalized = label
+    .replace(/[\u00A0\u2009\u202F]/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) return null;
+  if (normalized === 'midnight') return '00:00';
+  if (normalized === 'noon') return '12:00';
+
+  const match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? '0');
+  const meridiem = match[3].toLowerCase();
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+
+  if (hour === 12) hour = 0;
+  if (meridiem === 'pm') hour += 12;
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }

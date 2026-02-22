@@ -129,6 +129,29 @@ export function getMidpoint(
   return { lat: last.lat(), lng: last.lng() };
 }
 
+function brightenColor(color: string, amount = 0.25): string {
+  const match = color.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) return color;
+
+  let hex = match[1];
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((char) => `${char}${char}`)
+      .join('');
+  }
+
+  const r = Number.parseInt(hex.slice(0, 2), 16);
+  const g = Number.parseInt(hex.slice(2, 4), 16);
+  const b = Number.parseInt(hex.slice(4, 6), 16);
+
+  const mixToWhite = (channel: number) =>
+    Math.max(0, Math.min(255, Math.round(channel + (255 - channel) * amount)));
+  const toHex = (channel: number) => mixToWhite(channel).toString(16).padStart(2, '0');
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -146,7 +169,9 @@ export default function RoutePath({
   const map = useMap();
   const bgPolylineRef = useRef<google.maps.Polyline | null>(null);
   const fgPolylineRef = useRef<google.maps.Polyline | null>(null);
-  const listenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const mouseOverListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const mouseOutListenerRef = useRef<google.maps.MapsEventListener | null>(null);
 
   // Determine if this is a straight-line (2-point geodesic) leg.
   const isStraightLine = !encodedPath && fromLatLng && toLatLng;
@@ -179,6 +204,46 @@ export default function RoutePath({
       strokeOpacity: 1,
       strokeWeight: weight,
       scale: weight,
+      strokeColor: color,
+    };
+    const straightHitWeight = Math.max(weight * 3, 14);
+    const hoverColor = brightenColor(color, 0.3);
+
+    const applyVisualState = (hovered: boolean) => {
+      const displayColor = hovered ? hoverColor : color;
+
+      if (bgPolylineRef.current) {
+        bgPolylineRef.current.setOptions({
+          strokeColor: displayColor,
+          strokeWeight: isStraightLine ? 0 : weight + 3,
+          strokeOpacity: isStraightLine ? 0 : opacity * 0.25,
+        });
+      }
+
+      if (!fgPolylineRef.current) return;
+      if (isStraightLine) {
+        fgPolylineRef.current.setOptions({
+          strokeColor: displayColor,
+          // Invisible, but wide enough to receive mouse events for dashed lines.
+          strokeWeight: straightHitWeight,
+          strokeOpacity: 0,
+          icons: [{
+            icon: {
+              ...dashSymbol,
+              strokeColor: displayColor,
+            },
+            offset: '0',
+            repeat: `${weight * 4}px`,
+          }],
+        });
+      } else {
+        fgPolylineRef.current.setOptions({
+          strokeColor: displayColor,
+          strokeWeight: weight,
+          strokeOpacity: opacity,
+          icons: [],
+        });
+      }
     };
 
     // --- Background (wider, semi-transparent) polyline for depth ---
@@ -188,6 +253,7 @@ export default function RoutePath({
         strokeColor: color,
         strokeWeight: isStraightLine ? 0 : weight + 3,
         strokeOpacity: isStraightLine ? 0 : opacity * 0.25,
+        clickable: Boolean(onClick),
       });
     } else {
       bgPolylineRef.current = new google.maps.Polyline({
@@ -198,6 +264,7 @@ export default function RoutePath({
         geodesic: true,
         map,
         zIndex: 1,
+        clickable: Boolean(onClick),
       });
     }
 
@@ -207,8 +274,9 @@ export default function RoutePath({
       if (isStraightLine) {
         fgPolylineRef.current.setOptions({
           strokeColor: color,
-          strokeWeight: 0,
+          strokeWeight: straightHitWeight,
           strokeOpacity: 0,
+          clickable: Boolean(onClick),
           icons: [{
             icon: dashSymbol,
             offset: '0',
@@ -220,6 +288,7 @@ export default function RoutePath({
           strokeColor: color,
           strokeWeight: weight,
           strokeOpacity: opacity,
+          clickable: Boolean(onClick),
           icons: [],
         });
       }
@@ -227,11 +296,12 @@ export default function RoutePath({
       fgPolylineRef.current = new google.maps.Polyline({
         path: pathToRender,
         strokeColor: color,
-        strokeWeight: isStraightLine ? 0 : weight,
+        strokeWeight: isStraightLine ? straightHitWeight : weight,
         strokeOpacity: isStraightLine ? 0 : opacity,
         geodesic: true,
         map,
         zIndex: 2,
+        clickable: Boolean(onClick),
         ...(isStraightLine && {
           icons: [{
             icon: dashSymbol,
@@ -243,18 +313,56 @@ export default function RoutePath({
     }
 
     // Click listener on the foreground polyline.
-    if (listenerRef.current) {
-      google.maps.event.removeListener(listenerRef.current);
-      listenerRef.current = null;
+    if (clickListenerRef.current) {
+      google.maps.event.removeListener(clickListenerRef.current);
+      clickListenerRef.current = null;
+    }
+    if (mouseOverListenerRef.current) {
+      google.maps.event.removeListener(mouseOverListenerRef.current);
+      mouseOverListenerRef.current = null;
+    }
+    if (mouseOutListenerRef.current) {
+      google.maps.event.removeListener(mouseOutListenerRef.current);
+      mouseOutListenerRef.current = null;
     }
     if (onClick) {
-      listenerRef.current = fgPolylineRef.current.addListener('click', onClick);
+      clickListenerRef.current = fgPolylineRef.current.addListener('click', (event: google.maps.MapMouseEvent | google.maps.PolyMouseEvent) => {
+        // Prevent map click handler from immediately clearing selection.
+        if ('stop' in event && typeof event.stop === 'function') {
+          event.stop();
+        }
+        const domEvent = (event as { domEvent?: { stopPropagation?: () => void; preventDefault?: () => void } }).domEvent;
+        domEvent?.stopPropagation?.();
+        domEvent?.preventDefault?.();
+        onClick();
+      });
+      mouseOverListenerRef.current = fgPolylineRef.current.addListener('mouseover', () => {
+        const mapDiv = map.getDiv();
+        mapDiv.style.cursor = 'pointer';
+        applyVisualState(true);
+      });
+      mouseOutListenerRef.current = fgPolylineRef.current.addListener('mouseout', () => {
+        const mapDiv = map.getDiv();
+        mapDiv.style.cursor = '';
+        applyVisualState(false);
+      });
+    } else {
+      applyVisualState(false);
     }
 
     return () => {
-      if (listenerRef.current) {
-        google.maps.event.removeListener(listenerRef.current);
-        listenerRef.current = null;
+      map.getDiv().style.cursor = '';
+      if (clickListenerRef.current) {
+        google.maps.event.removeListener(clickListenerRef.current);
+        clickListenerRef.current = null;
+      }
+      if (mouseOverListenerRef.current) {
+        google.maps.event.removeListener(mouseOverListenerRef.current);
+        mouseOverListenerRef.current = null;
+      }
+      if (mouseOutListenerRef.current) {
+        google.maps.event.removeListener(mouseOutListenerRef.current);
+        mouseOutListenerRef.current = null;
       }
       if (bgPolylineRef.current) {
         bgPolylineRef.current.setMap(null);

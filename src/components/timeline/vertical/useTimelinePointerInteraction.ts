@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
+import { getAvailabilityRangesForDate } from '@/lib/availability';
+import { toMinutesOfDay } from '@/lib/date-time';
 import type { Item } from '@/types/trip';
 import {
   DEFAULT_DUR,
   DRAG_THRESH,
   MIN_BLOCK_H,
-  PX_PER_MIN,
   RESIZE_EDGE,
   SNAP,
 } from './constants';
@@ -23,6 +24,68 @@ interface UseTimelinePointerInteractionResult {
   handleBackgroundPointerDown: (e: React.PointerEvent) => void;
   handleItemPointerDown: (e: React.PointerEvent, item: Item) => void;
   getItemVisualPosition: (item: Item, startHour: number) => ItemVisualPosition;
+}
+
+interface AvailabilityMinuteRange {
+  startMin: number;
+  endMin: number;
+}
+
+function getAvailabilityMinuteRanges(availabilityJson: string, dayDate: string): AvailabilityMinuteRange[] {
+  if (!availabilityJson) return [];
+
+  return getAvailabilityRangesForDate(availabilityJson, dayDate)
+    .map((range) => ({
+      startMin: toMinutesOfDay(range.startTime),
+      endMin: toMinutesOfDay(range.endTime),
+    }))
+    .filter(
+      (range): range is AvailabilityMinuteRange =>
+        range.startMin !== null &&
+        range.endMin !== null &&
+        range.endMin > range.startMin,
+    );
+}
+
+function isRangeWithinAvailabilityRanges(
+  ranges: AvailabilityMinuteRange[],
+  startMin: number,
+  endMin: number,
+): boolean {
+  if (ranges.length === 0) return true; // Mirrors isRangeAllowedForDate semantics.
+  return ranges.some((range) => startMin >= range.startMin && endMin <= range.endMin);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function findNearestSnappedValue({
+  desired,
+  min,
+  max,
+  isValid,
+}: {
+  desired: number;
+  min: number;
+  max: number;
+  isValid: (value: number) => boolean;
+}): number {
+  const snapped = clamp(snapM(desired, SNAP), min, max);
+  if (isValid(snapped)) return snapped;
+
+  for (let offset = SNAP; offset <= 24 * 60; offset += SNAP) {
+    const forward = snapped + offset;
+    const backward = snapped - offset;
+    const forwardInBounds = forward <= max;
+    const backwardInBounds = backward >= min;
+
+    if (forwardInBounds && isValid(forward)) return forward;
+    if (backwardInBounds && isValid(backward)) return backward;
+    if (!forwardInBounds && !backwardInBounds) break;
+  }
+
+  return snapped;
 }
 
 export function useTimelinePointerInteraction(
@@ -48,7 +111,7 @@ export function useTimelinePointerInteraction(
     if (!pointer.activated && Math.abs(deltaY) < DRAG_THRESH) return;
     pointer.activated = true;
 
-    const { contentRef, onMoveOutOfBounds, startHourRef } = optsRef.current;
+    const { contentRef, onMoveOutOfBounds, startHourRef, pxPerMin } = optsRef.current;
 
     // Cross-day detection: if moving an item and pointer leaves column bounds
     if (pointer.action === 'move' && pointer.itemId && onMoveOutOfBounds) {
@@ -79,7 +142,7 @@ export function useTimelinePointerInteraction(
     const scrollTop = optsRef.current.getScrollTop();
     const rawY = e.clientY - pointer.containerTop + scrollTop;
     const currentMin = snapM(
-      Math.max(0, Math.min(1440, rawY / PX_PER_MIN + startHourRef.current * 60)),
+      Math.max(0, Math.min(1440, rawY / pxPerMin + startHourRef.current * 60)),
       SNAP,
     );
 
@@ -93,16 +156,47 @@ export function useTimelinePointerInteraction(
         break;
       }
       case 'move': {
-        pointer.curDelta = currentMin - pointer.anchorMin;
+        const origStart = pointer.origStartMin ?? 0;
+        const origEnd = pointer.origEndMin ?? origStart + DEFAULT_DUR;
+        const duration = Math.max(SNAP, origEnd - origStart);
+        const desiredStart = origStart + (currentMin - pointer.anchorMin);
+
+        const sourceItem = pointer.itemId ? optsRef.current.itemsById.get(pointer.itemId) : undefined;
+        const ranges = sourceItem
+          ? getAvailabilityMinuteRanges(sourceItem.availabilityWindows, optsRef.current.dayDate)
+          : [];
+
+        const snappedStart = findNearestSnappedValue({
+          desired: desiredStart,
+          min: 0,
+          max: Math.max(0, 1440 - duration),
+          isValid: (candidateStart) =>
+            isRangeWithinAvailabilityRanges(ranges, candidateStart, candidateStart + duration),
+        });
+
+        pointer.curDelta = snappedStart - origStart;
         setInteraction({ type: 'moving', itemId: pointer.itemId ?? '', deltaMin: pointer.curDelta });
         break;
       }
       case 'resize-top': {
         const delta = currentMin - pointer.anchorMin;
-        pointer.curStartMin = Math.max(
+        const desiredStart = Math.max(
           0,
           Math.min((pointer.origStartMin ?? 0) + delta, (pointer.origEndMin ?? 0) - SNAP),
         );
+        const endMin = pointer.origEndMin ?? pointer.curEndMin;
+        const sourceItem = pointer.itemId ? optsRef.current.itemsById.get(pointer.itemId) : undefined;
+        const ranges = sourceItem
+          ? getAvailabilityMinuteRanges(sourceItem.availabilityWindows, optsRef.current.dayDate)
+          : [];
+
+        pointer.curStartMin = findNearestSnappedValue({
+          desired: desiredStart,
+          min: 0,
+          max: Math.max(0, endMin - SNAP),
+          isValid: (candidateStart) =>
+            isRangeWithinAvailabilityRanges(ranges, candidateStart, endMin),
+        });
         setInteraction({
           type: 'resizing',
           itemId: pointer.itemId ?? '',
@@ -113,10 +207,23 @@ export function useTimelinePointerInteraction(
       }
       case 'resize-bottom': {
         const delta = currentMin - pointer.anchorMin;
-        pointer.curEndMin = Math.min(
+        const desiredEnd = Math.min(
           1440,
           Math.max((pointer.origEndMin ?? 0) + delta, (pointer.origStartMin ?? 0) + SNAP),
         );
+        const startMin = pointer.origStartMin ?? pointer.curStartMin;
+        const sourceItem = pointer.itemId ? optsRef.current.itemsById.get(pointer.itemId) : undefined;
+        const ranges = sourceItem
+          ? getAvailabilityMinuteRanges(sourceItem.availabilityWindows, optsRef.current.dayDate)
+          : [];
+
+        pointer.curEndMin = findNearestSnappedValue({
+          desired: desiredEnd,
+          min: Math.min(1440, startMin + SNAP),
+          max: 1440,
+          isValid: (candidateEnd) =>
+            isRangeWithinAvailabilityRanges(ranges, startMin, candidateEnd),
+        });
         setInteraction({
           type: 'resizing',
           itemId: pointer.itemId ?? '',
@@ -187,7 +294,7 @@ export function useTimelinePointerInteraction(
       origStart?: number,
       origEnd?: number,
     ) => {
-      const { contentRef, getScrollTop, startHourRef } = optsRef.current;
+      const { contentRef, getScrollTop, startHourRef, pxPerMin } = optsRef.current;
       const contentElement = contentRef.current;
       if (!contentElement) return;
 
@@ -195,7 +302,7 @@ export function useTimelinePointerInteraction(
       const rect = contentElement.getBoundingClientRect();
       const rawY = e.clientY - rect.top + getScrollTop();
       const anchorMin = snapM(
-        Math.max(0, Math.min(1440, rawY / PX_PER_MIN + startHourRef.current * 60)),
+        Math.max(0, Math.min(1440, rawY / pxPerMin + startHourRef.current * 60)),
         SNAP,
       );
 
@@ -278,8 +385,8 @@ export function useTimelinePointerInteraction(
       }
 
       return {
-        top: mToY(visualStart, startHour, PX_PER_MIN),
-        height: Math.max(MIN_BLOCK_H, (visualEnd - visualStart) * PX_PER_MIN),
+        top: mToY(visualStart, startHour, optsRef.current.pxPerMin),
+        height: Math.max(MIN_BLOCK_H, (visualEnd - visualStart) * optsRef.current.pxPerMin),
         startMin: visualStart,
         endMin: visualEnd,
         active,

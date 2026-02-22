@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
-import { PX_PER_HR, SNAP } from '../constants';
+import { SNAP } from '../constants';
 import { mToY, snapM, toMins } from '../time';
 import type { ExternalDragPreview, SingleDayTimelineProps } from '../types';
 import { useTimelinePointerInteraction } from '../useTimelinePointerInteraction';
@@ -11,6 +11,9 @@ import { SingleDayTimelineGrid } from './SingleDayTimelineGrid';
 export function SingleDayTimeline({
   day,
   items,
+  allItems,
+  pxPerMin,
+  pxPerHr,
   selectedItemId,
   activeDragItemId,
   onUpdateItem,
@@ -62,7 +65,7 @@ export function SingleDayTimeline({
     startHRef.current = startH;
   }, [startH]);
 
-  const totalH = (endH - startH) * PX_PER_HR;
+  const totalH = (endH - startH) * pxPerHr;
   const hours = useMemo(
     () => Array.from({ length: endH - startH + 1 }, (_, index) => startH + index),
     [endH, startH],
@@ -70,7 +73,7 @@ export function SingleDayTimeline({
 
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const nowY = nowMin >= startH * 60 && nowMin <= endH * 60 ? mToY(nowMin, startH, 1.2) : null;
+  const nowY = nowMin >= startH * 60 && nowMin <= endH * 60 ? mToY(nowMin, startH, pxPerMin) : null;
 
   useEffect(() => {
     didScrollRef.current = false;
@@ -81,14 +84,14 @@ export function SingleDayTimeline({
 
     const target =
       visible.length > 0
-        ? Math.max(0, mToY(toMins(visible[0].scheduledStart), startH, 1.2) - 20)
+        ? Math.max(0, mToY(toMins(visible[0].scheduledStart), startH, pxPerMin) - 20)
         : nowY !== null
           ? Math.max(0, nowY - 100)
           : 0;
 
     scrollRef.current.scrollTop = target;
     didScrollRef.current = true;
-  }, [nowY, startH, visible]);
+  }, [nowY, pxPerMin, startH, visible]);
 
   const {
     interaction,
@@ -105,6 +108,7 @@ export function SingleDayTimeline({
     onItemClick,
     onItemDoubleClick,
     onCreateAtTime,
+    pxPerMin,
   });
 
   const clearPointDropPreview = useCallback(() => {
@@ -117,8 +121,8 @@ export function SingleDayTimeline({
     if (!rect) return startHRef.current * 60;
 
     const rawY = e.clientY - rect.top + (scrollRef.current?.scrollTop ?? 0);
-    return snapM(Math.max(0, Math.min(1440, rawY / 1.2 + startHRef.current * 60)), SNAP);
-  }, []);
+    return snapM(Math.max(0, Math.min(1440, rawY / pxPerMin + startHRef.current * 60)), SNAP);
+  }, [pxPerMin]);
 
   const handleExternalPointDragOver = useCallback(
     (e: React.DragEvent) => {
@@ -168,14 +172,16 @@ export function SingleDayTimeline({
         onDrop={handleExternalPointDrop}
         onDragLeave={handleExternalPointDragLeave}
       >
-        <SingleDayTimelineGrid startH={startH} hours={hours} nowY={nowY} />
+        <SingleDayTimelineGrid startH={startH} hours={hours} nowY={nowY} pxPerHr={pxPerHr} />
 
         <SingleDayItemLayer
           day={day}
           items={visible}
-          allItems={items}
+          allItems={allItems ?? items}
           selectedItemId={selectedItemId}
+          activeDragItemId={activeDragItemId}
           startH={startH}
+          pxPerMin={pxPerMin}
           interaction={interaction}
           externalPreview={externalPreview}
           getItemVisualPosition={getItemVisualPosition}

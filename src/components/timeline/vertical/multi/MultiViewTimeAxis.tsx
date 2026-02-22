@@ -1,13 +1,14 @@
-import { MULTI_HEADER_H, PX_PER_HR, TIME_AXIS_W } from '../constants';
+import { MULTI_HEADER_H, TIME_AXIS_W } from '../constants';
 import { hourLabel } from '../time';
 
 interface MultiViewTimeAxisProps {
   globalStartH: number;
   gHours: number[];
   gTotalH: number;
+  pxPerHr: number;
 }
 
-export function MultiViewTimeAxis({ globalStartH, gHours, gTotalH }: MultiViewTimeAxisProps) {
+export function MultiViewTimeAxis({ globalStartH, gHours, gTotalH, pxPerHr }: MultiViewTimeAxisProps) {
   return (
     <div
       className="sticky left-0 z-20 flex-shrink-0 border-r border-theme-subtle bg-theme"
@@ -16,7 +17,7 @@ export function MultiViewTimeAxis({ globalStartH, gHours, gTotalH }: MultiViewTi
       <div className="sticky top-0 z-30 border-b border-theme-subtle bg-theme" style={{ height: MULTI_HEADER_H }} />
       <div className="relative" style={{ height: gTotalH }}>
         {gHours.map((hour) => {
-          const y = (hour - globalStartH) * PX_PER_HR;
+          const y = (hour - globalStartH) * pxPerHr;
           return (
             <div
               key={hour}
@@ -32,7 +33,7 @@ export function MultiViewTimeAxis({ globalStartH, gHours, gTotalH }: MultiViewTi
 
         {gHours.slice(0, -1).flatMap((hour) =>
           [1, 2, 3].map((quarter) => {
-            const y = (hour - globalStartH) * PX_PER_HR + (quarter * PX_PER_HR) / 4;
+            const y = (hour - globalStartH) * pxPerHr + (quarter * pxPerHr) / 4;
             return (
               <div
                 key={`t-${hour}-${quarter}`}

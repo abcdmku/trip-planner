@@ -1,5 +1,8 @@
 export const PX_PER_MIN = 1.2;
 export const PX_PER_HR = PX_PER_MIN * 60;
+export const TIMELINE_MIN_PX_PER_MIN = 0.6;
+export const TIMELINE_MAX_PX_PER_MIN = 2.4;
+export const TIMELINE_ZOOM_STEP_PX_PER_MIN = 0.2;
 
 export const MIN_BLOCK_H = 22;
 export const SNAP = 5;

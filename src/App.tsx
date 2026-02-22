@@ -11,7 +11,9 @@ import { DayEditor } from './components/days/DayEditor';
 import { DeleteDayDialog } from './components/days/DeleteDayDialog';
 import { ItineraryList } from './components/items/ItineraryList';
 import { AddItemDialog } from './components/items/AddItemDialog';
+import { ItemEditorDialog } from './components/items/ItemEditorDialog';
 import { VerticalTimeline } from './components/timeline/VerticalTimeline';
+import { buildTimelineRenderItemsByDay } from './components/timeline/vertical/render-segments';
 import MapShell from './components/map/MapShell';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { validateSchema, initializeSheet } from './lib/schema';
@@ -23,28 +25,43 @@ import { useLegs, useUpdateLegMode, useUpdateLegRouteType, useRecalculateLegs } 
 import { useUpdateTrip } from './hooks/useTrip';
 import { START_LOCATION_ID } from './services/leg-recompute';
 import { saveDays } from './services/sheets-repository';
-import { mapsRepository, type PlaceSearchResult } from './services/maps-repository';
+import type { PlaceSearchResult } from './services/maps-repository';
 import { deriveTimelineConnectors, type TimelineConnector, type TimelineConnectorWithTiming } from './lib/connectors';
 import { getDayColor } from './lib/day-colors';
-import { buildDateTime } from './lib/date-time';
 import { resolveAppendDropAfterLast, minutesToTime } from './lib/timeline-drop';
 import { Plane, FolderOpen, Loader2 } from 'lucide-react';
 import type { Day, Item, Leg, Trip, TransportMode, RouteType } from './types/trip';
 import LegInfoPopup from './components/map/LegInfoPopup';
 import { DragOverlay } from './components/items/DragOverlay';
+import { discoverLoadableTrips, type LoadableTripSummary } from './services/drive-repository';
+
+function formatModifiedTime(value?: string): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString();
+}
 
 function TripSetup({
   onCreateTrip,
   onImportSheet,
+  onOpenKnownTrip,
   schemaStatus,
   schemaErrors,
   isGapiReady,
+  loadableTrips,
+  isLoadingLoadableTrips,
+  loadableTripsError,
 }: {
   onCreateTrip: (name: string, startDate: string, endDate: string, timezone: string) => void;
   onImportSheet: () => void;
+  onOpenKnownTrip: (spreadsheetId: string) => void;
   schemaStatus: 'validating' | 'valid' | 'invalid' | 'initializing' | 'creating' | null;
   schemaErrors: string[];
   isGapiReady: boolean;
+  loadableTrips: LoadableTripSummary[];
+  isLoadingLoadableTrips: boolean;
+  loadableTripsError: string | null;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const isLoading = !isGapiReady || schemaStatus === 'validating' || schemaStatus === 'creating' || schemaStatus === 'initializing';
@@ -100,6 +117,47 @@ function TripSetup({
         {schemaStatus && schemaStatus !== 'creating' && (
           <SchemaStatus status={schemaStatus} errors={schemaErrors} />
         )}
+
+        {isGapiReady && (
+          <div className="rounded-2xl border border-theme bg-theme-elevated p-3 shadow-theme-sm">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-theme">
+                Loadable Trips ({loadableTrips.length})
+              </h2>
+              {isLoadingLoadableTrips && <Loader2 className="h-4 w-4 animate-spin text-theme-secondary" />}
+            </div>
+
+            {loadableTripsError ? (
+              <p className="text-xs text-theme-secondary">{loadableTripsError}</p>
+            ) : isLoadingLoadableTrips && loadableTrips.length === 0 ? (
+              <p className="text-xs text-theme-secondary">Scanning accessible spreadsheets...</p>
+            ) : loadableTrips.length === 0 ? (
+              <p className="text-xs text-theme-secondary">
+                No Trip Planner sheets found yet. Create one or use the picker to grant access.
+              </p>
+            ) : (
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                {loadableTrips.map((trip) => {
+                  const modifiedLabel = formatModifiedTime(trip.modifiedTime);
+                  return (
+                    <button
+                      key={trip.spreadsheetId}
+                      type="button"
+                      onClick={() => onOpenKnownTrip(trip.spreadsheetId)}
+                      className="w-full rounded-xl border border-theme bg-theme px-3 py-2 text-left shadow-theme-sm transition-colors hover:bg-theme-subtle"
+                    >
+                      <div className="truncate text-sm font-medium text-theme">{trip.name}</div>
+                      <div className="mt-1 truncate text-[11px] text-theme-secondary">{trip.spreadsheetId}</div>
+                      {modifiedLabel && (
+                        <div className="mt-1 text-[11px] text-theme-secondary">Updated {modifiedLabel}</div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <CreateTripDialog
@@ -140,12 +198,12 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
   const [addItemInitialTimelineLocked, setAddItemInitialTimelineLocked] = useState<boolean | undefined>();
   const [addItemInitialTravelLink, setAddItemInitialTravelLink] = useState<{ fromItemId: string; toItemId: string } | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [isDragOverTimeline, setIsDragOverTimeline] = useState(false);
   const [suppressedConnectorIds, setSuppressedConnectorIds] = useState<Set<string>>(new Set());
   const [showTimelineConnectors, setShowTimelineConnectors] = useState(true);
   const dragClearTimerRef = useRef<number | null>(null);
-  const routeSyncInFlightRef = useRef<Set<string>>(new Set());
 
   const resetAddItemDraft = useCallback(() => {
     setMapSelectedPlace(null);
@@ -277,75 +335,6 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     }
   }, [ENABLE_LEGACY_LEGS, itemFingerprint, legs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Compute and persist item-level origin->destination routes.
-  useEffect(() => {
-    const dayDateById = new Map(days.map((day) => [day.dayId, day.date]));
-    const candidates = items.filter((item) => {
-      const hasDestination = item.destLat !== 0 || item.destLng !== 0;
-      const hasOrigin = item.lat !== 0 || item.lng !== 0;
-      if (!item.scheduledStart || !hasDestination || !hasOrigin) return false;
-      if (routeSyncInFlightRef.current.has(item.itemId)) return false;
-      if (item.itemRouteType === 'directions') {
-        return !item.itemRoutePathEncoded;
-      }
-      return item.itemRouteDistanceMeters === 0 && item.itemRouteDurationMinutes === 0;
-    });
-
-    if (!candidates.length) return;
-
-    for (const item of candidates) {
-      routeSyncInFlightRef.current.add(item.itemId);
-      const from = { lat: item.lat, lng: item.lng };
-      const to = { lat: item.destLat, lng: item.destLng };
-
-      if (item.itemRouteType === 'straight') {
-        const straight = mapsRepository.calculateStraightLeg(from, to);
-        updateItem.mutate(
-          {
-            ...item,
-            itemRoutePathEncoded: '',
-            itemRouteDistanceMeters: straight.distanceMeters,
-            itemRouteDurationMinutes: straight.durationMinutes,
-          },
-          {
-            onSettled: () => {
-              routeSyncInFlightRef.current.delete(item.itemId);
-            },
-          },
-        );
-        continue;
-      }
-
-      const departureTime = buildDateTime(dayDateById.get(item.dayId), item.scheduledStart);
-      void mapsRepository
-        .calculateLeg(from, to, item.transportMode, departureTime)
-        .then((result) => {
-          if (!result || !result.routePathEncoded) {
-            const straight = mapsRepository.calculateStraightLeg(from, to);
-            updateItem.mutate({
-              ...item,
-              itemRouteType: 'straight',
-              itemRoutePathEncoded: '',
-              itemRouteDistanceMeters: straight.distanceMeters,
-              itemRouteDurationMinutes: straight.durationMinutes,
-            });
-            return;
-          }
-
-          updateItem.mutate({
-            ...item,
-            itemRouteType: 'directions',
-            itemRoutePathEncoded: result.routePathEncoded,
-            itemRouteDistanceMeters: result.distanceMeters,
-            itemRouteDurationMinutes: result.durationMinutes,
-          });
-        })
-        .finally(() => {
-          routeSyncInFlightRef.current.delete(item.itemId);
-        });
-    }
-  }, [days, items, updateItem]);
-
   const handleUpdateTrip = useCallback(
     (updates: Partial<Trip>) => {
       if (!trip) return;
@@ -426,6 +415,18 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     [setSelectedItemId, setActiveTab],
   );
 
+  const handleItemRouteClick = useCallback(
+    (itemId: string) => {
+      setEditingItemId(itemId);
+      setExpandedItemId(null);
+      const clickedItem = items.find((item) => item.itemId === itemId);
+      if (clickedItem && selectedDayId !== null && clickedItem.dayId !== selectedDayId) {
+        setSelectedDayId(clickedItem.dayId);
+      }
+    },
+    [items, selectedDayId],
+  );
+
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
       resetAddItemDraft();
@@ -444,9 +445,57 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     [resetAddItemDraft],
   );
 
+  const orderedDays = useMemo(
+    () => [...days].sort((a, b) => a.date.localeCompare(b.date)),
+    [days],
+  );
+
+  const itemAppearanceDayIdsById = useMemo(() => {
+    const renderItemsByDay = buildTimelineRenderItemsByDay(orderedDays, items);
+    const next = new Map<string, string[]>();
+
+    for (const day of orderedDays) {
+      for (const renderItem of renderItemsByDay.get(day.dayId) ?? []) {
+        const current = next.get(renderItem.itemId) ?? [];
+        if (!current.includes(day.dayId)) {
+          current.push(day.dayId);
+          next.set(renderItem.itemId, current);
+        }
+      }
+    }
+
+    // Unscheduled items don't appear in timeline segments; they should still be
+    // visible on their assigned day and carry that day's color.
+    for (const item of items) {
+      if (!next.has(item.itemId) && item.dayId) {
+        next.set(item.itemId, [item.dayId]);
+      }
+    }
+
+    return next;
+  }, [items, orderedDays]);
+
+  const itemDayColorsById = useMemo(() => {
+    const dayColorById = new Map(orderedDays.map((day) => [day.dayId, day.colorHex]));
+    const next = new Map<string, string[]>();
+
+    for (const item of items) {
+      const dayIds = itemAppearanceDayIdsById.get(item.itemId) ?? [item.dayId];
+      const colors = dayIds
+        .map((dayId) => dayColorById.get(dayId))
+        .filter((color): color is string => Boolean(color));
+      next.set(item.itemId, colors.length > 0 ? colors : ['#3B82F6']);
+    }
+
+    return next;
+  }, [itemAppearanceDayIdsById, items, orderedDays]);
+
   const filteredItems = useMemo(
-    () => (selectedDayId ? items.filter((i) => i.dayId === selectedDayId) : items),
-    [items, selectedDayId],
+    () => {
+      if (!selectedDayId) return items;
+      return items.filter((item) => (itemAppearanceDayIdsById.get(item.itemId) ?? [item.dayId]).includes(selectedDayId));
+    },
+    [itemAppearanceDayIdsById, items, selectedDayId],
   );
 
   const selectedDayIds = useMemo(
@@ -515,6 +564,14 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       setSelectedItemId(null);
     }
   }, [filteredItems, selectedItemId, setSelectedItemId]);
+
+  useEffect(() => {
+    if (!editingItemId) return;
+    const exists = items.some((item) => item.itemId === editingItemId);
+    if (!exists) {
+      setEditingItemId(null);
+    }
+  }, [editingItemId, items]);
 
   // Delete key removes item from timeline (unschedules) but keeps it in the event list
   useEffect(() => {
@@ -732,6 +789,9 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       destAddress: string;
       transportMode?: TransportMode;
       itemRouteType?: RouteType;
+      itemRoutePathEncoded?: string;
+      itemRouteDistanceMeters?: number;
+      itemRouteDurationMinutes?: number;
       availabilityWindows?: string;
       timelineLocked?: boolean;
       travelFromItemId?: string;
@@ -769,9 +829,9 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
             ? 'straight'
             : 'directions'
         ),
-        itemRoutePathEncoded: '',
-        itemRouteDistanceMeters: 0,
-        itemRouteDurationMinutes: 0,
+        itemRoutePathEncoded: data.itemRoutePathEncoded ?? '',
+        itemRouteDistanceMeters: data.itemRouteDistanceMeters ?? 0,
+        itemRouteDurationMinutes: data.itemRouteDurationMinutes ?? 0,
         timelineLocked: data.timelineLocked ?? false,
         travelFromItemId: data.travelFromItemId ?? '',
         travelToItemId: data.travelToItemId ?? '',
@@ -793,7 +853,9 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       'scheduledStart',
       'scheduledEnd',
     ];
-    const shouldResetRoute = routeRelevantKeys.some((key) => key in updates);
+    const shouldResetRoute = routeRelevantKeys.some(
+      (key) => key in updates && updates[key] !== existing[key],
+    );
     if (shouldResetRoute) {
       merged.itemRoutePathEncoded = '';
       merged.itemRouteDistanceMeters = 0;
@@ -801,6 +863,15 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     }
     return merged;
   }, []);
+
+  const editingItem = useMemo(
+    () => (editingItemId ? items.find((item) => item.itemId === editingItemId) ?? null : null),
+    [editingItemId, items],
+  );
+  const editingItemDay = useMemo(
+    () => (editingItem ? days.find((day) => day.dayId === editingItem.dayId) ?? null : null),
+    [days, editingItem],
+  );
 
   // Handler for moving an item to a different day via drag-drop on tabs
   const handleMoveItemToDay = useCallback(
@@ -860,13 +931,17 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
           <ItineraryList
             items={filteredItems}
             days={days}
+            itemDayColorsById={itemDayColorsById}
             trip={trip}
             selectedItemId={selectedItemId}
             expandedItemId={expandedItemId}
             onExpandedItemChange={setExpandedItemId}
             onReorder={(ids) => {
               const dayId = selectedDayId ?? days[0]?.dayId ?? '';
-              reorderItems.mutate({ dayId, orderedItemIds: ids });
+              const orderedItemIds = selectedDayId
+                ? ids.filter((id) => items.find((i) => i.itemId === id)?.dayId === selectedDayId)
+                : ids;
+              reorderItems.mutate({ dayId, orderedItemIds });
             }}
             onUpdateItem={(id, updates) => {
               const existing = items.find((i) => i.itemId === id);
@@ -941,6 +1016,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
               selectedItemId={selectedItemId}
               onSelectedItemChange={setSelectedItemId}
               onMarkerClick={handleMarkerClick}
+              onItemRouteClick={handleItemRouteClick}
               onLegClick={ENABLE_LEGACY_LEGS ? handleLegClick : undefined}
               onModeChange={ENABLE_LEGACY_LEGS ? handleModeChange : undefined}
               onMapClick={handleMapClick}
@@ -1017,6 +1093,19 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
         initialTimelineLocked={addItemInitialTimelineLocked}
         initialTravelFromItemId={addItemInitialTravelLink?.fromItemId}
         initialTravelToItemId={addItemInitialTravelLink?.toItemId}
+        defaultDate={(days.find((d) => d.dayId === (selectedDayId ?? days[0]?.dayId)) ?? days[0])?.date}
+      />
+
+      <ItemEditorDialog
+        isOpen={Boolean(editingItem)}
+        item={editingItem}
+        dayColor={editingItemDay?.colorHex ?? '#3B82F6'}
+        dayDate={editingItemDay?.date}
+        onUpdate={(updates) => {
+          if (!editingItem) return;
+          updateItem.mutate(mergeItemUpdates(editingItem, updates));
+        }}
+        onClose={() => setEditingItemId(null)}
       />
 
       {selectedLeg && (() => {
@@ -1096,6 +1185,44 @@ function TripDashboard() {
     null,
   );
   const [schemaErrors, setSchemaErrors] = useState<string[]>([]);
+  const [loadableTrips, setLoadableTrips] = useState<LoadableTripSummary[]>([]);
+  const [isLoadingLoadableTrips, setIsLoadingLoadableTrips] = useState(false);
+  const [loadableTripsError, setLoadableTripsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accessToken || !isGapiReady) {
+      setLoadableTrips([]);
+      setIsLoadingLoadableTrips(false);
+      setLoadableTripsError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingLoadableTrips(true);
+    setLoadableTripsError(null);
+
+    void (async () => {
+      try {
+        const trips = await discoverLoadableTrips(accessToken);
+        if (!cancelled) {
+          setLoadableTrips(trips);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadableTrips([]);
+          setLoadableTripsError((err as Error).message);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingLoadableTrips(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, isGapiReady]);
 
   const handleCreateTrip = useCallback(async (name: string, startDate: string, endDate: string, timezone: string) => {
     setSchemaStatus('creating');
@@ -1178,13 +1305,22 @@ function TripDashboard() {
     }
   }, [accessToken, navigate]);
 
+  const handleOpenKnownTrip = useCallback((spreadsheetId: string) => {
+    localStorage.setItem('tp_spreadsheet_id', spreadsheetId);
+    navigate(`/trip/${spreadsheetId}`);
+  }, [navigate]);
+
   return (
     <TripSetup
       onCreateTrip={handleCreateTrip}
       onImportSheet={handleImportSheet}
+      onOpenKnownTrip={handleOpenKnownTrip}
       schemaStatus={schemaStatus}
       schemaErrors={schemaErrors}
       isGapiReady={isGapiReady}
+      loadableTrips={loadableTrips}
+      isLoadingLoadableTrips={isLoadingLoadableTrips}
+      loadableTripsError={loadableTripsError}
     />
   );
 }

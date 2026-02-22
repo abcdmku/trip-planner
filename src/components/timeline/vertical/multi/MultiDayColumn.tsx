@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
-import { MULTI_COL_MAX_W, MULTI_COL_MIN_W, PX_PER_MIN, SNAP } from '../constants';
+import { MULTI_COL_MAX_W, MULTI_COL_MIN_W, SNAP } from '../constants';
 import { snapM } from '../time';
 import type { ExternalDragPreview, MultiDayColumnProps } from '../types';
 import { useTimelinePointerInteraction } from '../useTimelinePointerInteraction';
@@ -12,6 +12,8 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
   {
     day,
     dayItems,
+    pxPerMin,
+    pxPerHr,
     globalStartH,
     globalEndH,
     gTotalH,
@@ -63,6 +65,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
     onItemDoubleClick,
     onCreateAtTime: onCreateAtTime ? (start, end) => onCreateAtTime(day.dayId, start, end) : undefined,
     onMoveOutOfBounds,
+    pxPerMin,
   });
 
   const clearExternalPreview = useCallback(() => {
@@ -76,9 +79,9 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
       if (!rect) return globalStartH * 60;
 
       const rawY = e.clientY - rect.top + (scrollerRef.current?.scrollTop ?? 0);
-      return snapM(Math.max(0, Math.min(1440, rawY / PX_PER_MIN + startHRef.current * 60)), SNAP);
+      return snapM(Math.max(0, Math.min(1440, rawY / pxPerMin + startHRef.current * 60)), SNAP);
     },
-    [globalStartH, scrollerRef],
+    [globalStartH, pxPerMin, scrollerRef],
   );
 
   const handlePointDragOver = useCallback(
@@ -182,12 +185,15 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
         day={day}
         dayItems={dayItems}
         allItems={allItems}
+        pxPerMin={pxPerMin}
+        pxPerHr={pxPerHr}
         globalStartH={globalStartH}
         globalEndH={globalEndH}
         gTotalH={gTotalH}
         gHours={gHours}
         nowMin={nowMin}
         selectedItemId={selectedItemId}
+        activeDragItemId={activeDragItemId}
         interaction={interaction}
         externalPreview={externalPreview}
         crossDayDragPreview={crossDayDragPreview}

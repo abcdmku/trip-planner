@@ -24,6 +24,7 @@ import { ListPlus } from 'lucide-react';
 interface ItineraryListProps {
   items: Item[];
   days: Day[];
+  itemDayColorsById?: Map<string, string[]>;
   trip?: Trip | null;
   selectedItemId?: string | null;
   expandedItemId?: string | null;
@@ -41,6 +42,7 @@ interface ItineraryListProps {
 function SortableItem({
   item,
   dayColor,
+  dayColors,
   dayDate,
   isSelected,
   isExpanded,
@@ -53,6 +55,7 @@ function SortableItem({
 }: {
   item: Item;
   dayColor: string;
+  dayColors?: string[];
   dayDate?: string;
   isSelected: boolean;
   isExpanded: boolean;
@@ -93,6 +96,7 @@ function SortableItem({
         <ItemCard
           item={item}
           dayColor={dayColor}
+          dayColors={dayColors}
           isSelected={isSelected}
           isExpanded={isExpanded}
           isDragging={isDragging}
@@ -111,6 +115,7 @@ function SortableItem({
 export function ItineraryList({
   items,
   days,
+  itemDayColorsById,
   trip,
   selectedItemId = null,
   expandedItemId,
@@ -189,6 +194,7 @@ export function ItineraryList({
               key={item.itemId}
               item={item}
               dayColor={dayColorMap.get(item.dayId) ?? '#3B82F6'}
+              dayColors={itemDayColorsById?.get(item.itemId)}
               dayDate={dayDateMap.get(item.dayId)}
               isSelected={selectedItemId === item.itemId}
               isExpanded={expandedId === item.itemId}

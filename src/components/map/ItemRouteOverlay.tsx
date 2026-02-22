@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { AdvancedMarker } from '@vis.gl/react-google-maps';
-import type { Day, Item } from '@/types/trip';
+import type { Day, Item, TransportMode } from '@/types/trip';
 import RoutePath, { getMidpoint } from './RoutePath';
 
 interface ItemRouteOverlayProps {
@@ -22,11 +22,28 @@ function formatTravelDuration(minutes: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
+function estimateFlightDurationMinutes(distanceMeters: number): number {
+  if (distanceMeters <= 0) return 0;
+  const cruiseSpeedKph = 850;
+  const fixedGroundMinutes = 45;
+  const flightMinutes = (distanceMeters / 1000 / cruiseSpeedKph) * 60;
+  return Math.max(30, Math.round(flightMinutes + fixedGroundMinutes));
+}
+
 function formatDistance(meters: number): string {
   if (meters <= 0) return '';
   if (meters < 1000) return `${Math.round(meters)}m`;
   return `${(meters / 1000).toFixed(1)}km`;
 }
+
+const MODE_EMOJI: Record<TransportMode, string> = {
+  driving: '\u{1F697}',
+  walking: '\u{1F6B6}',
+  bicycling: '\u{1F6B2}',
+  transit: '\u{1F68C}',
+  flight: '\u{2708}\uFE0F',
+  other: '\u{1F4CD}',
+};
 
 /**
  * Calculate straight-line distance between two points in meters using Haversine formula
@@ -72,11 +89,20 @@ export default function ItemRouteOverlay({
         let midpoint: { lat: number; lng: number } | null = null;
 
         if (isStraight) {
-          // For straight lines, compute simple midpoint
-          midpoint = {
-            lat: (item.lat + item.destLat) / 2,
-            lng: (item.lng + item.destLng) / 2,
-          };
+          // Prefer geodesic midpoint so labels stay visually centered on long routes.
+          if (google.maps.geometry?.spherical) {
+            const mid = google.maps.geometry.spherical.interpolate(
+              new google.maps.LatLng(item.lat, item.lng),
+              new google.maps.LatLng(item.destLat, item.destLng),
+              0.5,
+            );
+            midpoint = { lat: mid.lat(), lng: mid.lng() };
+          } else {
+            midpoint = {
+              lat: (item.lat + item.destLat) / 2,
+              lng: (item.lng + item.destLng) / 2,
+            };
+          }
         } else if (item.itemRoutePathEncoded) {
           // For encoded paths, use the getMidpoint helper
           midpoint = getMidpoint(item.itemRoutePathEncoded);
@@ -118,18 +144,26 @@ export default function ItemRouteOverlay({
       {/* Duration/Distance labels at route midpoints */}
       {routeMidpoints.map(({ item, midpoint, distanceMeters }) => {
         const color = dayColorMap.get(item.dayId) ?? '#4285F4';
-        const duration = formatTravelDuration(item.itemRouteDurationMinutes);
+        const effectiveDurationMinutes =
+          item.itemRouteDurationMinutes > 0
+            ? item.itemRouteDurationMinutes
+            : item.transportMode === 'flight'
+              ? estimateFlightDurationMinutes(distanceMeters)
+              : 0;
+        const duration = formatTravelDuration(effectiveDurationMinutes);
         const distance = formatDistance(distanceMeters);
+        const modeEmoji = MODE_EMOJI[item.transportMode] ?? '';
 
         // Show duration if available, otherwise show distance
-        const label = duration || distance;
-        if (!label) return null;
+        const timeLabel = duration || distance;
+        if (!timeLabel) return null;
 
         return (
           <AdvancedMarker
             key={`item-duration-${item.itemId}`}
             position={midpoint}
             zIndex={90}
+            onClick={onItemRouteClick ? () => onItemRouteClick(item) : undefined}
           >
             <div
               style={{
@@ -142,9 +176,15 @@ export default function ItemRouteOverlay({
                 whiteSpace: 'nowrap',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                 border: '1px solid rgba(255,255,255,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                transform: 'translateY(50%)',
+                cursor: onItemRouteClick ? 'pointer' : 'default',
               }}
             >
-              {label}
+              <span style={{ fontSize: '10px' }}>{modeEmoji}</span>
+              {timeLabel}
             </div>
           </AdvancedMarker>
         );

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X, Plus, MapPin, Navigation } from 'lucide-react';
 import { PlaceSearch } from './PlaceSearch';
-import type { PlaceSearchResult } from '../../services/maps-repository';
+import { mapsRepository, type PlaceSearchResult } from '../../services/maps-repository';
 import type { ItemType, RouteType, TransportMode } from '../../types/trip';
 import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
 import { EventEditorForm, type EventEditorValue } from './EventEditorForm';
+import { hasAvailabilityConstraints, serializeAvailabilityWindows } from '@/lib/availability';
 
 interface AddItemDialogProps {
   isOpen: boolean;
@@ -26,6 +27,9 @@ interface AddItemDialogProps {
     destAddress: string;
     transportMode: TransportMode;
     itemRouteType: RouteType;
+    itemRoutePathEncoded?: string;
+    itemRouteDistanceMeters?: number;
+    itemRouteDurationMinutes?: number;
     availabilityWindows: string;
     timelineLocked: boolean;
     travelFromItemId?: string;
@@ -44,6 +48,7 @@ interface AddItemDialogProps {
   initialTimelineLocked?: boolean;
   initialTravelFromItemId?: string;
   initialTravelToItemId?: string;
+  defaultDate?: string;
 }
 
 function inferItemType(googleTypes: string[]): ItemType {
@@ -58,6 +63,28 @@ function inferItemType(googleTypes: string[]): ItemType {
 
 function routeTypeForMode(mode: TransportMode): RouteType {
   return mode === 'flight' || mode === 'other' ? 'straight' : 'directions';
+}
+
+function maybeApplyMapsAvailabilityWindows(
+  availabilityWindows: string,
+  place?: PlaceSearchResult | null,
+  previousPlace?: PlaceSearchResult | null,
+): string {
+  const mapsWindows = place?.mapsAvailabilityWindows;
+  if (!mapsWindows || mapsWindows.length === 0) return availabilityWindows;
+  const nextMapsValue = serializeAvailabilityWindows(mapsWindows);
+
+  if (!hasAvailabilityConstraints({ availabilityWindows })) {
+    return nextMapsValue;
+  }
+
+  const previousMapsWindows = previousPlace?.mapsAvailabilityWindows;
+  if (!previousMapsWindows || previousMapsWindows.length === 0) {
+    return availabilityWindows;
+  }
+
+  const previousMapsValue = serializeAvailabilityWindows(previousMapsWindows);
+  return availabilityWindows === previousMapsValue ? nextMapsValue : availabilityWindows;
 }
 
 function draftFromProps(
@@ -108,10 +135,17 @@ export function AddItemDialog({
   initialTimelineLocked,
   initialTravelFromItemId,
   initialTravelToItemId,
+  defaultDate,
 }: AddItemDialogProps) {
   const [selectedPlace, setSelectedPlace] = useState<PlaceSearchResult | null>(null);
   const [destPlace, setDestPlace] = useState<PlaceSearchResult | null>(null);
   const [customName, setCustomName] = useState('');
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [calculatedRoute, setCalculatedRoute] = useState<{
+    itemRoutePathEncoded: string;
+    itemRouteDistanceMeters: number;
+    itemRouteDurationMinutes: number;
+  } | null>(null);
   const [editor, setEditor] = useState<EventEditorValue>(() =>
     draftFromProps(
       initialType,
@@ -152,14 +186,17 @@ export function AddItemDialog({
     if (initialPlace) {
       setSelectedPlace(initialPlace);
       setCustomName('');
-      if (!initialType && initialPlace.types.length > 0) {
-        setEditor((prev) => ({
-          ...prev,
-          type: inferItemType(initialPlace.types),
-        }));
-      } else {
-        setEditor(initialDraft);
-      }
+      setEditor({
+        ...initialDraft,
+        type:
+          !initialType && initialPlace.types.length > 0
+            ? inferItemType(initialPlace.types)
+            : initialDraft.type,
+        availabilityWindows: maybeApplyMapsAvailabilityWindows(
+          initialDraft.availabilityWindows,
+          initialPlace,
+        ),
+      });
     } else if (initialLocation) {
       setSelectedPlace({
         placeId: `custom-${Date.now()}`,
@@ -178,14 +215,71 @@ export function AddItemDialog({
     }
 
     setDestPlace(initialDestination ?? null);
+    setCalculatedRoute(null);
+    setIsCalculatingRoute(false);
   }, [isOpen, initialPlace, initialDestination, initialLocation, initialType, initialDraft]);
 
   useEscapeHotkey(isOpen, onClose);
 
-  if (!isOpen) return null;
-
   const isCustomLocation = selectedPlace?.placeId.startsWith('custom-');
   const isOriginValid = Boolean(selectedPlace) && (!isCustomLocation || Boolean(customName.trim()));
+
+  const clearCalculatedRoute = useCallback(() => {
+    setCalculatedRoute(null);
+  }, []);
+
+  const handleCalculateRoute = useCallback(async () => {
+    if (!selectedPlace || !destPlace || editor.itemRouteType !== 'directions') return;
+    setIsCalculatingRoute(true);
+    try {
+      const result = await mapsRepository.calculateLeg(
+        { lat: selectedPlace.lat, lng: selectedPlace.lng },
+        { lat: destPlace.lat, lng: destPlace.lng },
+        editor.transportMode,
+      );
+
+      if (result) {
+        setCalculatedRoute({
+          itemRoutePathEncoded: result.routePathEncoded,
+          itemRouteDistanceMeters: result.distanceMeters,
+          itemRouteDurationMinutes: result.durationMinutes,
+        });
+
+        if (result.durationMinutes > 0) {
+          setEditor((prev) => {
+            let nextDuration = result.durationMinutes;
+            const next: EventEditorValue = { ...prev, durationMinutes: nextDuration };
+            if (prev.scheduledStart) {
+              const [startHour, startMin] = prev.scheduledStart.split(':').map(Number);
+              const startTotalMin = startHour * 60 + startMin;
+              const maxDuration = Math.max(0, 23 * 60 + 59 - startTotalMin);
+              nextDuration = Math.min(nextDuration, maxDuration);
+              next.durationMinutes = nextDuration;
+              const endTotalMin = startTotalMin + nextDuration;
+              const endHour = Math.floor(endTotalMin / 60);
+              const endMinute = endTotalMin % 60;
+              next.scheduledEnd = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+            }
+            return next;
+          });
+        }
+        return;
+      }
+
+      // If directions are unavailable, still cache straight-line distance.
+      const straight = mapsRepository.calculateStraightLeg(
+        { lat: selectedPlace.lat, lng: selectedPlace.lng },
+        { lat: destPlace.lat, lng: destPlace.lng },
+      );
+      setCalculatedRoute({
+        itemRoutePathEncoded: '',
+        itemRouteDistanceMeters: straight.distanceMeters,
+        itemRouteDurationMinutes: straight.durationMinutes,
+      });
+    } finally {
+      setIsCalculatingRoute(false);
+    }
+  }, [selectedPlace, destPlace, editor.itemRouteType, editor.transportMode]);
 
   const handleSubmit = () => {
     if (!selectedPlace) return;
@@ -208,12 +302,17 @@ export function AddItemDialog({
       destAddress: destPlace?.address ?? '',
       transportMode: editor.transportMode,
       itemRouteType: editor.itemRouteType,
+      itemRoutePathEncoded: calculatedRoute?.itemRoutePathEncoded ?? '',
+      itemRouteDistanceMeters: calculatedRoute?.itemRouteDistanceMeters ?? 0,
+      itemRouteDurationMinutes: calculatedRoute?.itemRouteDurationMinutes ?? 0,
       availabilityWindows: editor.availabilityWindows,
       timelineLocked: editor.timelineLocked,
       travelFromItemId: initialTravelFromItemId ?? '',
       travelToItemId: initialTravelToItemId ?? '',
     });
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -253,6 +352,7 @@ export function AddItemDialog({
                         onClick={() => {
                           setSelectedPlace(null);
                           setCustomName('');
+                          clearCalculatedRoute();
                         }}
                         className="ml-auto text-blue-500 hover:text-blue-700"
                       >
@@ -276,7 +376,14 @@ export function AddItemDialog({
                         <p className="truncate text-[10px] text-accent/70">{selectedPlace.address}</p>
                       ) : null}
                     </div>
-                    <button type="button" onClick={() => setSelectedPlace(null)} className="text-accent/70 hover:text-accent">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPlace(null);
+                        clearCalculatedRoute();
+                      }}
+                      className="text-accent/70 hover:text-accent"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </div>
@@ -284,9 +391,21 @@ export function AddItemDialog({
                   <PlaceSearch
                     onSelect={(place) => {
                       setSelectedPlace(place);
-                      if (!initialType && place.types.length > 0) {
-                        setEditor((prev) => ({ ...prev, type: inferItemType(place.types) }));
-                      }
+                      clearCalculatedRoute();
+                      setEditor((prev) => {
+                        const next: EventEditorValue = {
+                          ...prev,
+                          availabilityWindows: maybeApplyMapsAvailabilityWindows(
+                            prev.availabilityWindows,
+                            place,
+                            selectedPlace,
+                          ),
+                        };
+                        if (!initialType && place.types.length > 0) {
+                          next.type = inferItemType(place.types);
+                        }
+                        return next;
+                      });
                     }}
                     placeholder="Search origin..."
                   />
@@ -306,12 +425,25 @@ export function AddItemDialog({
                         <p className="truncate text-[10px] text-accent/70">{destPlace.address}</p>
                       ) : null}
                     </div>
-                    <button type="button" onClick={() => setDestPlace(null)} className="text-accent/70 hover:text-accent">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDestPlace(null);
+                        clearCalculatedRoute();
+                      }}
+                      className="text-accent/70 hover:text-accent"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </div>
                 ) : (
-                  <PlaceSearch onSelect={setDestPlace} placeholder="Search destination..." />
+                  <PlaceSearch
+                    onSelect={(place) => {
+                      setDestPlace(place);
+                      clearCalculatedRoute();
+                    }}
+                    placeholder="Search destination..."
+                  />
                 )}
               </div>
             </div>
@@ -320,11 +452,25 @@ export function AddItemDialog({
 
         <EventEditorForm
           value={editor}
-          onChange={setEditor}
+          onChange={(next) => {
+            if (
+              next.transportMode !== editor.transportMode ||
+              next.itemRouteType !== editor.itemRouteType
+            ) {
+              clearCalculatedRoute();
+            }
+            setEditor(next);
+          }}
           onSubmit={handleSubmit}
           submitLabel="Add Event to Itinerary"
           isSubmitting={isSubmitting}
           submitDisabled={!isOriginValid}
+          onCalculateRoute={handleCalculateRoute}
+          isCalculatingRoute={isCalculatingRoute}
+          canCalculateRoute={Boolean(selectedPlace && destPlace && editor.itemRouteType === 'directions')}
+          showTransportation={!!destPlace || editor.type === 'transport'}
+          defaultDate={defaultDate}
+          mapsAvailabilityWindows={selectedPlace?.mapsAvailabilityWindows}
         />
       </div>
     </div>

@@ -1,6 +1,9 @@
-import { Lock, LockOpen, Loader2, Navigation, Route, Timer, Clock3, StickyNote, Bike, Car, Bus, Footprints, Plane, Circle } from 'lucide-react';
+import { Lock, LockOpen, Loader2, Navigation, Route, Timer, Clock3, StickyNote, Bike, Car, Bus, Footprints, Plane, Circle, RotateCw } from 'lucide-react';
 import type { ItemType, RouteType, TransportMode } from '@/types/trip';
 import { AvailabilityEditor } from '@/components/items/AvailabilityEditor';
+import { toMinutesOfDay } from '@/lib/date-time';
+import { minutesToTime } from '@/lib/optimizer-utils';
+import type { AvailabilityWindow } from '@/lib/availability';
 
 export interface EventEditorValue {
   type: ItemType;
@@ -23,6 +26,16 @@ interface EventEditorFormProps {
   submitDisabled?: boolean;
   defaultDate?: string;
   compact?: boolean;
+  /** Called when the user clicks "Calculate Route" — parent handles the actual API call */
+  onCalculateRoute?: () => void;
+  /** Whether a route calculation is currently in progress */
+  isCalculatingRoute?: boolean;
+  /** Whether the item has both origin and destination (enables the calculate button) */
+  canCalculateRoute?: boolean;
+  /** Show transportation mode & route style (when destination exists or type is transport) */
+  showTransportation?: boolean;
+  /** Optional place hours from Google Maps to use as availability defaults/source. */
+  mapsAvailabilityWindows?: AvailabilityWindow[];
 }
 
 const ITEM_TYPES: { value: ItemType; label: string; emoji: string }[] = [
@@ -48,9 +61,48 @@ const ROUTE_OPTIONS: { value: RouteType; label: string }[] = [
   { value: 'straight', label: 'Polyline' },
 ];
 
+const GOOGLE_ROUTE_MODES = new Set<TransportMode>([
+  'driving',
+  'walking',
+  'bicycling',
+  'transit',
+]);
+
+function isGoogleRouteModeCapable(mode: TransportMode): boolean {
+  return GOOGLE_ROUTE_MODES.has(mode);
+}
+
 function nextModeRoute(mode: TransportMode, current: RouteType): RouteType {
   if (mode === 'flight' || mode === 'other') return 'straight';
   return current;
+}
+
+function durationFromStartEnd(startTime: string, endTime: string): number | null {
+  const startMin = toMinutesOfDay(startTime);
+  const endMin = toMinutesOfDay(endTime);
+  if (startMin === null || endMin === null) return null;
+  return Math.max(0, endMin - startMin);
+}
+
+function endFromStartDuration(startTime: string, durationMinutes: number): string | null {
+  const startMin = toMinutesOfDay(startTime);
+  if (startMin === null) return null;
+  return minutesToTime(startMin + Math.max(0, durationMinutes));
+}
+
+function clampEndToStart(startTime: string, endTime: string): string {
+  const startMin = toMinutesOfDay(startTime);
+  const endMin = toMinutesOfDay(endTime);
+  if (startMin === null || endMin === null) return endTime;
+  return endMin < startMin ? minutesToTime(startMin) : endTime;
+}
+
+function clampDurationWithinDay(startTime: string, durationMinutes: number): number {
+  const startMin = toMinutesOfDay(startTime);
+  const nextDuration = Math.max(0, durationMinutes);
+  if (startMin === null) return nextDuration;
+  const maxDuration = Math.max(0, 23 * 60 + 59 - startMin);
+  return Math.min(nextDuration, maxDuration);
 }
 
 export function EventEditorForm({
@@ -62,9 +114,55 @@ export function EventEditorForm({
   submitDisabled = false,
   defaultDate,
   compact = false,
+  onCalculateRoute,
+  isCalculatingRoute = false,
+  canCalculateRoute = false,
+  showTransportation = false,
+  mapsAvailabilityWindows,
 }: EventEditorFormProps) {
+  const visibleModeOptions =
+    value.itemRouteType === 'directions'
+      ? MODE_OPTIONS.filter(({ value: mode }) => isGoogleRouteModeCapable(mode))
+      : MODE_OPTIONS;
+
   const set = <K extends keyof EventEditorValue>(key: K, nextValue: EventEditorValue[K]) => {
     onChange({ ...value, [key]: nextValue });
+  };
+
+  const handleEndChange = (nextEnd: string) => {
+    const normalizedEnd = clampEndToStart(value.scheduledStart, nextEnd);
+    const next: EventEditorValue = { ...value, scheduledEnd: normalizedEnd };
+    const nextDuration = durationFromStartEnd(next.scheduledStart, normalizedEnd);
+    if (nextDuration !== null) {
+      next.durationMinutes = nextDuration;
+    }
+    onChange(next);
+  };
+
+  const handleStartChange = (nextStart: string) => {
+    const next: EventEditorValue = { ...value, scheduledStart: nextStart };
+
+    if (next.scheduledEnd) {
+      next.scheduledEnd = clampEndToStart(nextStart, next.scheduledEnd);
+      const nextDuration = durationFromStartEnd(nextStart, next.scheduledEnd);
+      if (nextDuration !== null) {
+        next.durationMinutes = nextDuration;
+      }
+    } else {
+      next.durationMinutes = clampDurationWithinDay(nextStart, next.durationMinutes);
+    }
+
+    onChange(next);
+  };
+
+  const handleDurationChange = (rawDuration: string) => {
+    const nextDuration = clampDurationWithinDay(value.scheduledStart, Number(rawDuration) || 0);
+    const next: EventEditorValue = { ...value, durationMinutes: nextDuration };
+    const nextEnd = endFromStartDuration(next.scheduledStart, nextDuration);
+    if (nextEnd !== null) {
+      next.scheduledEnd = nextEnd;
+    }
+    onChange(next);
   };
 
   const handleModeChange = (nextMode: TransportMode) => {
@@ -97,52 +195,66 @@ export function EventEditorForm({
         </div>
       </div>
 
-      <div>
-        <label className="mb-1 block text-xs font-medium text-theme-secondary">
-          <Navigation className="mr-1 inline h-3 w-3" />
-          Transportation
-        </label>
-        <div className="grid grid-cols-3 gap-1.5">
-          {MODE_OPTIONS.map(({ value: mode, label, Icon }) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => handleModeChange(mode)}
-              className={`flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                value.transportMode === mode
-                  ? 'bg-accent/20 text-accent ring-1 ring-accent/40'
-                  : 'bg-theme-subtle text-theme-secondary hover:bg-theme hover:text-theme'
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span className="truncate">{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {showTransportation && (
+        <>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-theme-secondary">
+              <Navigation className="mr-1 inline h-3 w-3" />
+              Transportation
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {visibleModeOptions.map(({ value: mode, label, Icon }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleModeChange(mode)}
+                  className={`flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    value.transportMode === mode
+                      ? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+                      : 'bg-theme-subtle text-theme-secondary hover:bg-theme hover:text-theme'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="truncate">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div>
-        <label className="mb-1 block text-xs font-medium text-theme-secondary">
-          <Route className="mr-1 inline h-3 w-3" />
-          Route Style
-        </label>
-        <div className="flex gap-1.5">
-          {ROUTE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => set('itemRouteType', option.value)}
-              className={`rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                value.itemRouteType === option.value
-                  ? 'bg-accent/20 text-accent ring-1 ring-accent/40'
-                  : 'bg-theme-subtle text-theme-secondary hover:bg-theme hover:text-theme'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-theme-secondary">
+              <Route className="mr-1 inline h-3 w-3" />
+              Route Style
+            </label>
+            <div className="flex gap-1.5">
+              {ROUTE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    if (option.value === 'directions' && !isGoogleRouteModeCapable(value.transportMode)) {
+                      onChange({
+                        ...value,
+                        transportMode: 'driving',
+                        itemRouteType: 'directions',
+                      });
+                      return;
+                    }
+                    set('itemRouteType', option.value);
+                  }}
+                  className={`rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                    value.itemRouteType === option.value
+                      ? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+                      : 'bg-theme-subtle text-theme-secondary hover:bg-theme hover:text-theme'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-2 gap-1.5">
         <div>
@@ -153,7 +265,7 @@ export function EventEditorForm({
           <input
             type="time"
             value={value.scheduledStart}
-            onChange={(e) => set('scheduledStart', e.target.value)}
+            onChange={(e) => handleStartChange(e.target.value)}
             className="input w-full py-1 text-xs"
           />
         </div>
@@ -162,7 +274,8 @@ export function EventEditorForm({
           <input
             type="time"
             value={value.scheduledEnd}
-            onChange={(e) => set('scheduledEnd', e.target.value)}
+            onChange={(e) => handleEndChange(e.target.value)}
+            min={value.scheduledStart || undefined}
             className="input w-full py-1 text-xs"
           />
         </div>
@@ -173,14 +286,32 @@ export function EventEditorForm({
           <Timer className="mr-1 inline h-3 w-3" />
           Duration (minutes)
         </label>
-        <input
-          type="number"
-          min={0}
-          step={5}
-          value={value.durationMinutes}
-          onChange={(e) => set('durationMinutes', Math.max(0, Number(e.target.value) || 0))}
-          className="input w-full py-1 text-xs"
-        />
+        <div className="flex gap-1.5">
+          <input
+            type="number"
+            min={0}
+            step={5}
+            value={value.durationMinutes}
+            onChange={(e) => handleDurationChange(e.target.value)}
+            className="input min-w-0 flex-1 py-1 text-xs"
+          />
+          {onCalculateRoute && (
+            <button
+              type="button"
+              onClick={onCalculateRoute}
+              disabled={!canCalculateRoute || isCalculatingRoute}
+              title={canCalculateRoute ? 'Calculate travel time via Google Maps' : 'Add a destination to calculate route'}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors bg-theme-subtle text-theme-secondary hover:bg-theme hover:text-theme disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isCalculatingRoute ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RotateCw className="h-3 w-3" />
+              )}
+              Calculate
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="rounded-md border border-theme bg-theme-subtle p-2">
@@ -201,6 +332,7 @@ export function EventEditorForm({
         value={value.availabilityWindows}
         onChange={(next) => set('availabilityWindows', next)}
         defaultDate={defaultDate}
+        mapsAvailabilityWindows={mapsAvailabilityWindows}
       />
 
       <div>

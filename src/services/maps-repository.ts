@@ -1,4 +1,8 @@
 import type { TransportMode } from '../types/trip';
+import {
+  parseGoogleWeekdayTextToAvailabilityWindows,
+  type AvailabilityWindow,
+} from '@/lib/availability';
 
 // ---------------------------------------------------------------------------
 // Interfaces returned by MapsRepository methods
@@ -19,6 +23,7 @@ export interface PlaceSearchResult {
   businessStatus?: string;
   openNow?: boolean;
   weekdayText?: string[];
+  mapsAvailabilityWindows?: AvailabilityWindow[];
   website?: string;
   phoneNumber?: string;
   internationalPhoneNumber?: string;
@@ -97,6 +102,8 @@ export function waitForGoogleMaps(timeoutMs = 10_000): Promise<typeof google.map
 let _placesService: google.maps.places.PlacesService | null = null;
 let _autocompleteService: google.maps.places.AutocompleteService | null = null;
 let _directionsService: google.maps.DirectionsService | null = null;
+let _directionsCooldownUntilMs = 0;
+const DIRECTIONS_OVER_QUERY_LIMIT_COOLDOWN_MS = 30_000;
 
 function getAutocompleteService(): google.maps.places.AutocompleteService {
   if (!_autocompleteService) {
@@ -236,6 +243,9 @@ class MapsRepository {
   ): Promise<LegCalculation | null> {
     try {
       await waitForGoogleMaps();
+      if (Date.now() < _directionsCooldownUntilMs) {
+        return null;
+      }
 
       const service = getDirectionsService();
 
@@ -259,17 +269,29 @@ class MapsRepository {
           mode === 'transit' && { transitOptions: { departureTime } }),
       };
 
-      const result = await new Promise<google.maps.DirectionsResult>(
+      const result = await new Promise<google.maps.DirectionsResult | null>(
         (resolve, reject) => {
           service.route(request, (response, status) => {
             if (status === google.maps.DirectionsStatus.OK && response) {
               resolve(response);
+            } else if (status === google.maps.DirectionsStatus.OVER_QUERY_LIMIT) {
+              _directionsCooldownUntilMs = Date.now() + DIRECTIONS_OVER_QUERY_LIMIT_COOLDOWN_MS;
+              console.warn(
+                'Directions API over query limit; suppressing route calls for 30 seconds.',
+              );
+              resolve(null);
+            } else if (
+              status === google.maps.DirectionsStatus.ZERO_RESULTS ||
+              status === google.maps.DirectionsStatus.NOT_FOUND
+            ) {
+              resolve(null);
             } else {
               reject(new Error(`DirectionsService failed: ${status}`));
             }
           });
         },
       );
+      if (!result) return null;
 
       // Extract the first route / first leg from the result.
       const route = result.routes[0];
@@ -348,6 +370,7 @@ class MapsRepository {
         'geometry',
         'types',
         'photos',
+        'opening_hours',
       ],
     };
 
@@ -392,6 +415,8 @@ class MapsRepository {
         editorial_summary?: { overview?: string };
       }
     ).editorial_summary?.overview;
+    const weekdayText = place.opening_hours?.weekday_text;
+    const mapsAvailabilityWindows = parseGoogleWeekdayTextToAvailabilityWindows(weekdayText);
 
     return {
       placeId: place.place_id ?? '',
@@ -407,7 +432,8 @@ class MapsRepository {
       priceLevel: place.price_level,
       businessStatus: place.business_status,
       openNow,
-      weekdayText: place.opening_hours?.weekday_text,
+      weekdayText,
+      mapsAvailabilityWindows: mapsAvailabilityWindows.length > 0 ? mapsAvailabilityWindows : undefined,
       website: place.website,
       phoneNumber: place.formatted_phone_number,
       internationalPhoneNumber: place.international_phone_number,

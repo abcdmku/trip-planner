@@ -79,6 +79,9 @@ export interface VerticalTimelineProps {
 export interface SingleDayTimelineProps {
   day: Day;
   items: Item[];
+  allItems?: Item[];
+  pxPerMin: number;
+  pxPerHr: number;
   selectedItemId?: string | null;
   activeDragItemId?: string | null;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
@@ -102,13 +105,15 @@ export interface MultiDayColumnProps {
   day: Day;
   dayItems: Item[];
   allItems?: Item[];
+  activeDragItemId?: string | null;
+  pxPerMin: number;
+  pxPerHr: number;
   globalStartH: number;
   globalEndH: number;
   gTotalH: number;
   gHours: number[];
   nowMin: number;
   selectedItemId: string | null;
-  activeDragItemId?: string | null;
   isActive: boolean;
   scrollerRef: RefObject<HTMLDivElement>;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
@@ -153,6 +158,7 @@ export interface UseTimelinePointerInteractionOptions {
   contentRef: MutableRefObject<HTMLElement | null>;
   getScrollTop: () => number;
   startHourRef: MutableRefObject<number>;
+  pxPerMin: number;
   itemsById: Map<string, Item>;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
   onItemClick?: (itemId: string) => void;

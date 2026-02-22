@@ -70,6 +70,13 @@ const SELECTABLE_MODES: { mode: TransportMode; label: string }[] = [
   { mode: 'flight', label: 'Flight' },
 ];
 
+const GOOGLE_DIRECTIONS_MODE_SET = new Set<TransportMode>([
+  'driving',
+  'walking',
+  'bicycling',
+  'transit',
+]);
+
 const FEASIBILITY_LABELS: Record<FeasibilityStatus, string> = {
   over: 'Too slow',
   tight: 'Tight',
@@ -93,6 +100,10 @@ export default function LegInfoPopup({
   useEscapeHotkey(true, onClose);
 
   const feasibility = getFeasibilityColor(leg, fromItem, toItem);
+  const selectableModes =
+    (leg.routeType ?? 'directions') === 'directions'
+      ? SELECTABLE_MODES.filter(({ mode }) => GOOGLE_DIRECTIONS_MODE_SET.has(mode))
+      : SELECTABLE_MODES;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center pb-6 pointer-events-none">
@@ -167,7 +178,7 @@ export default function LegInfoPopup({
           <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Change mode</div>
             <div className="flex gap-1">
-              {SELECTABLE_MODES.map(({ mode, label }) => (
+              {selectableModes.map(({ mode, label }) => (
                 <button
                   key={mode}
                   title={label}

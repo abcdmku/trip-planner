@@ -8,6 +8,9 @@ import type { CommitExternalDrop, ExternalDragPreview, ResolveExternalDrop } fro
 interface DayViewPanelProps {
   activeDay: Day | null;
   items: Item[];
+  dayItems: Item[];
+  pxPerMin: number;
+  pxPerHr: number;
   selectedItemId: string | null;
   activeDragItemId: string | null;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
@@ -34,6 +37,9 @@ interface DayViewPanelProps {
 export function DayViewPanel({
   activeDay,
   items,
+  dayItems,
+  pxPerMin,
+  pxPerHr,
   selectedItemId,
   activeDragItemId,
   onUpdateItem,
@@ -79,7 +85,10 @@ export function DayViewPanel({
       <div className="min-h-0 flex-1">
         <SingleDayTimeline
           day={activeDay}
-          items={items}
+          items={dayItems}
+          allItems={items}
+          pxPerMin={pxPerMin}
+          pxPerHr={pxPerHr}
           selectedItemId={selectedItemId}
           activeDragItemId={activeDragItemId}
           onUpdateItem={onUpdateItem}

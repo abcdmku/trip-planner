@@ -1,12 +1,18 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Link2, Link2Off } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Link2, Link2Off, Minus, Plus } from 'lucide-react';
 import type { ViewMode } from './types';
 
 interface TimelineViewControlsProps {
   viewMode: ViewMode;
   showPrev: boolean;
   showNext: boolean;
+  canZoomOut: boolean;
+  canZoomIn: boolean;
+  zoomPercent: number;
   onPrev: () => void;
   onNext: () => void;
+  onZoomOut: () => void;
+  onZoomIn: () => void;
+  onResetZoom: () => void;
   onModeChange: (mode: ViewMode) => void;
   /** Whether auto-connect lines are shown */
   showConnectors?: boolean;
@@ -18,8 +24,14 @@ export function TimelineViewControls({
   viewMode,
   showPrev,
   showNext,
+  canZoomOut,
+  canZoomIn,
+  zoomPercent,
   onPrev,
   onNext,
+  onZoomOut,
+  onZoomIn,
+  onResetZoom,
   onModeChange,
   showConnectors = true,
   onToggleConnectors,
@@ -67,6 +79,35 @@ export function TimelineViewControls({
             </button>
           </div>
         )}
+
+        <div className="inline-flex items-center overflow-hidden rounded-md border border-theme bg-theme">
+          <button
+            type="button"
+            onClick={onZoomOut}
+            disabled={!canZoomOut}
+            title="Zoom out timeline"
+            className="flex h-7 w-7 items-center justify-center text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onResetZoom}
+            title="Reset timeline zoom"
+            className="min-w-12 border-x border-theme px-2 py-1 text-[10px] font-semibold tabular-nums text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+          >
+            {zoomPercent}%
+          </button>
+          <button
+            type="button"
+            onClick={onZoomIn}
+            disabled={!canZoomIn}
+            title="Zoom in timeline"
+            className="flex h-7 w-7 items-center justify-center text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
 
         <div className="inline-flex rounded-md border border-theme bg-theme p-0.5">
           <button

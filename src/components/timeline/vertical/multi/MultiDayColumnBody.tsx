@@ -1,9 +1,11 @@
 import type React from 'react';
-import { Clock, Lock, Navigation } from 'lucide-react';
+import { Clock, Lock, Car, Footprints, Bike, Bus, Plane, Circle } from 'lucide-react';
 import type { MutableRefObject } from 'react';
-import type { Day, Item } from '@/types/trip';
+import type { Day, Item, TransportMode } from '@/types/trip';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
-import { MIN_BLOCK_H, PX_PER_HR, PX_PER_MIN, TYPE_ICON } from '../constants';
+import { getAvailabilityRangesForDate } from '@/lib/availability';
+import { toMinutesOfDay } from '@/lib/date-time';
+import { MIN_BLOCK_H, TYPE_ICON } from '../constants';
 import { displayShort, mToY, toTime } from '../time';
 import type { CrossDayDragPreview, ExternalDragPreview, Interaction, ItemVisualPosition } from '../types';
 import { TimelineConnectorLine, type TimelineConnectorData } from '../TimelineConnectorLine';
@@ -16,16 +18,44 @@ function formatTravelDuration(minutes: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
+const MODE_ICON_MAP: Record<TransportMode, typeof Car> = {
+  driving: Car,
+  walking: Footprints,
+  bicycling: Bike,
+  transit: Bus,
+  flight: Plane,
+  other: Circle,
+};
+
+function getPreviewAvailabilityRangesForDay(item: Item | null, dayDate: string) {
+  if (!item || !item.availabilityWindows) return [];
+
+  return getAvailabilityRangesForDate(item.availabilityWindows, dayDate)
+    .map((range) => ({
+      startMin: toMinutesOfDay(range.startTime),
+      endMin: toMinutesOfDay(range.endTime),
+    }))
+    .filter(
+      (range): range is { startMin: number; endMin: number } =>
+        range.startMin !== null &&
+        range.endMin !== null &&
+        range.endMin > range.startMin,
+    );
+}
+
 interface MultiDayColumnBodyProps {
   day: Day;
   dayItems: Item[];
   allItems?: Item[];
+  pxPerMin: number;
+  pxPerHr: number;
   globalStartH: number;
   globalEndH: number;
   gTotalH: number;
   gHours: number[];
   nowMin: number;
   selectedItemId: string | null;
+  activeDragItemId?: string | null;
   interaction: Interaction;
   externalPreview: ExternalDragPreview | null;
   crossDayDragPreview?: CrossDayDragPreview | null;
@@ -50,12 +80,15 @@ export function MultiDayColumnBody({
   day,
   dayItems,
   allItems,
+  pxPerMin,
+  pxPerHr,
   globalStartH,
   globalEndH,
   gTotalH,
   gHours,
   nowMin,
   selectedItemId,
+  activeDragItemId = null,
   interaction,
   externalPreview,
   crossDayDragPreview,
@@ -74,10 +107,28 @@ export function MultiDayColumnBody({
   const previewTextColor = externalPreview?.valid ? day.colorHex : '#DC2626';
   const previewItem = externalPreview ? allItems?.find((i) => i.itemId === externalPreview.itemId) : null;
   const previewEmoji = previewItem ? (TYPE_ICON[previewItem.type] || '\u{1F4CD}') : null;
+  const previewAvailabilityRanges = getPreviewAvailabilityRangesForDay(previewItem ?? null, day.date);
+  const activeExternalDragItem = activeDragItemId
+    ? (allItems ?? dayItems).find((i) => i.itemId === activeDragItemId) ?? null
+    : null;
+  const globalExternalDragAvailabilityRanges = getPreviewAvailabilityRangesForDay(
+    activeExternalDragItem,
+    day.date,
+  );
+  const interactionItem =
+    interaction.type === 'moving' || interaction.type === 'resizing'
+      ? (allItems ?? dayItems).find((i) => i.itemId === interaction.itemId) ?? null
+      : null;
+  const interactionAvailabilityRanges = getPreviewAvailabilityRangesForDay(interactionItem, day.date);
 
   const isCrossDayTarget = crossDayDragPreview?.targetDayId === day.dayId;
   const crossDayItem = crossDayDragPreview ? allItems?.find((i) => i.itemId === crossDayDragPreview.itemId) : null;
   const crossDayEmoji = crossDayItem ? (TYPE_ICON[crossDayItem.type] || '\u{1F4CD}') : null;
+  const crossDayAvailabilityRanges = getPreviewAvailabilityRangesForDay(crossDayItem ?? null, day.date);
+  const shouldShowGlobalExternalRanges =
+    activeDragItemId !== null &&
+    (!externalPreview || externalPreview.itemId !== activeDragItemId) &&
+    globalExternalDragAvailabilityRanges.length > 0;
 
   // Convert TimelineConnectorWithTiming to TimelineConnectorData with Y positions
   const connectorLineData: TimelineConnectorData[] = showConnectors
@@ -85,8 +136,8 @@ export function MultiDayColumnBody({
         id: c.id,
         fromItemId: c.fromItemId,
         toItemId: c.toItemId,
-        startY: mToY(c.fromEndMin, globalStartH, PX_PER_MIN),
-        endY: mToY(c.toStartMin, globalStartH, PX_PER_MIN),
+        startY: mToY(c.fromEndMin, globalStartH, pxPerMin),
+        endY: mToY(c.toStartMin, globalStartH, pxPerMin),
         gapMinutes: c.gapMinutes,
         dayColor: day.colorHex,
       }))
@@ -108,7 +159,7 @@ export function MultiDayColumnBody({
           key={hour}
           className="absolute h-px"
           style={{
-            top: (hour - globalStartH) * PX_PER_HR,
+            top: (hour - globalStartH) * pxPerHr,
             left: 0,
             right: 0,
             backgroundColor: 'rgb(var(--color-border) / 0.06)',
@@ -122,7 +173,7 @@ export function MultiDayColumnBody({
             key={`q-${hour}-${quarter}`}
             className="absolute h-px"
             style={{
-              top: (hour - globalStartH) * PX_PER_HR + (quarter * PX_PER_HR) / 4,
+              top: (hour - globalStartH) * pxPerHr + (quarter * pxPerHr) / 4,
               left: 0,
               right: 0,
               backgroundColor:
@@ -138,13 +189,120 @@ export function MultiDayColumnBody({
         <div
           className="absolute z-30 bg-red-500"
           style={{
-            top: mToY(nowMin, globalStartH, PX_PER_MIN) - 0.5,
+            top: mToY(nowMin, globalStartH, pxPerMin) - 0.5,
             left: 0,
             right: 0,
             height: 1.5,
             borderRadius: 1,
           }}
         />
+      )}
+
+      {externalPreview && previewAvailabilityRanges.length > 0 && (
+        <>
+          {previewAvailabilityRanges.map((range, index) => {
+            const top = mToY(range.startMin, globalStartH, pxPerMin);
+            const height = Math.max(2, (range.endMin - range.startMin) * pxPerMin);
+
+            return (
+              <div
+                key={`avail-${range.startMin}-${range.endMin}-${index}`}
+                className="pointer-events-none absolute overflow-hidden rounded-sm border border-dashed"
+                style={{
+                  top,
+                  left: 2,
+                  right: 2,
+                  height,
+                  backgroundColor: `${day.colorHex}12`,
+                  borderColor: `${day.colorHex}45`,
+                }}
+              >
+                {height >= 18 && (
+                  <div className="px-1 pt-0.5">
+                    <span
+                      className="rounded bg-theme/80 px-1 py-[1px] text-[7px] font-medium"
+                      style={{ color: `${day.colorHex}CC` }}
+                    >
+                      {displayShort(toTime(range.startMin))} - {displayShort(toTime(range.endMin))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {shouldShowGlobalExternalRanges && (
+        <>
+          {globalExternalDragAvailabilityRanges.map((range, index) => {
+            const top = mToY(range.startMin, globalStartH, pxPerMin);
+            const height = Math.max(2, (range.endMin - range.startMin) * pxPerMin);
+
+            return (
+              <div
+                key={`global-drag-avail-${range.startMin}-${range.endMin}-${index}`}
+                className="pointer-events-none absolute overflow-hidden rounded-sm border border-dashed"
+                style={{
+                  top,
+                  left: 2,
+                  right: 2,
+                  height,
+                  backgroundColor: `${day.colorHex}10`,
+                  borderColor: `${day.colorHex}35`,
+                }}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {!externalPreview && interactionAvailabilityRanges.length > 0 && (
+        <>
+          {interactionAvailabilityRanges.map((range, index) => {
+            const top = mToY(range.startMin, globalStartH, pxPerMin);
+            const height = Math.max(2, (range.endMin - range.startMin) * pxPerMin);
+
+            return (
+              <div
+                key={`drag-avail-${range.startMin}-${range.endMin}-${index}`}
+                className="pointer-events-none absolute overflow-hidden rounded-sm border border-dashed"
+                style={{
+                  top,
+                  left: 2,
+                  right: 2,
+                  height,
+                  backgroundColor: `${day.colorHex}10`,
+                  borderColor: `${day.colorHex}35`,
+                }}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {!externalPreview && isCrossDayTarget && crossDayAvailabilityRanges.length > 0 && (
+        <>
+          {crossDayAvailabilityRanges.map((range, index) => {
+            const top = mToY(range.startMin, globalStartH, pxPerMin);
+            const height = Math.max(2, (range.endMin - range.startMin) * pxPerMin);
+
+            return (
+              <div
+                key={`cross-day-avail-${range.startMin}-${range.endMin}-${index}`}
+                className="pointer-events-none absolute overflow-hidden rounded-sm border border-dashed"
+                style={{
+                  top,
+                  left: 2,
+                  right: 2,
+                  height,
+                  backgroundColor: `${day.colorHex}10`,
+                  borderColor: `${day.colorHex}35`,
+                }}
+              />
+            );
+          })}
+        </>
       )}
 
       {/* Connector lines between items */}
@@ -219,12 +377,15 @@ export function MultiDayColumnBody({
                       {displayShort(toTime(position.startMin))} - {displayShort(toTime(position.endMin))}
                     </span>
                   )}
-                  {isTransport && travelDuration && position.height >= 44 && (
-                    <span className="mt-0.5 flex items-center gap-0.5 text-[8px] leading-tight text-theme-tertiary">
-                      <Navigation className="h-2 w-2" />
-                      {travelDuration}
-                    </span>
-                  )}
+                  {isTransport && travelDuration && position.height >= 44 && (() => {
+                    const ModeIcon = MODE_ICON_MAP[item.transportMode] ?? Car;
+                    return (
+                      <span className="mt-0.5 flex items-center gap-0.5 text-[8px] leading-tight text-theme-tertiary">
+                        <ModeIcon className="h-2 w-2" />
+                        {travelDuration}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -245,10 +406,10 @@ export function MultiDayColumnBody({
         <div
           className="absolute z-40 rounded-md border-2 border-dashed"
           style={{
-            top: mToY(interaction.startMin, globalStartH, PX_PER_MIN),
+            top: mToY(interaction.startMin, globalStartH, pxPerMin),
             left: 2,
             right: 2,
-            height: Math.max(MIN_BLOCK_H, (interaction.endMin - interaction.startMin) * PX_PER_MIN),
+            height: Math.max(MIN_BLOCK_H, (interaction.endMin - interaction.startMin) * pxPerMin),
             backgroundColor: `${day.colorHex}30`,
             borderColor: `${day.colorHex}90`,
           }}
@@ -262,12 +423,12 @@ export function MultiDayColumnBody({
       )}
 
       {externalPreview && (() => {
-        const previewH = Math.max(MIN_BLOCK_H, (externalPreview.endMin - externalPreview.startMin) * PX_PER_MIN);
+        const previewH = Math.max(MIN_BLOCK_H, (externalPreview.endMin - externalPreview.startMin) * pxPerMin);
         return (
           <div
             className="absolute z-40 rounded-md border-2 border-dashed transition-[top] duration-75"
             style={{
-              top: mToY(externalPreview.startMin, globalStartH, PX_PER_MIN),
+              top: mToY(externalPreview.startMin, globalStartH, pxPerMin),
               left: 2,
               right: 2,
               height: previewH,
@@ -285,6 +446,7 @@ export function MultiDayColumnBody({
               <div className="px-1.5">
                 <span className="text-[8px]" style={{ color: `${previewTextColor}99` }}>
                   {displayShort(toTime(externalPreview.startMin))} - {displayShort(toTime(externalPreview.endMin))}
+                  {!externalPreview.valid ? ' \u00B7 Unavailable' : ''}
                 </span>
               </div>
             )}
@@ -293,12 +455,12 @@ export function MultiDayColumnBody({
       })()}
 
       {isCrossDayTarget && crossDayDragPreview && (() => {
-        const cdH = Math.max(MIN_BLOCK_H, (crossDayDragPreview.endMin - crossDayDragPreview.startMin) * PX_PER_MIN);
+        const cdH = Math.max(MIN_BLOCK_H, (crossDayDragPreview.endMin - crossDayDragPreview.startMin) * pxPerMin);
         return (
           <div
             className="absolute z-50 rounded-md border border-theme bg-theme-elevated shadow-lg ring-2 ring-offset-1 ring-offset-theme"
             style={{
-              top: mToY(crossDayDragPreview.startMin, globalStartH, PX_PER_MIN),
+              top: mToY(crossDayDragPreview.startMin, globalStartH, pxPerMin),
               left: 2,
               right: 2,
               height: cdH,

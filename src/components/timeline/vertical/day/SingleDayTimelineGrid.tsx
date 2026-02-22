@@ -1,13 +1,14 @@
-import { GUTTER, PX_PER_HR } from '../constants';
+import { GUTTER } from '../constants';
 import { hourLabel } from '../time';
 
 interface SingleDayTimelineGridProps {
   startH: number;
   hours: number[];
   nowY: number | null;
+  pxPerHr: number;
 }
 
-export function SingleDayTimelineGrid({ startH, hours, nowY }: SingleDayTimelineGridProps) {
+export function SingleDayTimelineGrid({ startH, hours, nowY, pxPerHr }: SingleDayTimelineGridProps) {
   return (
     <>
       <div
@@ -16,7 +17,7 @@ export function SingleDayTimelineGrid({ startH, hours, nowY }: SingleDayTimeline
       />
 
       {hours.map((hour) => {
-        const y = (hour - startH) * PX_PER_HR;
+        const y = (hour - startH) * pxPerHr;
         return (
           <div key={hour}>
             <div
@@ -46,7 +47,7 @@ export function SingleDayTimelineGrid({ startH, hours, nowY }: SingleDayTimeline
             key={`q-${hour}-${quarter}`}
             className="absolute h-px"
             style={{
-              top: (hour - startH) * PX_PER_HR + (quarter * PX_PER_HR) / 4,
+              top: (hour - startH) * pxPerHr + (quarter * pxPerHr) / 4,
               left: GUTTER,
               right: 0,
               backgroundColor:

@@ -35,6 +35,7 @@ export function ItemDetailCard({
   onClose,
 }: ItemDetailCardProps) {
   const [editorValue, setEditorValue] = useState<EventEditorValue>(() => itemToEditorValue(item));
+  const [originPlaceDetails, setOriginPlaceDetails] = useState<PlaceSearchResult | null>(null);
   const [showDestSearch, setShowDestSearch] = useState(false);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const routeCalculationRef = useRef<number>(0);
@@ -45,7 +46,32 @@ export function ItemDetailCard({
   useEffect(() => {
     setEditorValue(itemToEditorValue(item));
     setShowDestSearch(false);
-  }, [item]);
+  }, [item.itemId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!item.placeId || item.placeId.startsWith('custom-')) {
+      setOriginPlaceDetails(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setOriginPlaceDetails(null);
+    mapsRepository
+      .getPlaceDetails(item.placeId)
+      .then((place) => {
+        if (!cancelled) setOriginPlaceDetails(place);
+      })
+      .catch(() => {
+        if (!cancelled) setOriginPlaceDetails(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item.placeId]);
 
   const commit = useCallback(
     (updates: Partial<Item>) => {
@@ -54,13 +80,9 @@ export function ItemDetailCard({
     [onUpdate],
   );
 
-  // Calculate route when origin, destination, mode, or route type changes
-  const calculateRoute = useCallback(async () => {
-    if (!hasOrigin || !hasDest) return;
-    if (editorValue.itemRouteType === 'straight') {
-      // For straight lines, clear the route data (distance will be calculated on display)
-      return;
-    }
+  // Core route calculation logic — calls Google Directions API
+  const doCalculateRoute = useCallback(async () => {
+    if (!hasOrigin || !hasDest || editorValue.itemRouteType !== 'directions') return;
 
     const requestId = ++routeCalculationRef.current;
     setIsCalculatingRoute(true);
@@ -86,22 +108,26 @@ export function ItemDetailCard({
 
         // Also update the duration if it's different
         if (result.durationMinutes > 0 && result.durationMinutes !== editorValue.durationMinutes) {
-          updates.durationMinutes = result.durationMinutes;
+          let nextDuration = result.durationMinutes;
 
           // Update endTime based on new duration if we have a start time
           if (editorValue.scheduledStart) {
             const [startHour, startMin] = editorValue.scheduledStart.split(':').map(Number);
             const startTotalMin = startHour * 60 + startMin;
-            const endTotalMin = startTotalMin + result.durationMinutes;
-            const endHour = Math.floor(endTotalMin / 60) % 24;
+            const maxDuration = Math.max(0, 23 * 60 + 59 - startTotalMin);
+            nextDuration = Math.min(nextDuration, maxDuration);
+            const endTotalMin = startTotalMin + nextDuration;
+            const endHour = Math.floor(endTotalMin / 60);
             const endMinute = endTotalMin % 60;
             updates.scheduledEnd = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
           }
 
+          updates.durationMinutes = nextDuration;
+
           // Update local editor state too
           setEditorValue((prev) => ({
             ...prev,
-            durationMinutes: result.durationMinutes,
+            durationMinutes: nextDuration,
             scheduledEnd: updates.scheduledEnd ?? prev.scheduledEnd,
           }));
         }
@@ -115,39 +141,39 @@ export function ItemDetailCard({
         setIsCalculatingRoute(false);
       }
     }
-  }, [hasOrigin, hasDest, item.lat, item.lng, item.destLat, item.destLng, editorValue.transportMode, editorValue.itemRouteType, editorValue.durationMinutes, editorValue.scheduledStart, commit]);
-
-  // Trigger route calculation when relevant fields change
-  useEffect(() => {
-    if (hasOrigin && hasDest && editorValue.itemRouteType === 'directions') {
-      // Debounce route calculation
-      const timeoutId = setTimeout(() => {
-        calculateRoute();
-      }, 300);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [hasOrigin, hasDest, editorValue.transportMode, editorValue.itemRouteType, calculateRoute]);
+  }, [hasOrigin, hasDest, item.lat, item.lng, item.destLat, item.destLng, editorValue.itemRouteType, editorValue.transportMode, editorValue.durationMinutes, editorValue.scheduledStart, commit]);
 
   const handleEditorChange = (next: EventEditorValue) => {
     setEditorValue(next);
-    commit({
-      type: next.type,
-      transportMode: next.transportMode,
-      itemRouteType: next.itemRouteType,
-      scheduledStart: next.scheduledStart,
-      scheduledEnd: next.scheduledEnd,
-      durationMinutes: next.durationMinutes,
-      notesMd: next.notesMd,
-      availabilityWindows: next.availabilityWindows,
-      timelineLocked: next.timelineLocked,
-      // Refresh cached route whenever mode/type changes from inline editor.
-      itemRoutePathEncoded: '',
-      itemRouteDistanceMeters: 0,
-      itemRouteDurationMinutes: 0,
-    });
+    const updates: Partial<Item> = {};
+    if (next.type !== editorValue.type) updates.type = next.type;
+    if (next.transportMode !== editorValue.transportMode) updates.transportMode = next.transportMode;
+    if (next.itemRouteType !== editorValue.itemRouteType) updates.itemRouteType = next.itemRouteType;
+    if (next.scheduledStart !== editorValue.scheduledStart) updates.scheduledStart = next.scheduledStart;
+    if (next.scheduledEnd !== editorValue.scheduledEnd) updates.scheduledEnd = next.scheduledEnd;
+    if (next.durationMinutes !== editorValue.durationMinutes) updates.durationMinutes = next.durationMinutes;
+    if (next.notesMd !== editorValue.notesMd) updates.notesMd = next.notesMd;
+    if (next.availabilityWindows !== editorValue.availabilityWindows) {
+      updates.availabilityWindows = next.availabilityWindows;
+    }
+    if (next.timelineLocked !== editorValue.timelineLocked) updates.timelineLocked = next.timelineLocked;
+
+    // Mode/route-style changes invalidate cached directions payloads.
+    if (
+      next.transportMode !== editorValue.transportMode ||
+      next.itemRouteType !== editorValue.itemRouteType
+    ) {
+      updates.itemRoutePathEncoded = '';
+      updates.itemRouteDistanceMeters = 0;
+      updates.itemRouteDurationMinutes = 0;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      commit(updates);
+    }
   };
 
-  const handleDestSelect = async (place: PlaceSearchResult) => {
+  const handleDestSelect = (place: PlaceSearchResult) => {
     // Clear existing route data and set destination
     commit({
       destLat: place.lat,
@@ -159,57 +185,6 @@ export function ItemDetailCard({
       itemRouteDurationMinutes: 0,
     });
     setShowDestSearch(false);
-
-    // Calculate route if using directions mode and we have an origin
-    if (hasOrigin && editorValue.itemRouteType === 'directions') {
-      const requestId = ++routeCalculationRef.current;
-      setIsCalculatingRoute(true);
-
-      try {
-        const result = await mapsRepository.calculateLeg(
-          { lat: item.lat, lng: item.lng },
-          { lat: place.lat, lng: place.lng },
-          editorValue.transportMode,
-        );
-
-        if (requestId !== routeCalculationRef.current) return;
-
-        if (result) {
-          const updates: Partial<Item> = {
-            itemRoutePathEncoded: result.routePathEncoded,
-            itemRouteDistanceMeters: result.distanceMeters,
-            itemRouteDurationMinutes: result.durationMinutes,
-          };
-
-          if (result.durationMinutes > 0) {
-            updates.durationMinutes = result.durationMinutes;
-
-            if (editorValue.scheduledStart) {
-              const [startHour, startMin] = editorValue.scheduledStart.split(':').map(Number);
-              const startTotalMin = startHour * 60 + startMin;
-              const endTotalMin = startTotalMin + result.durationMinutes;
-              const endHour = Math.floor(endTotalMin / 60) % 24;
-              const endMinute = endTotalMin % 60;
-              updates.scheduledEnd = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-            }
-
-            setEditorValue((prev) => ({
-              ...prev,
-              durationMinutes: result.durationMinutes,
-              scheduledEnd: updates.scheduledEnd ?? prev.scheduledEnd,
-            }));
-          }
-
-          commit(updates);
-        }
-      } catch (error) {
-        console.error('Failed to calculate route:', error);
-      } finally {
-        if (requestId === routeCalculationRef.current) {
-          setIsCalculatingRoute(false);
-        }
-      }
-    }
   };
 
   return (
@@ -309,6 +284,11 @@ export function ItemDetailCard({
           onChange={handleEditorChange}
           compact
           defaultDate={dayDate}
+          onCalculateRoute={doCalculateRoute}
+          isCalculatingRoute={isCalculatingRoute}
+          canCalculateRoute={hasOrigin && hasDest && editorValue.itemRouteType === 'directions'}
+          showTransportation={hasDest || editorValue.type === 'transport'}
+          mapsAvailabilityWindows={originPlaceDetails?.mapsAvailabilityWindows}
         />
       </div>
     </div>

@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { deriveTimelineConnectorsWithTiming } from '@/lib/connectors';
-import { PX_PER_HR, PX_PER_MIN, SNAP } from './constants';
+import { resolvePointDropNearest } from '@/lib/timeline-drop';
+import {
+  PX_PER_MIN,
+  SNAP,
+  TIMELINE_MAX_PX_PER_MIN,
+  TIMELINE_MIN_PX_PER_MIN,
+  TIMELINE_ZOOM_STEP_PX_PER_MIN,
+} from './constants';
 import { snapM, toMins, toTime } from './time';
 import type { CrossDayDragPreview, CrossDayMoveInfo, VerticalTimelineProps, ViewMode } from './types';
 import { useExternalTimelineDrop } from './useExternalTimelineDrop';
 import { useWindowDragCleanup } from './useWindowDragCleanup';
 import { TimelineViewControls } from './TimelineViewControls';
+import { buildTimelineRenderItemsByDay } from './render-segments';
 import { DayViewPanel } from './day/DayViewPanel';
 import { MultiDayColumn } from './multi/MultiDayColumn';
 import { MultiViewTimeAxis } from './multi/MultiViewTimeAxis';
@@ -34,8 +42,15 @@ export function VerticalTimeline({
 
   const [viewMode, setViewMode] = useState<ViewMode>('multi');
   const [focusedDayId, setFocusedDayId] = useState<string | null>(selectedDayIds[0] ?? days[0]?.dayId ?? null);
+  const [pxPerMin, setPxPerMin] = useState(PX_PER_MIN);
+  const pxPerHr = pxPerMin * 60;
 
   const orderedDays = useMemo(() => [...days].sort((a, b) => a.date.localeCompare(b.date)), [days]);
+  const timelineItemsByDay = useMemo(() => buildTimelineRenderItemsByDay(orderedDays, items), [items, orderedDays]);
+  const timelineRenderItems = useMemo(
+    () => orderedDays.flatMap((day) => timelineItemsByDay.get(day.dayId) ?? []),
+    [orderedDays, timelineItemsByDay],
+  );
 
   const selectedTimelineItem = useMemo(
     () =>
@@ -108,8 +123,7 @@ export function VerticalTimeline({
       maxHour = Math.max(maxHour, Math.ceil(toMins(day.dayEnd || '22:00') / 60));
     }
 
-    for (const item of items) {
-      if (!item.scheduledStart || !orderedDays.some((day) => day.dayId === item.dayId)) continue;
+    for (const item of timelineRenderItems) {
       const startMin = toMins(item.scheduledStart);
       const endMin = item.scheduledEnd ? toMins(item.scheduledEnd) : startMin + item.durationMinutes;
       minHour = Math.min(minHour, Math.floor(startMin / 60));
@@ -117,9 +131,9 @@ export function VerticalTimeline({
     }
 
     return { startH: Math.max(0, minHour - 1), endH: Math.min(24, maxHour + 1) };
-  }, [items, orderedDays]);
+  }, [orderedDays, timelineRenderItems]);
 
-  const gTotalH = (globalRange.endH - globalRange.startH) * PX_PER_HR;
+  const gTotalH = (globalRange.endH - globalRange.startH) * pxPerHr;
   const gHours = useMemo(
     () => Array.from({ length: globalRange.endH - globalRange.startH + 1 }, (_, i) => globalRange.startH + i),
     [globalRange.endH, globalRange.startH],
@@ -178,6 +192,13 @@ export function VerticalTimeline({
 
   const showPrev = viewMode === 'day' && !selectedDayId && effectiveDayIndex > 0;
   const showNext = viewMode === 'day' && !selectedDayId && effectiveDayIndex < orderedDays.length - 1;
+  const canZoomOut = pxPerMin > TIMELINE_MIN_PX_PER_MIN;
+  const canZoomIn = pxPerMin < TIMELINE_MAX_PX_PER_MIN;
+
+  const updateZoom = useCallback((next: number) => {
+    const clamped = Math.max(TIMELINE_MIN_PX_PER_MIN, Math.min(TIMELINE_MAX_PX_PER_MIN, next));
+    setPxPerMin(Math.round(clamped * 10) / 10);
+  }, []);
 
   const handleTimelineDragOver = useCallback(
     (_e: React.DragEvent) => {
@@ -212,6 +233,9 @@ export function VerticalTimeline({
 
       const findTarget = (clientX: number, clientY: number): CrossDayDragPreview | null => {
         const refs = dayColumnRefs.current;
+        const sourceItem = itemsById.get(info.itemId);
+        if (!sourceItem) return null;
+
         for (const day of orderedDays) {
           const el = refs[day.dayId];
           if (!el) continue;
@@ -221,11 +245,22 @@ export function VerticalTimeline({
             if (!bodyEl) return null;
             const bodyRect = bodyEl.getBoundingClientRect();
             const rawY = clientY - bodyRect.top;
-            const startMin = snapM(
-              Math.max(0, Math.min(1440 - duration, rawY / PX_PER_MIN + globalRange.startH * 60)),
+            const anchorMin = snapM(
+              Math.max(0, Math.min(1440 - duration, rawY / pxPerMin + globalRange.startH * 60)),
               SNAP,
             );
-            return { itemId: info.itemId, targetDayId: day.dayId, startMin, endMin: startMin + duration };
+            const resolution = resolvePointDropNearest({
+              item: sourceItem,
+              day,
+              anchorMin,
+            });
+            if (!resolution.valid) return null;
+            return {
+              itemId: info.itemId,
+              targetDayId: day.dayId,
+              startMin: resolution.startMin,
+              endMin: resolution.endMin,
+            };
           }
         }
         return null;
@@ -270,7 +305,7 @@ export function VerticalTimeline({
       document.addEventListener('pointermove', handleMove);
       document.addEventListener('pointerup', handleUp);
     },
-    [globalRange.startH, onUpdateItem, orderedDays],
+    [globalRange.startH, itemsById, onUpdateItem, orderedDays, pxPerMin],
   );
 
   if (!orderedDays.length) {
@@ -291,6 +326,9 @@ export function VerticalTimeline({
         viewMode={viewMode}
         showPrev={showPrev}
         showNext={showNext}
+        canZoomOut={canZoomOut}
+        canZoomIn={canZoomIn}
+        zoomPercent={Math.round((pxPerMin / PX_PER_MIN) * 100)}
         onPrev={() => {
           if (!showPrev) return;
           const prev = orderedDays[effectiveDayIndex - 1];
@@ -301,6 +339,9 @@ export function VerticalTimeline({
           const next = orderedDays[effectiveDayIndex + 1];
           if (next) setFocusedDayId(next.dayId);
         }}
+        onZoomOut={() => updateZoom(pxPerMin - TIMELINE_ZOOM_STEP_PX_PER_MIN)}
+        onZoomIn={() => updateZoom(pxPerMin + TIMELINE_ZOOM_STEP_PX_PER_MIN)}
+        onResetZoom={() => updateZoom(PX_PER_MIN)}
         onModeChange={setViewMode}
         showConnectors={showTimelineConnectors}
         onToggleConnectors={onToggleTimelineConnectors}
@@ -311,6 +352,7 @@ export function VerticalTimeline({
           <DayViewPanel
             activeDay={activeDay}
             items={items}
+            dayItems={activeDay ? (timelineItemsByDay.get(activeDay.dayId) ?? []) : []}
             selectedItemId={selectedItemId}
             activeDragItemId={activeDragItemId}
             onUpdateItem={onUpdateItem}
@@ -328,21 +370,23 @@ export function VerticalTimeline({
             onConnectorClick={onTimelineConnectorClick}
             onConnectorRemove={onTimelineConnectorRemove}
             showConnectors={showTimelineConnectors}
+            pxPerMin={pxPerMin}
+            pxPerHr={pxPerHr}
           />
         </div>
       ) : (
         <div ref={scrollerRef} className="min-h-0 flex-1 overflow-auto bg-theme">
           <div className="inline-flex min-h-full min-w-full">
-            <MultiViewTimeAxis globalStartH={globalRange.startH} gHours={gHours} gTotalH={gTotalH} />
+            <MultiViewTimeAxis
+              globalStartH={globalRange.startH}
+              gHours={gHours}
+              gTotalH={gTotalH}
+              pxPerHr={pxPerHr}
+            />
 
             <div className="flex gap-2 px-2 py-2">
               {orderedDays.map((day) => {
-                const dayItems = items
-                  .filter((item) => item.dayId === day.dayId && Boolean(item.scheduledStart))
-                  .sort((a, b) => {
-                    const delta = toMins(a.scheduledStart) - toMins(b.scheduledStart);
-                    return delta === 0 ? a.sortOrder - b.sortOrder : delta;
-                  });
+                const dayItems = timelineItemsByDay.get(day.dayId) ?? [];
 
                 return (
                   <MultiDayColumn
@@ -353,6 +397,8 @@ export function VerticalTimeline({
                     day={day}
                     dayItems={dayItems}
                     allItems={items}
+                    pxPerMin={pxPerMin}
+                    pxPerHr={pxPerHr}
                     globalStartH={globalRange.startH}
                     globalEndH={globalRange.endH}
                     gTotalH={gTotalH}

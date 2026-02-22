@@ -44,6 +44,13 @@ const SELECTABLE_MODES: { mode: TransportMode; label: string }[] = [
   { mode: 'flight', label: 'Flight' },
 ];
 
+const GOOGLE_DIRECTIONS_MODE_SET = new Set<TransportMode>([
+  'driving',
+  'walking',
+  'bicycling',
+  'transit',
+]);
+
 // ---------------------------------------------------------------------------
 // Mode icons (compact inline SVGs)
 // ---------------------------------------------------------------------------
@@ -105,6 +112,10 @@ export default function RouteLegLabel({
 }: RouteLegLabelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const selectableModes =
+    (leg.routeType ?? 'directions') === 'directions'
+      ? SELECTABLE_MODES.filter(({ mode }) => GOOGLE_DIRECTIONS_MODE_SET.has(mode))
+      : SELECTABLE_MODES;
 
   // Close selector when clicking outside.
   useEffect(() => {
@@ -200,7 +211,7 @@ export default function RouteLegLabel({
               zIndex: 100,
             }}
           >
-            {SELECTABLE_MODES.map(({ mode, label }) => (
+            {selectableModes.map(({ mode, label }) => (
               <button
                 key={mode}
                 title={label}

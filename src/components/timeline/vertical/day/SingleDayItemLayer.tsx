@@ -1,8 +1,10 @@
 import type React from 'react';
-import { Clock, Lock, Navigation } from 'lucide-react';
-import type { Day, Item } from '@/types/trip';
+import { Clock, Lock, Car, Footprints, Bike, Bus, Plane, Circle } from 'lucide-react';
+import type { Day, Item, TransportMode } from '@/types/trip';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
-import { GUTTER, MIN_BLOCK_H, PX_PER_MIN, TYPE_ICON } from '../constants';
+import { getAvailabilityRangesForDate } from '@/lib/availability';
+import { toMinutesOfDay } from '@/lib/date-time';
+import { GUTTER, MIN_BLOCK_H, TYPE_ICON } from '../constants';
 import { displayShort, mToY, toTime } from '../time';
 import type { ExternalDragPreview, Interaction, ItemVisualPosition } from '../types';
 import { TimelineConnectorLine, type TimelineConnectorData } from '../TimelineConnectorLine';
@@ -15,12 +17,39 @@ function formatTravelDuration(minutes: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
+const MODE_ICON_MAP: Record<TransportMode, typeof Car> = {
+  driving: Car,
+  walking: Footprints,
+  bicycling: Bike,
+  transit: Bus,
+  flight: Plane,
+  other: Circle,
+};
+
+function getPreviewAvailabilityRangesForDay(item: Item | null, dayDate: string) {
+  if (!item || !item.availabilityWindows) return [];
+
+  return getAvailabilityRangesForDate(item.availabilityWindows, dayDate)
+    .map((range) => ({
+      startMin: toMinutesOfDay(range.startTime),
+      endMin: toMinutesOfDay(range.endTime),
+    }))
+    .filter(
+      (range): range is { startMin: number; endMin: number } =>
+        range.startMin !== null &&
+        range.endMin !== null &&
+        range.endMin > range.startMin,
+    );
+}
+
 interface SingleDayItemLayerProps {
   day: Day;
   items: Item[];
   allItems?: Item[];
   selectedItemId?: string | null;
+  activeDragItemId?: string | null;
   startH: number;
+  pxPerMin: number;
   interaction: Interaction;
   externalPreview: ExternalDragPreview | null;
   getItemVisualPosition: (item: Item, startHour: number) => ItemVisualPosition;
@@ -40,7 +69,9 @@ export function SingleDayItemLayer({
   items,
   allItems,
   selectedItemId,
+  activeDragItemId = null,
   startH,
+  pxPerMin,
   interaction,
   externalPreview,
   getItemVisualPosition,
@@ -53,6 +84,19 @@ export function SingleDayItemLayer({
   const previewTextColor = externalPreview?.valid ? day.colorHex : '#DC2626';
   const previewItem = externalPreview ? allItems?.find((i) => i.itemId === externalPreview.itemId) : null;
   const previewEmoji = previewItem ? (TYPE_ICON[previewItem.type] || '\u{1F4CD}') : null;
+  const previewAvailabilityRanges = getPreviewAvailabilityRangesForDay(previewItem ?? null, day.date);
+  const activeExternalDragItem = activeDragItemId
+    ? (allItems ?? items).find((i) => i.itemId === activeDragItemId) ?? null
+    : null;
+  const globalExternalDragAvailabilityRanges = getPreviewAvailabilityRangesForDay(
+    activeExternalDragItem,
+    day.date,
+  );
+  const interactionItem =
+    interaction.type === 'moving' || interaction.type === 'resizing'
+      ? (allItems ?? items).find((i) => i.itemId === interaction.itemId) ?? null
+      : null;
+  const interactionAvailabilityRanges = getPreviewAvailabilityRangesForDay(interactionItem, day.date);
 
   // Convert TimelineConnectorWithTiming to TimelineConnectorData with Y positions
   const connectorLineData: TimelineConnectorData[] = showConnectors
@@ -60,8 +104,8 @@ export function SingleDayItemLayer({
         id: c.id,
         fromItemId: c.fromItemId,
         toItemId: c.toItemId,
-        startY: mToY(c.fromEndMin, startH, PX_PER_MIN),
-        endY: mToY(c.toStartMin, startH, PX_PER_MIN),
+        startY: mToY(c.fromEndMin, startH, pxPerMin),
+        endY: mToY(c.toStartMin, startH, pxPerMin),
         gapMinutes: c.gapMinutes,
         dayColor: day.colorHex,
       }))
@@ -84,6 +128,91 @@ export function SingleDayItemLayer({
           />
         );
       })}
+
+      {externalPreview && previewAvailabilityRanges.length > 0 && (
+        <>
+          {previewAvailabilityRanges.map((range, index) => {
+            const top = mToY(range.startMin, startH, pxPerMin);
+            const height = Math.max(2, (range.endMin - range.startMin) * pxPerMin);
+
+            return (
+              <div
+                key={`avail-${range.startMin}-${range.endMin}-${index}`}
+                className="pointer-events-none absolute overflow-hidden rounded-sm border border-dashed"
+                style={{
+                  top,
+                  left: GUTTER + 2,
+                  right: 4,
+                  height,
+                  backgroundColor: `${day.colorHex}12`,
+                  borderColor: `${day.colorHex}45`,
+                }}
+              >
+                {height >= 20 && (
+                  <div className="px-1.5 pt-0.5">
+                    <span
+                      className="rounded bg-theme/80 px-1 py-[1px] text-[8px] font-medium"
+                      style={{ color: `${day.colorHex}CC` }}
+                    >
+                      {displayShort(toTime(range.startMin))} - {displayShort(toTime(range.endMin))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {activeDragItemId !== null &&
+        (!externalPreview || externalPreview.itemId !== activeDragItemId) &&
+        globalExternalDragAvailabilityRanges.length > 0 && (
+          <>
+            {globalExternalDragAvailabilityRanges.map((range, index) => {
+              const top = mToY(range.startMin, startH, pxPerMin);
+              const height = Math.max(2, (range.endMin - range.startMin) * pxPerMin);
+
+              return (
+                <div
+                  key={`global-drag-avail-${range.startMin}-${range.endMin}-${index}`}
+                  className="pointer-events-none absolute overflow-hidden rounded-sm border border-dashed"
+                  style={{
+                    top,
+                    left: GUTTER + 2,
+                    right: 4,
+                    height,
+                    backgroundColor: `${day.colorHex}10`,
+                    borderColor: `${day.colorHex}35`,
+                  }}
+                />
+              );
+            })}
+          </>
+        )}
+
+      {!externalPreview && interactionAvailabilityRanges.length > 0 && (
+        <>
+          {interactionAvailabilityRanges.map((range, index) => {
+            const top = mToY(range.startMin, startH, pxPerMin);
+            const height = Math.max(2, (range.endMin - range.startMin) * pxPerMin);
+
+            return (
+              <div
+                key={`drag-avail-${range.startMin}-${range.endMin}-${index}`}
+                className="pointer-events-none absolute overflow-hidden rounded-sm border border-dashed"
+                style={{
+                  top,
+                  left: GUTTER + 2,
+                  right: 4,
+                  height,
+                  backgroundColor: `${day.colorHex}10`,
+                  borderColor: `${day.colorHex}35`,
+                }}
+              />
+            );
+          })}
+        </>
+      )}
 
       {items.map((item) => {
         const position = getItemVisualPosition(item, startH);
@@ -139,12 +268,15 @@ export function SingleDayItemLayer({
                       {displayShort(toTime(position.startMin))} - {displayShort(toTime(position.endMin))}
                     </span>
                   )}
-                  {isTransport && travelDuration && position.height >= 50 && (
-                    <span className="mt-0.5 flex items-center gap-0.5 text-[9px] leading-tight text-theme-tertiary">
-                      <Navigation className="h-2.5 w-2.5" />
-                      {travelDuration}
-                    </span>
-                  )}
+                  {isTransport && travelDuration && position.height >= 50 && (() => {
+                    const ModeIcon = MODE_ICON_MAP[item.transportMode] ?? Car;
+                    return (
+                      <span className="mt-0.5 flex items-center gap-0.5 text-[9px] leading-tight text-theme-tertiary">
+                        <ModeIcon className="h-2.5 w-2.5" />
+                        {travelDuration}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -165,10 +297,10 @@ export function SingleDayItemLayer({
         <div
           className="absolute z-40 rounded-md border-2 border-dashed"
           style={{
-            top: mToY(interaction.startMin, startH, PX_PER_MIN),
+            top: mToY(interaction.startMin, startH, pxPerMin),
             left: GUTTER + 2,
             right: 4,
-            height: Math.max(MIN_BLOCK_H, (interaction.endMin - interaction.startMin) * PX_PER_MIN),
+            height: Math.max(MIN_BLOCK_H, (interaction.endMin - interaction.startMin) * pxPerMin),
             backgroundColor: `${day.colorHex}30`,
             borderColor: `${day.colorHex}90`,
           }}
@@ -182,12 +314,12 @@ export function SingleDayItemLayer({
       )}
 
       {externalPreview && (() => {
-        const previewH = Math.max(MIN_BLOCK_H, (externalPreview.endMin - externalPreview.startMin) * PX_PER_MIN);
+        const previewH = Math.max(MIN_BLOCK_H, (externalPreview.endMin - externalPreview.startMin) * pxPerMin);
         return (
           <div
             className="absolute z-40 rounded-md border-2 border-dashed transition-[top] duration-75"
             style={{
-              top: mToY(externalPreview.startMin, startH, PX_PER_MIN),
+              top: mToY(externalPreview.startMin, startH, pxPerMin),
               left: GUTTER + 2,
               right: 4,
               height: previewH,
