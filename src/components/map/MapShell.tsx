@@ -22,8 +22,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
 import { mapsRepository, type PlaceSearchResult } from '../../services/maps-repository';
 import ItemMarker from './ItemMarker';
-import MarkerInfoWindow from './MarkerInfoWindow';
-import MapPlaceInfoWindow from './MapPlaceInfoWindow';
+import UnifiedInfoWindow from './UnifiedInfoWindow';
 import RouteOverlay from './RouteOverlay';
 import StartLocationMarker from './StartLocationMarker';
 import ItemRouteOverlay from './ItemRouteOverlay';
@@ -89,6 +88,10 @@ export interface MapShellProps {
   onItemRouteClick?: (itemId: string) => void;
   /** Callback when a map POI is chosen to be added to the itinerary. */
   onAddPlaceToItinerary?: (place: PlaceSearchResult) => void;
+  /** Callback when the user clicks "Edit" on an existing item's info window. */
+  onEditItem?: (itemId: string) => void;
+  /** Callback when the user clicks "Remove" on an existing item's info window. */
+  onDeleteItem?: (itemId: string) => void;
   /** Optional initial center; defaults to (0, 0). */
   defaultCenter?: { lat: number; lng: number };
   /** Optional initial zoom level; defaults to 2. */
@@ -133,6 +136,8 @@ interface MapInnerProps {
   onMapClick?: (lat: number, lng: number) => void;
   onItemRouteClick?: (itemId: string) => void;
   onAddPlaceToItinerary?: (place: PlaceSearchResult) => void;
+  onEditItem?: (itemId: string) => void;
+  onDeleteItem?: (itemId: string) => void;
   defaultCenter: { lat: number; lng: number };
   defaultZoom: number;
   colorScheme: ColorScheme;
@@ -169,6 +174,8 @@ const MapInner = memo(function MapInner({
   onMapClick,
   onItemRouteClick,
   onAddPlaceToItinerary,
+  onEditItem,
+  onDeleteItem,
   defaultCenter,
   defaultZoom,
   colorScheme,
@@ -512,9 +519,14 @@ const MapInner = memo(function MapInner({
     (event: MapMouseEvent) => {
       const { latLng } = event.detail;
       if (!latLng || !onMapClick) return;
+      // Close any open info windows before opening the add dialog
+      placeLookupRequestIdRef.current += 1;
+      setSelectedMapPlace(null);
+      setSelectedMarkerPlace(null);
+      setSelectedItem(null);
       onMapClick(latLng.lat, latLng.lng);
     },
-    [onMapClick],
+    [onMapClick, setSelectedItem],
   );
 
   return (
@@ -542,25 +554,29 @@ const MapInner = memo(function MapInner({
             />
           ))}
 
-          {/* InfoWindow for selected marker */}
+          {/* Unified info window for marker clicks */}
           {selectedItem && (
-            <MarkerInfoWindow
+            <UnifiedInfoWindow
+              position={{ lat: selectedItem.lat, lng: selectedItem.lng }}
               item={selectedItem}
               place={selectedMarkerPlace?.place ?? null}
-              isLoadingPlace={selectedMarkerPlace?.isLoading ?? false}
-              placeError={selectedMarkerPlace?.error ?? null}
+              isLoading={selectedMarkerPlace?.isLoading ?? false}
+              error={selectedMarkerPlace?.error ?? null}
               onClose={handleInfoWindowClose}
+              onEditItem={onEditItem}
+              onDeleteItem={onDeleteItem}
             />
           )}
 
+          {/* Unified info window for POI clicks */}
           {selectedMapPlace && (
-            <MapPlaceInfoWindow
+            <UnifiedInfoWindow
               position={selectedMapPlace.position}
               place={selectedMapPlace.place}
               isLoading={selectedMapPlace.isLoading}
               error={selectedMapPlace.error}
-              onAddToItinerary={handleAddSelectedPlace}
               onClose={handleMapPlaceInfoClose}
+              onAddToItinerary={handleAddSelectedPlace}
             />
           )}
 
@@ -616,8 +632,8 @@ const MapInner = memo(function MapInner({
  * `MapReadyContext` so child components can gate logic on map readiness.
  *
  * Renders `ItemMarker` instances for each visible itinerary item and shows
- * a `MarkerInfoWindow` when a marker is clicked. Automatically fits map
- * bounds to show all visible markers.
+ * a `UnifiedInfoWindow` when a marker or POI is clicked. Automatically fits
+ * map bounds to show all visible markers.
  */
 export default function MapShell({
   items = [],
@@ -636,6 +652,8 @@ export default function MapShell({
   onMapClick,
   onItemRouteClick,
   onAddPlaceToItinerary,
+  onEditItem,
+  onDeleteItem,
   defaultCenter = DEFAULT_CENTER,
   defaultZoom = DEFAULT_ZOOM,
   children,
@@ -662,6 +680,8 @@ export default function MapShell({
         onMapClick={onMapClick}
         onItemRouteClick={onItemRouteClick}
         onAddPlaceToItinerary={onAddPlaceToItinerary}
+        onEditItem={onEditItem}
+        onDeleteItem={onDeleteItem}
         defaultCenter={defaultCenter}
         defaultZoom={defaultZoom}
         colorScheme={colorScheme}

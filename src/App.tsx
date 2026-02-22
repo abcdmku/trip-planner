@@ -1021,6 +1021,14 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
               onModeChange={ENABLE_LEGACY_LEGS ? handleModeChange : undefined}
               onMapClick={handleMapClick}
               onAddPlaceToItinerary={handleAddPlaceToItinerary}
+              onEditItem={(itemId) => {
+                setEditingItemId(itemId);
+                setSelectedItemId(itemId);
+              }}
+              onDeleteItem={(itemId) => {
+                if (selectedItemId === itemId) setSelectedItemId(null);
+                deleteItem.mutate(itemId);
+              }}
               connectors={mapConnectors}
               onConnectorClick={handleConnectorClick}
               showLegacyLegs={ENABLE_LEGACY_LEGS}

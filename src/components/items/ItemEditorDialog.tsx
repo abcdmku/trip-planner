@@ -31,6 +31,7 @@ export function ItemEditorDialog({
           item={item}
           dayColor={dayColor}
           dayDate={dayDate}
+          density="comfortable"
           onUpdate={onUpdate}
           onClose={onClose}
         />

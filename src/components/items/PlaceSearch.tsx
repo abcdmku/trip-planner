@@ -60,7 +60,7 @@ export function PlaceSearch({ onSelect, placeholder = 'Search for a place...' }:
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-theme-tertiary" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-theme-secondary" />
         <input
           value={query}
           onChange={(e) => handleChange(e.target.value)}
@@ -73,9 +73,9 @@ export function PlaceSearch({ onSelect, placeholder = 'Search for a place...' }:
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
           {isSearching ? (
-            <Loader2 className="h-4 w-4 animate-spin text-theme-tertiary" />
+            <Loader2 className="h-4 w-4 animate-spin text-theme-secondary" />
           ) : query ? (
-            <button onClick={() => { setQuery(''); setResults([]); setIsOpen(false); }} className="flex items-center justify-center text-theme-tertiary hover:text-theme-secondary">
+            <button onClick={() => { setQuery(''); setResults([]); setIsOpen(false); }} className="flex items-center justify-center text-theme-secondary hover:text-theme">
               <X className="h-4 w-4" />
             </button>
           ) : null}
