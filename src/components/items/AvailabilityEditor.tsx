@@ -12,6 +12,7 @@ import {
   type AvailabilityDateGroup,
 } from '@/lib/availability-date-groups';
 import { MultiDateCalendar } from '@/components/items/MultiDateCalendar';
+import { minutesToTime, timeToMinutes } from '@/lib/optimizer-utils';
 
 interface AvailabilityEditorProps {
   value: string;
@@ -92,10 +93,39 @@ function serializeWeeklyRows(rows: WeeklyManualRow[]): string {
   return serializeAvailabilityWindows(windows);
 }
 
-function createDefaultWeeklyRow(): WeeklyManualRow {
+function nextUnusedTimeRange(
+  usedKeys: Set<string>,
+  seedStartMin: number,
+  durationMinutes = 60,
+): { startTime: string; endTime: string } {
+  const increment = 60; // 1h steps
+  let startMin = Math.max(0, Math.min(1439, Math.round(seedStartMin)));
+
+  for (let i = 0; i < 48; i++) {
+    const startTime = minutesToTime(startMin);
+    const endTime = minutesToTime(startMin + durationMinutes);
+    const key = `${startTime}__${endTime}`;
+    if (!usedKeys.has(key)) {
+      return { startTime, endTime };
+    }
+    startMin += increment;
+    if (startMin > 1439) startMin = 0;
+  }
+
+  return { startTime: '09:00', endTime: '10:00' };
+}
+
+function createDefaultWeeklyRow(existingRows: WeeklyManualRow[]): WeeklyManualRow {
+  const used = new Set(existingRows.map((row) => `${row.startTime}__${row.endTime}`));
+  const seedStartMin =
+    existingRows.length > 0
+      ? Math.max(...existingRows.map((row) => timeToMinutes(row.endTime)))
+      : timeToMinutes('09:00');
+  const { startTime, endTime } = nextUnusedTimeRange(used, seedStartMin);
+
   return {
-    startTime: '09:00',
-    endTime: '10:00',
+    startTime,
+    endTime,
     dayEnabled: [true, true, true, true, true, true, true],
   };
 }
@@ -234,8 +264,14 @@ export function AvailabilityEditor({
   const seedDate = defaultDate ?? new Date().toISOString().slice(0, 10);
 
   const createSeedDateGroup = (): AvailabilityDateGroup => ({
-    startTime: '09:00',
-    endTime: '10:00',
+    ...(() => {
+      const used = new Set(dateGroups.map((group) => `${group.startTime}__${group.endTime}`));
+      const seedStartMin =
+        dateGroups.length > 0
+          ? Math.max(...dateGroups.map((group) => timeToMinutes(group.endTime)))
+          : timeToMinutes('09:00');
+      return nextUnusedTimeRange(used, seedStartMin);
+    })(),
     dates: [seedDate],
   });
 
@@ -246,7 +282,7 @@ export function AvailabilityEditor({
 
   const handleAddWeeklyRow = () => {
     if (activeMode !== 'manual' || manualEntryMode !== 'weekly') return;
-    commitWeekly([...weeklyRows, createDefaultWeeklyRow()]);
+    commitWeekly([...weeklyRows, createDefaultWeeklyRow(weeklyRows)]);
   };
 
   const switchMode = (nextMode: AvailabilityMode) => {
@@ -284,7 +320,7 @@ export function AvailabilityEditor({
       return;
     }
 
-    onChange(serializeWeeklyRows([createDefaultWeeklyRow()]));
+    onChange(serializeWeeklyRows([createDefaultWeeklyRow([])]));
   };
 
   const switchManualEntryMode = (nextManualMode: ManualEntryMode) => {
@@ -297,7 +333,7 @@ export function AvailabilityEditor({
         onChange(cachedManual);
         return;
       }
-      onChange(serializeWeeklyRows([createDefaultWeeklyRow()]));
+      onChange(serializeWeeklyRows([createDefaultWeeklyRow([])]));
       return;
     }
 
@@ -500,14 +536,14 @@ export function AvailabilityEditor({
                     type="time"
                     value={row.startTime}
                     onChange={(e) => handleWeeklyTimeChange(index, 'startTime', e.target.value)}
-                    className="input flex-1 py-1 text-[11px]"
+                    className="input min-w-0 flex-1 py-1 text-[11px]"
                   />
                   <span className="text-xs text-theme-tertiary/30">&rarr;</span>
                   <input
                     type="time"
                     value={row.endTime}
                     onChange={(e) => handleWeeklyTimeChange(index, 'endTime', e.target.value)}
-                    className="input flex-1 py-1 text-[11px]"
+                    className="input min-w-0 flex-1 py-1 text-[11px]"
                   />
                   <button
                     type="button"
@@ -530,14 +566,14 @@ export function AvailabilityEditor({
                     type="time"
                     value={group.startTime}
                     onChange={(e) => handleDateGroupTimeChange(index, 'startTime', e.target.value)}
-                    className="input flex-1 py-1 text-[11px]"
+                    className="input min-w-0 flex-1 py-1 text-[11px]"
                   />
                   <span className="text-xs text-theme-tertiary/30">&rarr;</span>
                   <input
                     type="time"
                     value={group.endTime}
                     onChange={(e) => handleDateGroupTimeChange(index, 'endTime', e.target.value)}
-                    className="input flex-1 py-1 text-[11px]"
+                    className="input min-w-0 flex-1 py-1 text-[11px]"
                   />
                   <button
                     type="button"
@@ -575,7 +611,7 @@ export function AvailabilityEditor({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div
                     className="relative"
                     ref={openCalendarIndex === index ? openCalendarContainerRef : undefined}

@@ -270,7 +270,7 @@ export function EventEditorForm({
           <span className="text-[13px] font-medium text-theme-secondary">Type</span>
           <span className="text-[11px] text-theme-tertiary">Categorize this stop</span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid gap-2 ${compact ? 'grid-cols-2' : 'grid-cols-3'}`}>
           {ITEM_TYPES.map((option) => {
             const active = value.type === option.value;
             return (
@@ -315,7 +315,7 @@ export function EventEditorForm({
           aria-pressed={value.timelineLocked}
           title={value.timelineLocked ? 'Timeline position locked' : 'Timeline position editable'}
         >
-          <span className="flex items-center gap-2">
+          <span className="min-w-0 flex items-center gap-2">
             <span
               className={`flex h-7 w-7 items-center justify-center rounded-md ${
                 value.timelineLocked ? 'bg-accent/15' : 'bg-theme-subtle'
@@ -323,7 +323,7 @@ export function EventEditorForm({
             >
               {value.timelineLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
             </span>
-            Lock on timeline
+            <span className="min-w-0 truncate">Lock on timeline</span>
           </span>
           <span className="text-[11px] font-semibold tabular-nums">
             {value.timelineLocked ? 'Locked' : 'Unlocked'}

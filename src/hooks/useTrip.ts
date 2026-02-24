@@ -6,6 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { loadTrip, saveTrip } from '@/services/sheets-repository';
 import { useAuth } from '@/hooks/useAuth';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import type { Trip, TripData } from '@/types/trip';
 import {
   updateTripOptimistic,
@@ -76,6 +77,7 @@ export function useTrip(spreadsheetId: string | null | undefined) {
  */
 export function useUpdateTrip(spreadsheetId: string) {
   const queryClient = useQueryClient();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, Trip, TripData | undefined>({
     mutationFn: async (updatedTrip: Trip) => {
@@ -100,6 +102,10 @@ export function useUpdateTrip(spreadsheetId: string) {
       if (previous) {
         queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
       }
+    },
+
+    onSuccess: (_data, _updatedTrip, previous) => {
+      recordMutation(previous);
     },
 
     onSettled: () => {

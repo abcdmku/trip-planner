@@ -66,6 +66,30 @@ function haversineDistance(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+function encodeDirectionsLegPath(leg: google.maps.DirectionsLeg): string | null {
+  if (!google.maps.geometry?.encoding?.encodePath) return null;
+  const steps = leg.steps ?? [];
+  if (steps.length === 0) return null;
+
+  const path: google.maps.LatLng[] = [];
+  for (const step of steps) {
+    for (const point of step.path ?? []) {
+      const last = path[path.length - 1];
+      if (last && last.lat() === point.lat() && last.lng() === point.lng()) {
+        continue;
+      }
+      path.push(point);
+    }
+  }
+
+  if (path.length < 2) return null;
+
+  const encoded = google.maps.geometry.encoding.encodePath(path);
+  // Google Sheets cells have a 50k character limit; keep headroom.
+  if (encoded.length > 40_000) return null;
+  return encoded;
+}
+
 // ---------------------------------------------------------------------------
 // Helper: wait for the google.maps global to be available
 // ---------------------------------------------------------------------------
@@ -300,7 +324,7 @@ class MapsRepository {
 
       const durationMinutes = Math.round((leg.duration?.value ?? 0) / 60);
       const distanceMeters = leg.distance?.value ?? 0;
-      const routePathEncoded = route.overview_polyline ?? '';
+      const routePathEncoded = encodeDirectionsLegPath(leg) ?? route.overview_polyline ?? '';
 
       // Compute departure / arrival ISO strings.
       const departure = departureTime

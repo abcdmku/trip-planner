@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTrip } from '@/hooks/useTrip';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { saveDays, saveItems, saveLegs } from '@/services/sheets-repository';
 import {
   updateDaysOptimistic,
@@ -41,6 +42,7 @@ export function useDays(spreadsheetId: string | null | undefined) {
  */
 export function useAddDay(spreadsheetId: string) {
   const queryClient = useQueryClient();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, Day, TripData | undefined>({
     mutationFn: async (newDay) => {
@@ -75,6 +77,10 @@ export function useAddDay(spreadsheetId: string) {
       }
     },
 
+    onSuccess: (_data, _newDay, previous) => {
+      recordMutation(previous);
+    },
+
     onSettled: () => {
       void invalidateTrip(queryClient, spreadsheetId);
     },
@@ -89,6 +95,7 @@ export function useAddDay(spreadsheetId: string) {
  */
 export function useUpdateDay(spreadsheetId: string) {
   const queryClient = useQueryClient();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, Day, TripData | undefined>({
     mutationFn: async (updatedDay) => {
@@ -118,6 +125,10 @@ export function useUpdateDay(spreadsheetId: string) {
       }
     },
 
+    onSuccess: (_data, _updatedDay, previous) => {
+      recordMutation(previous);
+    },
+
     onSettled: () => {
       void invalidateTrip(queryClient, spreadsheetId);
     },
@@ -129,6 +140,7 @@ export function useUpdateDay(spreadsheetId: string) {
  */
 export function useDeleteDay(spreadsheetId: string) {
   const queryClient = useQueryClient();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, string, TripData | undefined>({
     mutationFn: async (dayId) => {
@@ -192,6 +204,10 @@ export function useDeleteDay(spreadsheetId: string) {
       if (previous) {
         queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
       }
+    },
+
+    onSuccess: (_data, _dayId, previous) => {
+      recordMutation(previous);
     },
 
     onSettled: () => {

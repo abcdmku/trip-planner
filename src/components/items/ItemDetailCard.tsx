@@ -5,6 +5,7 @@ import { PlaceSearch } from './PlaceSearch';
 import { RouteTravelControls } from './RouteTravelControls';
 import { mapsRepository, type PlaceSearchResult } from '../../services/maps-repository';
 import { EventEditorForm, type EventEditorValue } from './EventEditorForm';
+import { buildGoogleMapsDirectionsUrl } from '@/lib/google-maps-url';
 
 interface ItemDetailCardProps {
   item: Item;
@@ -49,6 +50,14 @@ export function ItemDetailCard({
   const hasDest = item.destLat !== 0 || item.destLng !== 0;
   const hasOrigin = item.lat !== 0 || item.lng !== 0;
   const showTravelControls = hasDest || editorValue.type === 'transport';
+  const openInGoogleMapsUrl = useMemo(() => {
+    if (!hasOrigin || !hasDest) return undefined;
+    return buildGoogleMapsDirectionsUrl({
+      origin: { lat: item.lat, lng: item.lng },
+      destination: { lat: item.destLat, lng: item.destLng },
+      mode: editorValue.transportMode,
+    });
+  }, [editorValue.transportMode, hasDest, hasOrigin, item.destLat, item.destLng, item.lat, item.lng]);
   const travelBadge = useMemo(() => {
     const modeLabel =
       editorValue.transportMode === 'driving'
@@ -372,9 +381,11 @@ export function ItemDetailCard({
                           <button
                             type="button"
                             onClick={() => setIsEditingDestination(true)}
-                            className="rounded-md px-2 py-1 text-[11px] font-semibold text-theme-secondary hover:bg-theme-subtle"
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-theme-secondary hover:bg-theme-subtle"
+                            aria-label="Change destination"
                           >
-                            Change
+                            <PencilLine className="h-3.5 w-3.5" />
+                            <span className={isCompact ? 'hidden sm:inline' : ''}>Change</span>
                           </button>
                           <button
                             type="button"
@@ -407,6 +418,7 @@ export function ItemDetailCard({
                             compact={isCompact}
                             hasOrigin={hasOrigin}
                             hasDestination={hasDest}
+                            openInGoogleMapsUrl={openInGoogleMapsUrl}
                             onCalculateRoute={doCalculateRoute}
                             isCalculatingRoute={isCalculatingRoute}
                             canCalculateRoute={hasOrigin && hasDest && editorValue.itemRouteType === 'directions'}
@@ -439,6 +451,7 @@ export function ItemDetailCard({
                             compact={isCompact}
                             hasOrigin={hasOrigin}
                             hasDestination={hasDest}
+                            openInGoogleMapsUrl={openInGoogleMapsUrl}
                             onCalculateRoute={doCalculateRoute}
                             isCalculatingRoute={isCalculatingRoute}
                             canCalculateRoute={hasOrigin && hasDest && editorValue.itemRouteType === 'directions'}
@@ -485,7 +498,7 @@ export function ItemDetailCard({
                     ) : null}
                   </div>
                   {showTravelControls ? (
-                    <span className="shrink-0 text-[11px] font-medium text-theme-tertiary">
+                    <span className="min-w-0 max-w-[45%] truncate text-right text-[11px] font-medium text-theme-tertiary">
                       {travelBadge}
                     </span>
                   ) : null}

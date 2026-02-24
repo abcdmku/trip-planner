@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdvancedMarker } from '@vis.gl/react-google-maps';
 import type { Day, Item, TransportMode } from '@/types/trip';
 import RoutePath, { getMidpoint } from './RoutePath';
+import { mapsRepository } from '@/services/maps-repository';
 
 interface ItemRouteOverlayProps {
   items: Item[];
@@ -64,6 +65,27 @@ function haversineDistance(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+function formatCoordForSignature(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(6) : 'NaN';
+}
+
+function routeSignature(item: Item): string {
+  return [
+    formatCoordForSignature(item.lat),
+    formatCoordForSignature(item.lng),
+    formatCoordForSignature(item.destLat),
+    formatCoordForSignature(item.destLng),
+    item.transportMode,
+  ].join('|');
+}
+
+type ComputedRoute = {
+  signature: string;
+  routePathEncoded: string;
+  distanceMeters: number;
+  durationMinutes: number;
+};
+
 export default function ItemRouteOverlay({
   items,
   days,
@@ -72,6 +94,8 @@ export default function ItemRouteOverlay({
 }: ItemRouteOverlayProps) {
   const dayColorMap = new Map(days.map((day) => [day.dayId, day.colorHex]));
   const selectedSet = selectedDayIds && selectedDayIds.length > 0 ? new Set(selectedDayIds) : null;
+  const [computedRoutes, setComputedRoutes] = useState<Record<string, ComputedRoute>>({});
+  const inflightRef = useRef<Set<string>>(new Set());
 
   const visible = items.filter((item) => {
     if (!item.scheduledStart) return false;
@@ -81,11 +105,73 @@ export default function ItemRouteOverlay({
     return true;
   });
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const candidates = visible.filter((item) => {
+      if (item.itemRouteType !== 'directions') return false;
+      if (item.transportMode === 'flight' || item.transportMode === 'other') return false;
+      if (item.itemRoutePathEncoded) return false;
+
+      const key = item.itemId;
+      if (inflightRef.current.has(key)) return false;
+
+      const sig = routeSignature(item);
+      const cached = computedRoutes[key];
+      if (cached && cached.signature === sig && cached.routePathEncoded) return false;
+
+      return true;
+    });
+
+    if (candidates.length === 0) return () => { cancelled = true; };
+
+    for (const item of candidates) {
+      const key = item.itemId;
+      inflightRef.current.add(key);
+
+      void mapsRepository
+        .calculateLeg(
+          { lat: item.lat, lng: item.lng },
+          { lat: item.destLat, lng: item.destLng },
+          item.transportMode,
+        )
+        .then((result) => {
+          inflightRef.current.delete(key);
+          if (cancelled) return;
+          if (!result?.routePathEncoded) return;
+
+          const signature = routeSignature(item);
+          setComputedRoutes((prev) => ({
+            ...prev,
+            [key]: {
+              signature,
+              routePathEncoded: result.routePathEncoded,
+              distanceMeters: result.distanceMeters,
+              durationMinutes: result.durationMinutes,
+            },
+          }));
+        })
+        .catch(() => {
+          inflightRef.current.delete(key);
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [computedRoutes, visible]);
+
   // Compute midpoints and durations for ALL routes (including polylines without duration)
   const routeMidpoints = useMemo(() => {
     return visible
       .map((item) => {
-        const isStraight = item.itemRouteType === 'straight' || !item.itemRoutePathEncoded;
+        const cached = computedRoutes[item.itemId];
+        const cachedEncoded =
+          cached && cached.signature === routeSignature(item)
+            ? cached.routePathEncoded
+            : '';
+        const encodedPath = item.itemRoutePathEncoded || cachedEncoded;
+        const isStraight = item.itemRouteType === 'straight' || !encodedPath;
         let midpoint: { lat: number; lng: number } | null = null;
 
         if (isStraight) {
@@ -103,13 +189,16 @@ export default function ItemRouteOverlay({
               lng: (item.lng + item.destLng) / 2,
             };
           }
-        } else if (item.itemRoutePathEncoded) {
+        } else if (encodedPath) {
           // For encoded paths, use the getMidpoint helper
-          midpoint = getMidpoint(item.itemRoutePathEncoded);
+          midpoint = getMidpoint(encodedPath);
         }
 
         // Calculate distance for all routes
         let distanceMeters = item.itemRouteDistanceMeters;
+        if (!distanceMeters && cached && cached.signature === routeSignature(item)) {
+          distanceMeters = cached.distanceMeters;
+        }
         if (!distanceMeters && hasCoordinates(item.lat, item.lng) && hasCoordinates(item.destLat, item.destLng)) {
           distanceMeters = haversineDistance(
             { lat: item.lat, lng: item.lng },
@@ -120,17 +209,23 @@ export default function ItemRouteOverlay({
         return midpoint ? { item, midpoint, distanceMeters } : null;
       })
       .filter((entry): entry is { item: Item; midpoint: { lat: number; lng: number }; distanceMeters: number } => entry !== null);
-  }, [visible]);
+  }, [computedRoutes, visible]);
 
   return (
     <>
       {visible.map((item) => {
+        const cached = computedRoutes[item.itemId];
+        const cachedEncoded =
+          cached && cached.signature === routeSignature(item)
+            ? cached.routePathEncoded
+            : '';
+        const encodedPath = item.itemRoutePathEncoded || cachedEncoded;
         const color = dayColorMap.get(item.dayId) ?? '#4285F4';
-        const isStraight = item.itemRouteType === 'straight' || !item.itemRoutePathEncoded;
+        const isStraight = item.itemRouteType === 'straight' || !encodedPath;
         return (
           <RoutePath
             key={`item-route-${item.itemId}`}
-            encodedPath={isStraight ? '' : item.itemRoutePathEncoded}
+            encodedPath={isStraight ? '' : encodedPath}
             fromLatLng={isStraight ? { lat: item.lat, lng: item.lng } : undefined}
             toLatLng={isStraight ? { lat: item.destLat, lng: item.destLng } : undefined}
             color={color}
@@ -143,10 +238,13 @@ export default function ItemRouteOverlay({
 
       {/* Duration/Distance labels at route midpoints */}
       {routeMidpoints.map(({ item, midpoint, distanceMeters }) => {
+        const cached = computedRoutes[item.itemId];
         const color = dayColorMap.get(item.dayId) ?? '#4285F4';
         const effectiveDurationMinutes =
           item.itemRouteDurationMinutes > 0
             ? item.itemRouteDurationMinutes
+            : cached && cached.signature === routeSignature(item) && cached.durationMinutes > 0
+              ? cached.durationMinutes
             : item.transportMode === 'flight'
               ? estimateFlightDurationMinutes(distanceMeters)
               : 0;

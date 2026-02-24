@@ -23,8 +23,12 @@ import { useAddDay, useDeleteDay, useUpdateDay } from './hooks/useDays';
 import { useAddItem, useUpdateItem, useDeleteItem, useReorderItems } from './hooks/useItems';
 import { useLegs, useUpdateLegMode, useUpdateLegRouteType, useRecalculateLegs } from './hooks/useLegs';
 import { useUpdateTrip } from './hooks/useTrip';
+import { useUndoRedo } from './hooks/useUndoRedo';
+import { useUndoRedoHotkeys } from './hooks/useUndoRedoHotkeys';
 import { START_LOCATION_ID } from './services/leg-recompute';
+import { overwriteTripCoreTabs } from './services/trip-core-writer';
 import { saveDays } from './services/sheets-repository';
+import { getMostRecentLocalSnapshot, readUndoHistory } from './stores/undo-store';
 import type { PlaceSearchResult } from './services/maps-repository';
 import { deriveTimelineConnectors, type TimelineConnector, type TimelineConnectorWithTiming } from './lib/connectors';
 import { getDayColor } from './lib/day-colors';
@@ -176,8 +180,36 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
   const ENABLE_LEGACY_LEGS = false;
   const { user, logout } = useAuth();
   const { setActiveTab, selectedItemId, setSelectedItemId } = useUI();
-  const { trip, days, items, isLoading } = useTrip(spreadsheetId);
+  const { trip, days, items, data: tripData, isLoading, isFetching } = useTrip(spreadsheetId);
   const { legs } = useLegs(spreadsheetId);
+  const { ensureSynced } = useUndoRedo(spreadsheetId);
+
+  useUndoRedoHotkeys(spreadsheetId);
+
+  const hasSyncedUndoRef = useRef(false);
+  const wasFetchingUndoRef = useRef(false);
+
+  useEffect(() => {
+    hasSyncedUndoRef.current = false;
+    wasFetchingUndoRef.current = false;
+  }, [spreadsheetId]);
+
+  useEffect(() => {
+    if (!tripData) return;
+
+    // Initial sync once data is present.
+    if (!hasSyncedUndoRef.current && !isFetching) {
+      ensureSynced(tripData);
+      hasSyncedUndoRef.current = true;
+    }
+
+    // Re-sync only after a refetch completes (avoids wiping history on optimistic updates).
+    const wasFetching = wasFetchingUndoRef.current;
+    if (wasFetching && !isFetching) {
+      ensureSynced(tripData);
+    }
+    wasFetchingUndoRef.current = isFetching;
+  }, [ensureSynced, isFetching, tripData]);
 
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [showDayEditor, setShowDayEditor] = useState(false);
@@ -1339,30 +1371,63 @@ function TripRoute() {
   const { isGapiReady } = useAuth();
   const [schemaStatus, setSchemaStatus] = useState<'validating' | 'valid' | 'invalid' | null>(null);
   const [schemaErrors, setSchemaErrors] = useState<string[]>([]);
+  const localSnapshot = tripId ? getMostRecentLocalSnapshot(readUndoHistory(tripId)) : null;
+
+  const runValidation = useCallback(async () => {
+    if (!tripId) return;
+    setSchemaStatus('validating');
+    try {
+      const result = await validateSchema(tripId);
+      if (result.valid) {
+        setSchemaStatus('valid');
+        setSchemaErrors([]);
+        localStorage.setItem('tp_spreadsheet_id', tripId);
+      } else {
+        setSchemaStatus('invalid');
+        setSchemaErrors(result.errors);
+      }
+    } catch (err) {
+      setSchemaStatus('invalid');
+      setSchemaErrors([(err as Error).message]);
+    }
+  }, [tripId]);
+
+  const handleRepairSchema = useCallback(async () => {
+    if (!tripId || !isGapiReady) return;
+    setSchemaStatus('validating');
+    try {
+      await initializeSheet(tripId, localSnapshot?.trip.name || 'Recovered Trip');
+    } catch (err) {
+      setSchemaStatus('invalid');
+      setSchemaErrors([(err as Error).message]);
+      return;
+    }
+    await runValidation();
+  }, [isGapiReady, localSnapshot?.trip.name, runValidation, tripId]);
+
+  const handleRestoreFromLocal = useCallback(async () => {
+    if (!tripId || !isGapiReady) return;
+    const snapshot = getMostRecentLocalSnapshot(readUndoHistory(tripId));
+    if (!snapshot) return;
+
+    setSchemaStatus('validating');
+    try {
+      await initializeSheet(tripId, snapshot.trip.name || 'Recovered Trip');
+      await overwriteTripCoreTabs({ spreadsheetId: tripId, snapshot });
+    } catch (err) {
+      setSchemaStatus('invalid');
+      setSchemaErrors([(err as Error).message]);
+      return;
+    }
+
+    await runValidation();
+  }, [isGapiReady, runValidation, tripId]);
 
   useEffect(() => {
     if (!tripId || !isGapiReady) return;
 
-    const validate = async () => {
-      setSchemaStatus('validating');
-      try {
-        const result = await validateSchema(tripId);
-        if (result.valid) {
-          setSchemaStatus('valid');
-          setSchemaErrors([]);
-          localStorage.setItem('tp_spreadsheet_id', tripId);
-        } else {
-          setSchemaStatus('invalid');
-          setSchemaErrors(result.errors);
-        }
-      } catch (err) {
-        setSchemaStatus('invalid');
-        setSchemaErrors([(err as Error).message]);
-      }
-    };
-
-    validate();
-  }, [tripId, isGapiReady]);
+    void runValidation();
+  }, [tripId, isGapiReady, runValidation]);
 
   if (!tripId) {
     navigate('/');
@@ -1386,6 +1451,22 @@ function TripRoute() {
         <div className="w-full max-w-md space-y-4 text-center">
           <h1 className="text-xl font-semibold text-theme">Cannot Access Trip</h1>
           <SchemaStatus status="invalid" errors={schemaErrors} />
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleRepairSchema}
+              className="btn-primary rounded-xl px-4 py-2 text-sm font-semibold"
+            >
+              Repair Schema
+            </button>
+            {localSnapshot && (
+              <button
+                onClick={handleRestoreFromLocal}
+                className="rounded-xl border border-theme bg-theme-elevated px-4 py-2 text-sm font-semibold text-theme shadow-theme-sm transition-all hover:bg-theme-subtle"
+              >
+                Restore From Local History
+              </button>
+            )}
+          </div>
           <button
             onClick={() => navigate('/')}
             className="btn-primary rounded-xl px-4 py-2 text-sm font-semibold"

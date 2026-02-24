@@ -230,16 +230,6 @@ export async function migrateSchema(
   }
 
   if (updateData.length > 0) {
-    // Clear affected tabs first so stale trailing columns don't linger,
-    // then write the updated data.
-    for (const vr of updateData) {
-      const tabRange = vr.range.split('!')[0];
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId,
-        range: tabRange,
-      });
-    }
-
     try {
       await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId,

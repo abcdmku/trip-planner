@@ -7,6 +7,7 @@ import type { ItemType, RouteType, TransportMode } from '../../types/trip';
 import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
 import { EventEditorForm, type EventEditorValue } from './EventEditorForm';
 import { hasAvailabilityConstraints, serializeAvailabilityWindows } from '@/lib/availability';
+import { buildGoogleMapsDirectionsUrl } from '@/lib/google-maps-url';
 
 interface AddItemDialogProps {
   isOpen: boolean;
@@ -231,6 +232,14 @@ export function AddItemDialog({
   const isCustomLocation = selectedPlace?.placeId.startsWith('custom-');
   const isOriginValid = Boolean(selectedPlace) && (!isCustomLocation || Boolean(customName.trim()));
   const showTravelControls = Boolean(destPlace) || editor.type === 'transport';
+  const openInGoogleMapsUrl = useMemo(() => {
+    if (!selectedPlace || !destPlace) return undefined;
+    return buildGoogleMapsDirectionsUrl({
+      origin: { lat: selectedPlace.lat, lng: selectedPlace.lng },
+      destination: { lat: destPlace.lat, lng: destPlace.lng },
+      mode: editor.transportMode,
+    });
+  }, [destPlace, editor.transportMode, selectedPlace]);
   const travelBadge = useMemo(() => {
     const modeLabel =
       editor.transportMode === 'driving'
@@ -596,6 +605,7 @@ export function AddItemDialog({
                             }}
                             hasOrigin={Boolean(selectedPlace)}
                             hasDestination={Boolean(destPlace)}
+                            openInGoogleMapsUrl={openInGoogleMapsUrl}
                             onCalculateRoute={handleCalculateRoute}
                             isCalculatingRoute={isCalculatingRoute}
                             canCalculateRoute={Boolean(
@@ -655,6 +665,7 @@ export function AddItemDialog({
                             }}
                             hasOrigin={Boolean(selectedPlace)}
                             hasDestination={Boolean(destPlace)}
+                            openInGoogleMapsUrl={openInGoogleMapsUrl}
                             onCalculateRoute={handleCalculateRoute}
                             isCalculatingRoute={isCalculatingRoute}
                             canCalculateRoute={Boolean(

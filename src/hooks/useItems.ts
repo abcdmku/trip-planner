@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTrip } from '@/hooks/useTrip';
 import { useAuth } from '@/hooks/useAuth';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { saveItems, appendHistory } from '@/services/sheets-repository';
 import { detectChanges, createHistoryEvent } from '@/services/history-service';
 import {
@@ -59,6 +60,7 @@ export function useItems(
 export function useAddItem(spreadsheetId: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, Item, TripData | undefined>({
     mutationFn: async (newItem) => {
@@ -104,6 +106,10 @@ export function useAddItem(spreadsheetId: string) {
       }
     },
 
+    onSuccess: (_data, _newItem, previous) => {
+      recordMutation(previous);
+    },
+
     onSettled: () => {
       void invalidateTrip(queryClient, spreadsheetId);
     },
@@ -123,6 +129,7 @@ export function useAddItem(spreadsheetId: string) {
 export function useUpdateItem(spreadsheetId: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, Item, TripData | undefined>({
     mutationFn: async (updatedItem) => {
@@ -174,6 +181,10 @@ export function useUpdateItem(spreadsheetId: string) {
       }
     },
 
+    onSuccess: (_data, _updatedItem, previous) => {
+      recordMutation(previous);
+    },
+
     onSettled: () => {
       void invalidateTrip(queryClient, spreadsheetId);
     },
@@ -192,6 +203,7 @@ export function useUpdateItem(spreadsheetId: string) {
 export function useDeleteItem(spreadsheetId: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, string, TripData | undefined>({
     mutationFn: async (itemId) => {
@@ -238,6 +250,10 @@ export function useDeleteItem(spreadsheetId: string) {
       }
     },
 
+    onSuccess: (_data, _itemId, previous) => {
+      recordMutation(previous);
+    },
+
     onSettled: () => {
       void invalidateTrip(queryClient, spreadsheetId);
     },
@@ -264,6 +280,7 @@ interface ReorderPayload {
 export function useReorderItems(spreadsheetId: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<void, Error, ReorderPayload, TripData | undefined>({
     mutationFn: async ({ dayId, orderedItemIds }) => {
@@ -335,6 +352,10 @@ export function useReorderItems(spreadsheetId: string) {
       if (previous) {
         queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
       }
+    },
+
+    onSuccess: (_data, _payload, previous) => {
+      recordMutation(previous);
     },
 
     onSettled: () => {

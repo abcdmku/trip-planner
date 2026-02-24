@@ -40,6 +40,7 @@ export function RouteTravelControls({
   compact = false,
   hasOrigin = true,
   hasDestination = true,
+  openInGoogleMapsUrl,
   onCalculateRoute,
   isCalculatingRoute = false,
   canCalculateRoute = false,
@@ -51,6 +52,7 @@ export function RouteTravelControls({
   compact?: boolean;
   hasOrigin?: boolean;
   hasDestination?: boolean;
+  openInGoogleMapsUrl?: string;
   onCalculateRoute?: () => void;
   isCalculatingRoute?: boolean;
   canCalculateRoute?: boolean;
@@ -70,18 +72,20 @@ export function RouteTravelControls({
     <div className={compact ? 'space-y-2' : 'space-y-2.5'}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-semibold text-theme-secondary">Travel</span>
-        <span className="flex items-center gap-2">
-          <span className="truncate text-[11px] text-theme-tertiary">{modeBadge}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-[11px] text-theme-tertiary">
+            {modeBadge}
+          </span>
           <button
             type="button"
             onClick={() => setDetailsOpen((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-theme-secondary hover:bg-theme-subtle"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-theme-secondary hover:bg-theme-subtle"
             aria-expanded={detailsOpen}
           >
             {detailsOpen ? 'Hide' : 'Details'}
             <ChevronDown className={`h-3 w-3 transition-transform ${detailsOpen ? '' : '-rotate-90'}`} />
           </button>
-        </span>
+        </div>
       </div>
 
       <div>
@@ -184,6 +188,17 @@ export function RouteTravelControls({
                 <div className="mt-1 text-[11px] text-theme-tertiary">Calculating...</div>
               ) : null}
             </div>
+          ) : null}
+
+          {openInGoogleMapsUrl ? (
+            <a
+              href={openInGoogleMapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Open route in Google Maps
+            </a>
           ) : null}
         </div>
       ) : null}

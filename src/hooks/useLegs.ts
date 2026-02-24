@@ -10,6 +10,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTrip } from '@/hooks/useTrip';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { saveLegs } from '@/services/sheets-repository';
 import { mapsRepository, type LegCalculation } from '@/services/maps-repository';
 import {
@@ -53,6 +54,7 @@ interface RecalculatePayload {
  */
 export function useRecalculateLegs(spreadsheetId: string) {
   const queryClient = useQueryClient();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<Leg[], Error, RecalculatePayload, TripData | undefined>({
     mutationFn: async ({ items, defaultMode }) => {
@@ -162,6 +164,21 @@ export function useRecalculateLegs(spreadsheetId: string) {
       }
     },
 
+    onSuccess: (newLegs, _payload, previous) => {
+      // Populate the cache with the newly computed legs so undo/redo sees the
+      // final state (not just the optimistic removal).
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      if (current && newLegs.length > 0) {
+        queryClient.setQueryData<TripData>(queryKey, {
+          ...current,
+          legs: [...current.legs, ...newLegs],
+        });
+      }
+
+      recordMutation(previous);
+    },
+
     onSettled: () => {
       void invalidateTrip(queryClient, spreadsheetId);
     },
@@ -187,6 +204,7 @@ interface UpdateLegModePayload {
  */
 export function useUpdateLegMode(spreadsheetId: string) {
   const queryClient = useQueryClient();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<Leg, Error, UpdateLegModePayload, TripData | undefined>({
     mutationFn: async ({ leg, newMode, fromItem, toItem }) => {
@@ -256,6 +274,23 @@ export function useUpdateLegMode(spreadsheetId: string) {
       }
     },
 
+    onSuccess: (updatedLeg, _payload, previous) => {
+      // Ensure the cache contains the fully recalculated leg so undo/redo
+      // captures the final state, not the partial optimistic update.
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      if (current) {
+        queryClient.setQueryData<TripData>(queryKey, {
+          ...current,
+          legs: current.legs.map((l) =>
+            l.legId === updatedLeg.legId ? updatedLeg : l,
+          ),
+        });
+      }
+
+      recordMutation(previous);
+    },
+
     onSettled: () => {
       void invalidateTrip(queryClient, spreadsheetId);
     },
@@ -281,6 +316,7 @@ interface UpdateLegRouteTypePayload {
  */
 export function useUpdateLegRouteType(spreadsheetId: string) {
   const queryClient = useQueryClient();
+  const { recordMutation } = useUndoRedo(spreadsheetId);
 
   return useMutation<Leg, Error, UpdateLegRouteTypePayload, TripData | undefined>({
     mutationFn: async ({ leg, newRouteType, fromItem, toItem }) => {
@@ -367,6 +403,21 @@ export function useUpdateLegRouteType(spreadsheetId: string) {
       if (previous) {
         queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
       }
+    },
+
+    onSuccess: (updatedLeg, _payload, previous) => {
+      const queryKey = getTripQueryKey(spreadsheetId);
+      const current = queryClient.getQueryData<TripData>(queryKey);
+      if (current) {
+        queryClient.setQueryData<TripData>(queryKey, {
+          ...current,
+          legs: current.legs.map((l) =>
+            l.legId === updatedLeg.legId ? updatedLeg : l,
+          ),
+        });
+      }
+
+      recordMutation(previous);
     },
 
     onSettled: () => {

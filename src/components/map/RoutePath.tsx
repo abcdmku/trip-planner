@@ -199,7 +199,7 @@ export default function RoutePath({
     }
 
     // Dashed line symbol for straight-line legs.
-    const dashSymbol: google.maps.Symbol = {
+  const dashSymbol: google.maps.Symbol = {
       path: 'M 0,-1 0,1',
       strokeOpacity: 1,
       strokeWeight: weight,
@@ -208,6 +208,7 @@ export default function RoutePath({
     };
     const straightHitWeight = Math.max(weight * 3, 14);
     const hoverColor = brightenColor(color, 0.3);
+    const geodesic = isStraightLine;
 
     const applyVisualState = (hovered: boolean) => {
       const displayColor = hovered ? hoverColor : color;
@@ -217,6 +218,7 @@ export default function RoutePath({
           strokeColor: displayColor,
           strokeWeight: isStraightLine ? 0 : weight + 3,
           strokeOpacity: isStraightLine ? 0 : opacity * 0.25,
+          geodesic,
         });
       }
 
@@ -227,6 +229,7 @@ export default function RoutePath({
           // Invisible, but wide enough to receive mouse events for dashed lines.
           strokeWeight: straightHitWeight,
           strokeOpacity: 0,
+          geodesic,
           icons: [{
             icon: {
               ...dashSymbol,
@@ -241,6 +244,7 @@ export default function RoutePath({
           strokeColor: displayColor,
           strokeWeight: weight,
           strokeOpacity: opacity,
+          geodesic,
           icons: [],
         });
       }
@@ -253,6 +257,7 @@ export default function RoutePath({
         strokeColor: color,
         strokeWeight: isStraightLine ? 0 : weight + 3,
         strokeOpacity: isStraightLine ? 0 : opacity * 0.25,
+        geodesic,
         clickable: Boolean(onClick),
       });
     } else {
@@ -261,7 +266,7 @@ export default function RoutePath({
         strokeColor: color,
         strokeWeight: isStraightLine ? 0 : weight + 3,
         strokeOpacity: isStraightLine ? 0 : opacity * 0.25,
-        geodesic: true,
+        geodesic,
         map,
         zIndex: 1,
         clickable: Boolean(onClick),
@@ -276,6 +281,7 @@ export default function RoutePath({
           strokeColor: color,
           strokeWeight: straightHitWeight,
           strokeOpacity: 0,
+          geodesic,
           clickable: Boolean(onClick),
           icons: [{
             icon: dashSymbol,
@@ -288,6 +294,7 @@ export default function RoutePath({
           strokeColor: color,
           strokeWeight: weight,
           strokeOpacity: opacity,
+          geodesic,
           clickable: Boolean(onClick),
           icons: [],
         });
@@ -298,7 +305,7 @@ export default function RoutePath({
         strokeColor: color,
         strokeWeight: isStraightLine ? straightHitWeight : weight,
         strokeOpacity: isStraightLine ? 0 : opacity,
-        geodesic: true,
+        geodesic,
         map,
         zIndex: 2,
         clickable: Boolean(onClick),

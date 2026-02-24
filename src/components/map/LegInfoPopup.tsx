@@ -7,6 +7,7 @@
 import type { Leg, Item, TransportMode, RouteType } from '@/types/trip';
 import { getFeasibilityColor, type FeasibilityStatus } from '@/lib/route-feasibility';
 import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
+import { buildGoogleMapsDirectionsUrl } from '@/lib/google-maps-url';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -104,6 +105,16 @@ export default function LegInfoPopup({
     (leg.routeType ?? 'directions') === 'directions'
       ? SELECTABLE_MODES.filter(({ mode }) => GOOGLE_DIRECTIONS_MODE_SET.has(mode))
       : SELECTABLE_MODES;
+
+  const hasCoords = (pos: { lat: number; lng: number }) => pos.lat !== 0 || pos.lng !== 0;
+  const openInGoogleMapsUrl =
+    hasCoords({ lat: fromItem.lat, lng: fromItem.lng }) && hasCoords({ lat: toItem.lat, lng: toItem.lng })
+      ? buildGoogleMapsDirectionsUrl({
+          origin: { lat: fromItem.lat, lng: fromItem.lng },
+          destination: { lat: toItem.lat, lng: toItem.lng },
+          mode: leg.mode,
+        })
+      : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center pb-6 pointer-events-none">
@@ -222,6 +233,19 @@ export default function LegInfoPopup({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {openInGoogleMapsUrl && (
+          <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <a
+              href={openInGoogleMapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Open route in Google Maps
+            </a>
           </div>
         )}
       </div>

@@ -16,7 +16,7 @@ interface AppShellProps {
   onLogout?: () => void;
 }
 
-const ITINERARY_WIDTH = 288;
+const ITINERARY_WIDTH = 320;
 const TIMELINE_MIN_WIDTH = 280;
 const LEFT_PANEL_MIN_WIDTH = ITINERARY_WIDTH + TIMELINE_MIN_WIDTH;
 const MAP_MIN_WIDTH = 360;
@@ -261,7 +261,7 @@ export function AppShell({
                 {dayTabs}
                 <div className="flex flex-1 overflow-hidden">
                   <div
-                    className="flex-shrink-0 overflow-y-auto border-r border-theme-subtle"
+                    className="flex-shrink-0 overflow-y-auto overflow-x-hidden border-r border-theme-subtle"
                     style={{ width: ITINERARY_WIDTH }}
                   >
                     {itinerary}
