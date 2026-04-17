@@ -174,7 +174,7 @@ export default function RoutePath({
   const mouseOutListenerRef = useRef<google.maps.MapsEventListener | null>(null);
 
   // Determine if this is a straight-line (2-point geodesic) leg.
-  const isStraightLine = !encodedPath && fromLatLng && toLatLng;
+  const isStraightLine = !encodedPath && fromLatLng !== undefined && toLatLng !== undefined;
 
   useEffect(() => {
     if (!map) return;
@@ -185,9 +185,11 @@ export default function RoutePath({
     let pathToRender: google.maps.LatLng[];
 
     if (isStraightLine) {
+      const from = fromLatLng!;
+      const to = toLatLng!;
       pathToRender = [
-        new google.maps.LatLng(fromLatLng.lat, fromLatLng.lng),
-        new google.maps.LatLng(toLatLng.lat, toLatLng.lng),
+        new google.maps.LatLng(from.lat, from.lng),
+        new google.maps.LatLng(to.lat, to.lng),
       ];
     } else {
       if (!google.maps.geometry?.encoding) {

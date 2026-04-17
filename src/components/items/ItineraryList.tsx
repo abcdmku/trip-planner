@@ -26,6 +26,7 @@ interface ItineraryListProps {
   days: Day[];
   itemDayColorsById?: Map<string, string[]>;
   trip?: Trip | null;
+  selectedDayId?: string | null;
   selectedItemId?: string | null;
   expandedItemId?: string | null;
   onExpandedItemChange?: (id: string | null) => void;
@@ -54,7 +55,7 @@ function SortableItem({
   onExternalDragEnd,
 }: {
   item: Item;
-  dayColor: string;
+  dayColor?: string;
   dayColors?: string[];
   dayDate?: string;
   isSelected: boolean;
@@ -118,6 +119,7 @@ export function ItineraryList({
   days,
   itemDayColorsById,
   trip,
+  selectedDayId,
   selectedItemId = null,
   expandedItemId,
   onExpandedItemChange,
@@ -190,23 +192,30 @@ export function ItineraryList({
             <TripEndpointRow trip={trip} onUpdate={onUpdateTrip} />
           )}
 
-          {sorted.map((item) => (
-            <SortableItem
-              key={item.itemId}
-              item={item}
-              dayColor={dayColorMap.get(item.dayId) ?? '#3B82F6'}
-              dayColors={itemDayColorsById?.get(item.itemId)}
-              dayDate={dayDateMap.get(item.dayId)}
-              isSelected={selectedItemId === item.itemId}
-              isExpanded={expandedId === item.itemId}
-              onToggleExpand={() => setExpandedId(expandedId === item.itemId ? null : item.itemId)}
-              onDelete={onDeleteItem ? () => onDeleteItem(item.itemId) : undefined}
-              onUpdate={onUpdateItem ? (updates) => onUpdateItem(item.itemId, updates) : undefined}
-              onClick={onItemClick ? () => onItemClick(item.itemId) : undefined}
-              onExternalDragStart={onExternalDragStart}
-              onExternalDragEnd={onExternalDragEnd}
-            />
-          ))}
+          {sorted.map((item) => {
+            const dayColors = itemDayColorsById?.get(item.itemId);
+            const displayDayId = selectedDayId ?? item.dayId;
+            const dayColor = dayColors && dayColors.length > 0 ? dayColorMap.get(displayDayId) : undefined;
+            const dayDate = dayDateMap.get(displayDayId);
+
+            return (
+              <SortableItem
+                key={item.itemId}
+                item={item}
+                dayColor={dayColor}
+                dayColors={dayColors}
+                dayDate={dayDate}
+                isSelected={selectedItemId === item.itemId}
+                isExpanded={expandedId === item.itemId}
+                onToggleExpand={() => setExpandedId(expandedId === item.itemId ? null : item.itemId)}
+                onDelete={onDeleteItem ? () => onDeleteItem(item.itemId) : undefined}
+                onUpdate={onUpdateItem ? (updates) => onUpdateItem(item.itemId, updates) : undefined}
+                onClick={onItemClick ? () => onItemClick(item.itemId) : undefined}
+                onExternalDragStart={onExternalDragStart}
+                onExternalDragEnd={onExternalDragEnd}
+              />
+            );
+          })}
 
           {onAddItem && (
             <button

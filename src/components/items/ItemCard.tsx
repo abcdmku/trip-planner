@@ -31,7 +31,7 @@ const TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
 
 export function ItemCard({
   item,
-  dayColor = '#3B82F6',
+  dayColor,
   dayColors,
   isSelected = false,
   isExpanded = false,
@@ -45,7 +45,7 @@ export function ItemCard({
   onNativeDragEnd,
 }: ItemCardProps) {
   const typeInfo = TYPE_LABELS[item.type] || TYPE_LABELS.other;
-  const visibleDayColors = (dayColors && dayColors.length > 0 ? dayColors : [dayColor]).filter(Boolean);
+  const visibleDayColors = dayColors && dayColors.length > 0 ? dayColors : dayColor ? [dayColor] : [];
   const dragOriginIsHandleRef = useRef(false);
   const [isNativeDragging, setIsNativeDragging] = useState(false);
 

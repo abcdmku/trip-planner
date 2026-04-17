@@ -16,7 +16,7 @@ interface AppShellProps {
   onLogout?: () => void;
 }
 
-const ITINERARY_WIDTH = 320;
+const ITINERARY_WIDTH = 360;
 const TIMELINE_MIN_WIDTH = 280;
 const LEFT_PANEL_MIN_WIDTH = ITINERARY_WIDTH + TIMELINE_MIN_WIDTH;
 const MAP_MIN_WIDTH = 360;

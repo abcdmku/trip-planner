@@ -14,7 +14,7 @@ interface ItemEditorDialogProps {
 export function ItemEditorDialog({
   isOpen,
   item,
-  dayColor = '#3B82F6',
+  dayColor,
   dayDate,
   onUpdate,
   onClose,

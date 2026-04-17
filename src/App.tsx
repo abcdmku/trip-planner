@@ -496,14 +496,6 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       }
     }
 
-    // Unscheduled items don't appear in timeline segments; they should still be
-    // visible on their assigned day and carry that day's color.
-    for (const item of items) {
-      if (!next.has(item.itemId) && item.dayId) {
-        next.set(item.itemId, [item.dayId]);
-      }
-    }
-
     return next;
   }, [items, orderedDays]);
 
@@ -512,11 +504,11 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     const next = new Map<string, string[]>();
 
     for (const item of items) {
-      const dayIds = itemAppearanceDayIdsById.get(item.itemId) ?? [item.dayId];
+      const dayIds = itemAppearanceDayIdsById.get(item.itemId) ?? [];
       const colors = dayIds
         .map((dayId) => dayColorById.get(dayId))
         .filter((color): color is string => Boolean(color));
-      next.set(item.itemId, colors.length > 0 ? colors : ['#3B82F6']);
+      next.set(item.itemId, colors);
     }
 
     return next;
@@ -900,10 +892,21 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
     () => (editingItemId ? items.find((item) => item.itemId === editingItemId) ?? null : null),
     [editingItemId, items],
   );
-  const editingItemDay = useMemo(
-    () => (editingItem ? days.find((day) => day.dayId === editingItem.dayId) ?? null : null),
-    [days, editingItem],
-  );
+  const editingItemDayColor = useMemo(() => {
+    if (!editingItem) return null;
+    const appearanceDayIds = itemAppearanceDayIdsById.get(editingItem.itemId) ?? [];
+    const dayId =
+      selectedDayId && appearanceDayIds.includes(selectedDayId)
+        ? selectedDayId
+        : appearanceDayIds[0];
+    return dayId ? days.find((day) => day.dayId === dayId) ?? null : null;
+  }, [days, editingItem, itemAppearanceDayIdsById, selectedDayId]);
+
+  const editingItemDayDate = useMemo(() => {
+    if (!editingItem) return null;
+    const dayId = selectedDayId ?? editingItem.dayId;
+    return dayId ? days.find((day) => day.dayId === dayId) ?? null : null;
+  }, [days, editingItem, selectedDayId]);
 
   // Handler for moving an item to a different day via drag-drop on tabs
   const handleMoveItemToDay = useCallback(
@@ -965,6 +968,7 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
             days={days}
             itemDayColorsById={itemDayColorsById}
             trip={trip}
+            selectedDayId={selectedDayId}
             selectedItemId={selectedItemId}
             expandedItemId={expandedItemId}
             onExpandedItemChange={setExpandedItemId}
@@ -1139,8 +1143,8 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
       <ItemEditorDialog
         isOpen={Boolean(editingItem)}
         item={editingItem}
-        dayColor={editingItemDay?.colorHex ?? '#3B82F6'}
-        dayDate={editingItemDay?.date}
+        dayColor={editingItemDayColor?.colorHex}
+        dayDate={editingItemDayDate?.date}
         onUpdate={(updates) => {
           if (!editingItem) return;
           updateItem.mutate(mergeItemUpdates(editingItem, updates));
@@ -1209,8 +1213,8 @@ function TripApp({ spreadsheetId }: { spreadsheetId: string }) {
         item={draggingItemId ? items.find((i) => i.itemId === draggingItemId) ?? null : null}
         dayColor={
           draggingItemId
-            ? (days.find((d) => d.dayId === items.find((i) => i.itemId === draggingItemId)?.dayId)?.colorHex ?? '#3B82F6')
-            : '#3B82F6'
+            ? days.find((d) => d.dayId === items.find((i) => i.itemId === draggingItemId)?.dayId)?.colorHex
+            : undefined
         }
         isOverTimeline={isDragOverTimeline}
       />

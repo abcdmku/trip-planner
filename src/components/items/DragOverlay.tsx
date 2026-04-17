@@ -14,7 +14,7 @@ const TYPE_EMOJI: Record<string, string> = {
 
 interface DragOverlayProps {
   item: Item | null;
-  dayColor: string;
+  dayColor?: string;
   isOverTimeline: boolean;
 }
 
@@ -44,6 +44,7 @@ export function DragOverlay({ item, dayColor, isOverTimeline }: DragOverlayProps
   if (!item || !position || isOverTimeline) return null;
 
   const emoji = TYPE_EMOJI[item.type] || '\u{1F4CD}';
+  const isDayColored = Boolean(dayColor);
 
   return createPortal(
     <div
@@ -54,16 +55,20 @@ export function DragOverlay({ item, dayColor, isOverTimeline }: DragOverlayProps
       }}
     >
       <div
-        className="flex items-center gap-2 rounded-lg border border-white/20 px-3 py-2 shadow-xl backdrop-blur-sm"
-        style={{ backgroundColor: `${dayColor}ee` }}
+        className={`flex items-center gap-2 rounded-lg px-3 py-2 backdrop-blur-sm ${
+          isDayColored ? 'border border-white/20 shadow-xl' : 'border border-theme bg-theme-elevated shadow-theme-md'
+        }`}
+        style={isDayColored ? { backgroundColor: `${dayColor}ee` } : undefined}
       >
-        <GripVertical className="h-3.5 w-3.5 text-white/50" />
+        <GripVertical className={`h-3.5 w-3.5 ${isDayColored ? 'text-white/50' : 'text-theme-tertiary'}`} />
         <span className="text-xs">{emoji}</span>
-        <span className="max-w-[180px] truncate text-xs font-semibold text-white">
+        <span className={`max-w-[180px] truncate text-xs font-semibold ${isDayColored ? 'text-white' : 'text-theme'}`}>
           {item.placeName}
         </span>
         {item.durationMinutes > 0 && (
-          <span className="text-[10px] text-white/60">{item.durationMinutes}m</span>
+          <span className={`text-[10px] ${isDayColored ? 'text-white/60' : 'text-theme-tertiary'}`}>
+            {item.durationMinutes}m
+          </span>
         )}
       </div>
     </div>,

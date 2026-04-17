@@ -32,7 +32,7 @@ function itemToEditorValue(item: Item): EventEditorValue {
 
 export function ItemDetailCard({
   item,
-  dayColor = '#3B82F6',
+  dayColor,
   dayDate,
   density = 'comfortable',
   onUpdate,
@@ -241,7 +241,7 @@ export function ItemDetailCard({
 
   return (
     <div className="animate-in rounded-xl border border-theme bg-theme-elevated shadow-theme-md">
-      <div className="h-0.5 rounded-t-xl" style={{ backgroundColor: dayColor }} />
+      {dayColor ? <div className="h-0.5 rounded-t-xl" style={{ backgroundColor: dayColor }} /> : null}
 
       <div className={isCompact ? 'p-2.5' : 'p-3'}>
         <div className="flex items-start gap-2">
@@ -317,8 +317,8 @@ export function ItemDetailCard({
                   <div className="mb-1 flex items-center gap-2">
                     <span className="flex h-4 w-4 items-center justify-center">
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: dayColor }}
+                        className="h-2.5 w-2.5 rounded-full bg-theme-tertiary/40"
+                        style={dayColor ? { backgroundColor: dayColor } : undefined}
                       />
                     </span>
                     <label className="block text-[10px] font-semibold uppercase tracking-wide text-theme-tertiary">
@@ -360,7 +360,10 @@ export function ItemDetailCard({
 
                 <div>
                   <div className="mb-1 flex items-center gap-2">
-                    <Navigation className="h-4 w-4" style={{ color: dayColor }} />
+                    <Navigation
+                      className="h-4 w-4 text-theme-tertiary"
+                      style={dayColor ? { color: dayColor } : undefined}
+                    />
                     <label className="block text-[10px] font-semibold uppercase tracking-wide text-theme-tertiary">
                       Destination (optional)
                     </label>
@@ -468,8 +471,8 @@ export function ItemDetailCard({
                 <div className="flex items-start gap-2">
                   <span className="mt-0.5 flex h-4 w-4 items-center justify-center">
                     <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: dayColor }}
+                      className="h-2.5 w-2.5 rounded-full bg-theme-tertiary/40"
+                      style={dayColor ? { backgroundColor: dayColor } : undefined}
                     />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -482,8 +485,8 @@ export function ItemDetailCard({
 
                 <div className="flex items-start gap-2">
                   <Navigation
-                    className="mt-0.5 h-4 w-4 shrink-0"
-                    style={{ color: dayColor }}
+                    className="mt-0.5 h-4 w-4 shrink-0 text-theme-tertiary"
+                    style={dayColor ? { color: dayColor } : undefined}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-semibold text-theme">

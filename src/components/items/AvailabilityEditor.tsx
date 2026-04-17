@@ -158,7 +158,7 @@ function SegmentedControl<T extends string>({
             disabled={disabled}
             className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition-all ${
               disabled
-                ? 'cursor-not-allowed text-theme-tertiary/30'
+                ? 'cursor-not-allowed text-theme-secondary opacity-20'
                 : active
                   ? 'bg-theme-elevated text-theme shadow-sm'
                   : 'text-theme-tertiary hover:text-theme-secondary'
@@ -548,7 +548,7 @@ export function AvailabilityEditor({
                   <button
                     type="button"
                     onClick={() => handleDeleteWeeklyRow(index)}
-                    className="rounded-md p-1 text-theme-tertiary/50 hover:text-red-500 transition-colors"
+                    className="rounded-md p-1 text-theme-tertiary hover:bg-red-500/10 hover:text-red-500 transition-colors"
                     aria-label="Delete repeating available slot"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -578,7 +578,7 @@ export function AvailabilityEditor({
                   <button
                     type="button"
                     onClick={() => handleDeleteDateGroup(index)}
-                    className="rounded-md p-1 text-theme-tertiary/50 hover:text-red-500 transition-colors"
+                    className="rounded-md p-1 text-theme-tertiary hover:bg-red-500/10 hover:text-red-500 transition-colors"
                     aria-label="Delete date slot group"
                   >
                     <Trash2 className="h-3 w-3" />
