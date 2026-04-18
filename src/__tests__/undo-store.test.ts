@@ -1,15 +1,13 @@
-import { describe, expect, beforeEach, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
-  clearUndoHistory,
   computeRedoStep,
   computeUndoStep,
+  createEmptyUndoHistory,
   ensureUndoHistoryCompatible,
-  readUndoHistory,
   recordUndoableChange,
   tripCoreSignature,
-  writeUndoHistory,
   type TripCoreSnapshot,
-} from '@/stores/undo-store';
+} from '@/lib/undo-core';
 
 function makeBaseSnapshot(overrides?: Partial<TripCoreSnapshot>): TripCoreSnapshot {
   const base: TripCoreSnapshot = {
@@ -77,20 +75,17 @@ function makeBaseSnapshot(overrides?: Partial<TripCoreSnapshot>): TripCoreSnapsh
   };
 }
 
-describe('undo-store', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    clearUndoHistory('sheet-1');
-  });
-
+describe('undo-core', () => {
   test('recordUndoableChange pushes "before" and clears future', () => {
-    const spreadsheetId = 'sheet-1';
     const before = makeBaseSnapshot();
     const after = makeBaseSnapshot({ trip: { ...before.trip, name: 'Trip v2' } });
 
-    recordUndoableChange({ spreadsheetId, before, after });
+    const history = recordUndoableChange({
+      history: createEmptyUndoHistory(tripCoreSignature(before), before),
+      before,
+      after,
+    });
 
-    const history = readUndoHistory(spreadsheetId);
     expect(history.past).toHaveLength(1);
     expect(history.future).toHaveLength(0);
     expect(history.presentSignature).toBe(tripCoreSignature(after));
@@ -98,36 +93,41 @@ describe('undo-store', () => {
   });
 
   test('ensureUndoHistoryCompatible resets when present signature differs', () => {
-    const spreadsheetId = 'sheet-1';
     const presentA = makeBaseSnapshot();
     const presentB = makeBaseSnapshot({ trip: { ...presentA.trip, name: 'Different' } });
 
-    writeUndoHistory(spreadsheetId, {
-      version: 1,
-      presentSignature: tripCoreSignature(presentA),
-      past: [presentA],
-      future: [presentA],
-    });
+    const ensured = ensureUndoHistoryCompatible(
+      {
+        version: 1,
+        presentSignature: tripCoreSignature(presentA),
+        present: presentA,
+        past: [presentA],
+        future: [presentA],
+      },
+      presentB,
+    );
 
-    const ensured = ensureUndoHistoryCompatible(spreadsheetId, presentB);
     expect(ensured.past).toHaveLength(0);
     expect(ensured.future).toHaveLength(0);
     expect(ensured.presentSignature).toBe(tripCoreSignature(presentB));
   });
 
   test('computeUndoStep/computeRedoStep roundtrip', () => {
-    const spreadsheetId = 'sheet-1';
-    clearUndoHistory(spreadsheetId);
-
     const s0 = makeBaseSnapshot();
     const s1 = makeBaseSnapshot({ trip: { ...s0.trip, name: 'S1' } });
     const s2 = makeBaseSnapshot({ trip: { ...s0.trip, name: 'S2' } });
 
-    // Record S0 -> S1 and S1 -> S2
-    recordUndoableChange({ spreadsheetId, before: s0, after: s1 });
-    recordUndoableChange({ spreadsheetId, before: s1, after: s2 });
+    const historyS1 = recordUndoableChange({
+      history: createEmptyUndoHistory(tripCoreSignature(s0), s0),
+      before: s0,
+      after: s1,
+    });
+    const historyS2 = recordUndoableChange({
+      history: historyS1,
+      before: s1,
+      after: s2,
+    });
 
-    const historyS2 = readUndoHistory(spreadsheetId);
     const undoStep = computeUndoStep({ history: historyS2, present: s2 });
     expect(undoStep).not.toBeNull();
     if (!undoStep) return;

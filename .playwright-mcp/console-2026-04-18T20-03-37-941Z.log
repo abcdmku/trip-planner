@@ -1,0 +1,721 @@
+[     367ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[     375ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-zssD6Gdt.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:22560)
+    at ba (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:24311)
+    at Co (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:36978)
+    at ls (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:41736)
+    at $s (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:40701) @ http://127.0.0.1:5173/assets/index-zssD6Gdt.js:10
+[     376ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-zssD6Gdt.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:22560)
+    at ba (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:24311)
+    at Co (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:36978)
+    at ls (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:41736)
+    at $s (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:40701) @ http://127.0.0.1:5173/assets/index-zssD6Gdt.js:7
+[     376ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-zssD6Gdt.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:22560)
+    at ba (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:24311)
+    at Co (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:36978)
+    at ls (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:41736)
+    at $s (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:40701) @ http://127.0.0.1:5173/assets/index-zssD6Gdt.js:10
+[   10358ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[   10360ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-zssD6Gdt.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:22560)
+    at ba (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:24311)
+    at Co (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:36978)
+    at ls (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:41736)
+    at $s (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:40701) @ http://127.0.0.1:5173/assets/index-zssD6Gdt.js:10
+[   10361ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-zssD6Gdt.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:22560)
+    at ba (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:24311)
+    at Co (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:36978)
+    at ls (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:41736)
+    at $s (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:40701) @ http://127.0.0.1:5173/assets/index-zssD6Gdt.js:7
+[   10361ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-zssD6Gdt.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:22560)
+    at ba (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:24311)
+    at Co (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:36978)
+    at ls (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:41736)
+    at $s (http://127.0.0.1:5173/assets/index-zssD6Gdt.js:8:40701) @ http://127.0.0.1:5173/assets/index-zssD6Gdt.js:10
+[  205033ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:5173/ws' failed: Connection closed before receiving a handshake response @ http://127.0.0.1:5173/assets/index-zssD6Gdt.js:10
+[  206606ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  206612ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  206613ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  206614ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  207325ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  207328ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  207329ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  207329ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  207826ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  207828ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  207829ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  207829ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208205ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  208208ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208209ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  208209ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208434ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  208437ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208438ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  208438ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208586ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  208588ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208589ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  208589ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208758ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  208760ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208761ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  208761ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208943ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  208946ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  208946ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  208946ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209130ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  209132ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209133ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  209133ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209312ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  209314ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209315ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  209315ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209489ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  209492ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209492ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  209492ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209680ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  209683ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209683ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  209684ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209863ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  209866ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  209866ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  209866ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210060ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  210062ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210063ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  210063ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210246ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  210248ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210249ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  210249ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210422ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  210424ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210424ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  210425ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210625ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  210628ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210629ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  210629ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210823ms] [ERROR] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://127.0.0.1:5173/trip/debug-trip-836cabb3-3999-4d82-af18-02dc424af6c1 @ https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:181
+[  210826ms] [ERROR] Error handled by React Router default ErrorBoundary: TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10
+[  210827ms] [ERROR] TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:7
+[  210827ms] [ERROR] React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'getRootNode')
+    at _.to (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/main.js:205:41)
+    at set map (https://maps.googleapis.com/maps-api-v3/api/js/64/9c/marker.js:104:207)
+    at http://127.0.0.1:5173/assets/index-H0CVNao2.js:19:1465
+    at Ic (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:22560)
+    at Ma (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:24311)
+    at No (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:42147)
+    at Km (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:36978)
+    at us (http://127.0.0.1:5173/assets/index-H0CVNao2.js:6:3273)
+    at Wx (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:41736)
+    at Hs (http://127.0.0.1:5173/assets/index-H0CVNao2.js:8:40701) @ http://127.0.0.1:5173/assets/index-H0CVNao2.js:10

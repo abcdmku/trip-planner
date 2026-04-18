@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 import { minutesToTime, resolveAppendDropAfterLast, resolveDraggedItemId, resolvePointDropNearest } from '@/lib/timeline-drop';
 import type { Day, Item } from '@/types/trip';
+import { toLiveItemPreview } from './live-preview';
 import { toMins } from './time';
-import type { CommitExternalDrop, ExternalDragPreview, ResolveExternalDrop } from './types';
+import type { CommitExternalDrop, ExternalDragPreview, LiveItemPreview, ResolveExternalDrop } from './types';
 
 interface UseExternalTimelineDropOptions {
   items: Item[];
@@ -10,6 +11,7 @@ interface UseExternalTimelineDropOptions {
   activeDragItemId: string | null;
   snapMinutes: number;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
+  onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
   getScheduledItemsForDay: (dayId: string, excludeItemId: string) => Item[];
 }
 
@@ -19,6 +21,7 @@ export function useExternalTimelineDrop({
   activeDragItemId,
   snapMinutes,
   onUpdateItem,
+  onLiveItemPreviewChange,
   getScheduledItemsForDay,
 }: UseExternalTimelineDropOptions) {
   const [dayHeaderPreview, setDayHeaderPreview] = useState<ExternalDragPreview | null>(null);
@@ -86,13 +89,15 @@ export function useExternalTimelineDrop({
       });
 
       setDayHeaderPreview(null);
+      onLiveItemPreviewChange?.(null);
     },
-    [items, itemsById, onUpdateItem],
+    [items, itemsById, onLiveItemPreviewChange, onUpdateItem],
   );
 
   const clearDayHeaderPreview = useCallback(() => {
     setDayHeaderPreview(null);
-  }, []);
+    onLiveItemPreviewChange?.(null);
+  }, [onLiveItemPreviewChange]);
 
   const handleDayHeaderDragOver = useCallback(
     (e: React.DragEvent, day: Day) => {
@@ -104,9 +109,10 @@ export function useExternalTimelineDrop({
 
       e.preventDefault();
       setDayHeaderPreview(preview);
+      onLiveItemPreviewChange?.(toLiveItemPreview(preview));
       e.dataTransfer.dropEffect = preview.valid ? 'move' : 'none';
     },
-    [activeDragItemId, resolveExternalDrop],
+    [activeDragItemId, onLiveItemPreviewChange, resolveExternalDrop],
   );
 
   const handleDayHeaderDrop = useCallback(

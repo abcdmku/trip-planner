@@ -14,6 +14,8 @@ interface DayTabsProps {
   onDeleteSelectedDay?: (dayId: string) => void;
   /** Called when an item is dropped on a day tab */
   onDropItem?: (dayId: string, itemId: string) => void;
+  /** Called when a native item drag hovers a day tab */
+  onItemDragPreviewChange?: (preview: { dayId: string; itemId: string } | null) => void;
   /** Currently dragging item ID for visual feedback */
   draggingItemId?: string | null;
   /** Whether a dragged item can be dropped onto each day */
@@ -27,6 +29,7 @@ export function DayTabs({
   onAddDay,
   onDeleteSelectedDay,
   onDropItem,
+  onItemDragPreviewChange,
   draggingItemId,
   dropValidityByDay,
 }: DayTabsProps) {
@@ -57,6 +60,7 @@ export function DayTabs({
     const itemId = resolveDraggedItemId(e.dataTransfer, draggingItemId);
     if (!itemId) return;
     e.preventDefault();
+    onItemDragPreviewChange?.({ dayId, itemId });
     const isValidTarget = dropValidityByDay?.[dayId] ?? true;
     e.dataTransfer.dropEffect = isValidTarget ? 'move' : 'none';
   };
@@ -64,10 +68,17 @@ export function DayTabs({
   const handleDrop = (e: React.DragEvent, dayId: string) => {
     e.preventDefault();
     const itemId = resolveDraggedItemId(e.dataTransfer, draggingItemId);
+    onItemDragPreviewChange?.(null);
     if (itemId && onDropItem) {
       if (dropValidityByDay && !dropValidityByDay[dayId]) return;
       onDropItem(dayId, itemId);
     }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    const relatedTarget = e.relatedTarget as Node | null;
+    if (relatedTarget && e.currentTarget.contains(relatedTarget)) return;
+    onItemDragPreviewChange?.(null);
   };
 
   return (
@@ -101,6 +112,7 @@ export function DayTabs({
             onClick={() => onSelectDay(day.dayId)}
             onDragOver={(e) => handleDragOver(e, day.dayId)}
             onDrop={(e) => handleDrop(e, day.dayId)}
+            onDragLeave={handleDragLeave}
             className={`group flex flex-shrink-0 flex-col items-center rounded-lg px-2.5 py-1 text-xs font-medium transition-all duration-150 ${
               isSelected
                 ? 'text-white shadow-sm'

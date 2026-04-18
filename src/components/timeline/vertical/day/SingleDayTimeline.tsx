@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
+import { toLiveItemPreview } from '../live-preview';
 import { mToY, snapM, toMins } from '../time';
 import type { ExternalDragPreview, SingleDayTimelineProps } from '../types';
 import { useTimelinePointerInteraction } from '../useTimelinePointerInteraction';
@@ -116,7 +117,8 @@ export function SingleDayTimeline({
 
   const clearPointDropPreview = useCallback(() => {
     setPointDropPreview(null);
-  }, []);
+    onLiveItemPreviewChange?.(null);
+  }, [onLiveItemPreviewChange]);
   useWindowDragCleanup(clearPointDropPreview);
 
   const dragEventToMinute = useCallback((e: React.DragEvent): number => {
@@ -135,9 +137,10 @@ export function SingleDayTimeline({
       e.preventDefault();
       const preview = resolveExternalDrop({ itemId, day, mode: 'point', anchorMin: dragEventToMinute(e) });
       setPointDropPreview(preview);
+      onLiveItemPreviewChange?.(toLiveItemPreview(preview));
       e.dataTransfer.dropEffect = preview?.valid ? 'move' : 'none';
     },
-    [activeDragItemId, day, dragEventToMinute, resolveExternalDrop],
+    [activeDragItemId, day, dragEventToMinute, onLiveItemPreviewChange, resolveExternalDrop],
   );
 
   const handleExternalPointDrop = useCallback(

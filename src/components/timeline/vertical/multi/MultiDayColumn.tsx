@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
 import { MULTI_COL_MAX_W, MULTI_COL_MIN_W } from '../constants';
+import { toLiveItemPreview } from '../live-preview';
 import { snapM } from '../time';
 import type { ExternalDragPreview, MultiDayColumnProps } from '../types';
 import { useTimelinePointerInteraction } from '../useTimelinePointerInteraction';
@@ -74,7 +75,8 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
 
   const clearExternalPreview = useCallback(() => {
     setExternalPreview(null);
-  }, []);
+    onLiveItemPreviewChange?.(null);
+  }, [onLiveItemPreviewChange]);
   useWindowDragCleanup(clearExternalPreview);
 
   const dragEventToMinute = useCallback(
@@ -96,9 +98,10 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
       e.preventDefault();
       const preview = resolveExternalDrop({ itemId, day, mode: 'point', anchorMin: dragEventToMinute(e) });
       setExternalPreview(preview);
+      onLiveItemPreviewChange?.(toLiveItemPreview(preview));
       e.dataTransfer.dropEffect = preview?.valid ? 'move' : 'none';
     },
-    [activeDragItemId, day, dragEventToMinute, resolveExternalDrop],
+    [activeDragItemId, day, dragEventToMinute, onLiveItemPreviewChange, resolveExternalDrop],
   );
 
   const handlePointDrop = useCallback(
@@ -131,9 +134,10 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
       e.preventDefault();
       const preview = resolveExternalDrop({ itemId, day, mode: 'append' });
       setExternalPreview(preview);
+      onLiveItemPreviewChange?.(toLiveItemPreview(preview));
       e.dataTransfer.dropEffect = preview?.valid ? 'move' : 'none';
     },
-    [activeDragItemId, day, resolveExternalDrop],
+    [activeDragItemId, day, onLiveItemPreviewChange, resolveExternalDrop],
   );
 
   const handleAppendDrop = useCallback(

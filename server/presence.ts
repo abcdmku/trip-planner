@@ -25,8 +25,10 @@ const PRESENCE_COLORS = [
   '#DB2777',
 ];
 
+const WEBSOCKET_OPEN_STATE = 1;
+
 function safeSend(socket: WebSocket, payload: unknown): void {
-  if (socket.readyState !== socket.OPEN) return;
+  if (socket.readyState !== WEBSOCKET_OPEN_STATE) return;
   socket.send(JSON.stringify(payload));
 }
 
@@ -135,6 +137,16 @@ export class PresenceManager {
     };
     tripCursors.set(state.connectionId, cursor);
     this.broadcastPresenceDiff(tripId, [cursor], [], [], []);
+  }
+
+  clearCursor(socket: WebSocket, tripId: string): void {
+    const state = this.connections.get(socket);
+    if (!state || !state.trips.has(tripId)) return;
+
+    const removedConnectionIds = this.removeTripCursor(tripId, state.connectionId);
+    if (removedConnectionIds.length > 0) {
+      this.broadcastPresenceDiff(tripId, [], removedConnectionIds, [], []);
+    }
   }
 
   updateItemPreview(

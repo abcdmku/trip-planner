@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { resolveBackendPort } from './runtime-ports';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -15,3 +16,11 @@ export type ServerEnv = z.infer<typeof envSchema>;
 export const env: ServerEnv = envSchema.parse(process.env);
 
 export const isProduction = env.NODE_ENV === 'production';
+
+export const listenPort = Number(
+  resolveBackendPort({
+    nodeEnv: env.NODE_ENV,
+    configuredPort: String(env.PORT),
+    appUrl: env.APP_URL,
+  }),
+);

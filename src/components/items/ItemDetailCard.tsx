@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapPin, Navigation, X, Loader2, PencilLine, ChevronDown } from 'lucide-react';
+import { MapPin, Navigation, X, Loader2, PencilLine, ChevronDown, Trash2 } from 'lucide-react';
 import type { Item } from '../../types/trip';
 import { PlaceSearch } from './PlaceSearch';
 import { RouteTravelControls } from './RouteTravelControls';
@@ -13,6 +13,7 @@ interface ItemDetailCardProps {
   dayDate?: string;
   density?: 'compact' | 'comfortable';
   onUpdate?: (updates: Partial<Item>) => void;
+  onDelete?: () => void;
   onClose?: () => void;
 }
 
@@ -36,6 +37,7 @@ export function ItemDetailCard({
   dayDate,
   density = 'comfortable',
   onUpdate,
+  onDelete,
   onClose,
 }: ItemDetailCardProps) {
   const isCompact = density === 'compact';
@@ -269,15 +271,29 @@ export function ItemDetailCard({
             ) : null}
           </div>
 
-          {onClose ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-theme"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          {(onDelete || onClose) ? (
+            <div className="flex items-center gap-1">
+              {onDelete ? (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="rounded-md p-1 text-theme-tertiary hover:bg-red-500/10 hover:text-red-500"
+                  aria-label="Delete item"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ) : null}
+              {onClose ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-theme"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
