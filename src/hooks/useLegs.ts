@@ -7,7 +7,7 @@ import {
   getTripQueryKey,
   updateLegsOptimistic,
 } from '@/stores/trip-store';
-import type { Item, Leg, RouteType, TransportMode, TripData } from '@/types/trip';
+import type { Item, Leg, RouteType, TransportMode } from '@/types/trip';
 import type { TripSnapshotResponse } from '@/types/api';
 import { buildDateTime } from '@/lib/date-time';
 
@@ -25,7 +25,7 @@ export function useRecalculateLegs(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Leg[], Error, RecalculatePayload, TripData | undefined>({
+  return useMutation<Leg[], Error, RecalculatePayload, TripSnapshotResponse | undefined>({
     mutationFn: async ({ items, defaultMode }) => {
       const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
       const current = queryClient.getQueryData<TripSnapshotResponse>(getTripQueryKey(tripId));
@@ -134,7 +134,7 @@ export function useUpdateLegMode(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Leg, Error, UpdateLegModePayload, TripData | undefined>({
+  return useMutation<Leg, Error, UpdateLegModePayload, TripSnapshotResponse | undefined>({
     mutationFn: async ({ leg, newMode, fromItem, toItem }) => {
       const current = queryClient.getQueryData<TripSnapshotResponse>(getTripQueryKey(tripId));
       const fromDayDate = (current?.days ?? []).find((day) => day.dayId === fromItem.dayId)?.date;
@@ -213,7 +213,7 @@ export function useUpdateLegRouteType(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Leg, Error, UpdateLegRouteTypePayload, TripData | undefined>({
+  return useMutation<Leg, Error, UpdateLegRouteTypePayload, TripSnapshotResponse | undefined>({
     mutationFn: async ({ leg, newRouteType, fromItem, toItem }) => {
       if (newRouteType === 'straight') {
         const calc = mapsRepository.calculateStraightLeg(

@@ -68,7 +68,7 @@ export function useUpdateTrip(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Trip, Error, Trip, TripData | undefined>({
+  return useMutation<Trip, Error, Trip, TripSnapshotResponse | undefined>({
     mutationFn: async (updatedTrip) => updateTripRecord(tripId, updatedTrip),
 
     onMutate: async (updatedTrip) => {

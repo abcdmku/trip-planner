@@ -7,7 +7,7 @@ import {
   getTripQueryKey,
   updateDaysOptimistic,
 } from '@/stores/trip-store';
-import type { Day, TripData } from '@/types/trip';
+import type { Day } from '@/types/trip';
 import type { TripSnapshotResponse } from '@/types/api';
 
 export function useDays(tripId: string | null | undefined) {
@@ -19,7 +19,7 @@ export function useAddDay(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Day, Error, Day, TripData | undefined>({
+  return useMutation<Day, Error, Day, TripSnapshotResponse | undefined>({
     mutationFn: async (newDay) => createDayRecord(tripId, newDay),
 
     onMutate: async (newDay) => {
@@ -55,7 +55,7 @@ export function useUpdateDay(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Day, Error, Day, TripData | undefined>({
+  return useMutation<Day, Error, Day, TripSnapshotResponse | undefined>({
     mutationFn: async (updatedDay) => updateDayRecord(tripId, updatedDay),
 
     onMutate: async (updatedDay) => {
@@ -91,20 +91,20 @@ export function useDeleteDay(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<void, Error, string, TripData | undefined>({
+  return useMutation<void, Error, string, TripSnapshotResponse | undefined>({
     mutationFn: async (dayId) => deleteDayRecord(tripId, dayId),
 
     onMutate: async (dayId) => {
       await queryClient.cancelQueries({ queryKey: getTripQueryKey(tripId) });
       const queryKey = getTripQueryKey(tripId);
-      const previous = queryClient.getQueryData<TripData>(queryKey);
+      const previous = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
 
       if (previous) {
         const removedItemIds = new Set(
           previous.items.filter((item) => item.dayId === dayId).map((item) => item.itemId),
         );
 
-        queryClient.setQueryData<TripData>(queryKey, {
+        queryClient.setQueryData<TripSnapshotResponse>(queryKey, {
           ...previous,
           days: previous.days.filter((day) => day.dayId !== dayId),
           items: previous.items.filter((item) => item.dayId !== dayId),

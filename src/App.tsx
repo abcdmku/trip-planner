@@ -33,7 +33,7 @@ import { getAutoDayLabel, getDayDisplayLabel } from './lib/day-labels';
 import { resolveAppendDropAfterLast, minutesToTime } from './lib/timeline-drop';
 import { Plane, Loader2 } from 'lucide-react';
 import type { Day, Item, Leg, Trip, TransportMode, RouteType } from './types/trip';
-import type { TripListItem } from './types/api';
+import type { PresenceItemPreview, TripListItem } from './types/api';
 import LegInfoPopup from './components/map/LegInfoPopup';
 import { DragOverlay } from './components/items/DragOverlay';
 import { CursorPresenceOverlay } from './components/presence/CursorPresenceOverlay';
@@ -129,12 +129,21 @@ function TripSetup({
 function TripApp({ tripId }: { tripId: string }) {
   const ENABLE_LEGACY_LEGS = false;
   const { user, logout } = useAuth();
-  const { connectionState, getTripCursors, sendCursor, getRemoteEditNotice, dismissRemoteEditNotice } = useRealtime();
+  const {
+    connectionState,
+    localConnectionId,
+    getTripCursors,
+    getTripItemPreviews,
+    sendCursor,
+    sendItemPreview,
+    getRemoteEditNotice,
+    dismissRemoteEditNotice,
+  } = useRealtime();
   const { setActiveTab, selectedItemId, setSelectedItemId } = useUI();
   const {
     trip,
     days,
-    items,
+    items: committedItems,
     data: tripData,
     members,
     pendingInvites,
@@ -207,7 +216,36 @@ function TripApp({ tripId }: { tripId: string }) {
     [],
   );
   const tripCursors = getTripCursors(tripId);
+  const tripItemPreviews = getTripItemPreviews(tripId);
   const remoteEditNotice = getRemoteEditNotice(tripId);
+
+  const previewByItemId = useMemo(() => {
+    const next = new Map<string, PresenceItemPreview>();
+    for (const preview of tripItemPreviews) {
+      if (preview.connectionId === localConnectionId) continue;
+      const existing = next.get(preview.itemId);
+      if (!existing || existing.updatedAt < preview.updatedAt) {
+        next.set(preview.itemId, preview);
+      }
+    }
+    return next;
+  }, [localConnectionId, tripItemPreviews]);
+
+  const renderItems = useMemo(
+    () =>
+      committedItems.map((item) => {
+        const preview = previewByItemId.get(item.itemId);
+        if (!preview) return item;
+        return {
+          ...item,
+          dayId: preview.dayId,
+          scheduledStart: preview.scheduledStart,
+          scheduledEnd: preview.scheduledEnd,
+          durationMinutes: preview.durationMinutes,
+        };
+      }),
+    [committedItems, previewByItemId],
+  );
 
   useEffect(() => {
     if (!workspaceRef.current || !isDesktopPresenceEnabled) return;
@@ -219,7 +257,19 @@ function TripApp({ tripId }: { tripId: string }) {
         frame = 0;
         const rect = workspaceRef.current?.getBoundingClientRect();
         if (!rect) return;
-        sendCursor(tripId, event.clientX - rect.left, event.clientY - rect.top);
+        if (
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom
+        ) {
+          return;
+        }
+        sendCursor(
+          tripId,
+          (event.clientX - rect.left) / rect.width,
+          (event.clientY - rect.top) / rect.height,
+        );
       });
     };
 
@@ -311,25 +361,25 @@ function TripApp({ tripId }: { tripId: string }) {
 
   // Build item lookup for leg info popup
   const itemMap = useMemo(
-    () => new Map(items.map((item) => [item.itemId, item])),
-    [items],
+    () => new Map(committedItems.map((item) => [item.itemId, item])),
+    [committedItems],
   );
 
   // Auto-calculate legs when items exist but no legs cover them.
   // Uses a stable fingerprint to avoid re-running on every render.
   const itemFingerprint = useMemo(
-    () => items.map((i) => `${i.itemId}:${i.sortOrder}:${i.dayId}`).join(','),
-    [items],
+    () => committedItems.map((i) => `${i.itemId}:${i.sortOrder}:${i.dayId}`).join(','),
+    [committedItems],
   );
 
   useEffect(() => {
     if (!ENABLE_LEGACY_LEGS) return;
-    if (items.length < 2 || recalculateLegs.isPending) return;
+    if (committedItems.length < 2 || recalculateLegs.isPending) return;
 
     // Check if existing legs already cover the current item pairs.
     const legKeys = new Set(legs.map((l) => `${l.fromItemId}::${l.toItemId}`));
     const dayGroups = new Map<string, Item[]>();
-    for (const item of items) {
+    for (const item of committedItems) {
       const group = dayGroups.get(item.dayId) ?? [];
       group.push(item);
       dayGroups.set(item.dayId, group);
@@ -360,7 +410,7 @@ function TripApp({ tripId }: { tripId: string }) {
     for (const dayItems of groupsToRecalc) {
       recalculateLegs.mutate({ items: dayItems, defaultMode });
     }
-  }, [ENABLE_LEGACY_LEGS, itemFingerprint, legs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ENABLE_LEGACY_LEGS, committedItems, itemFingerprint, legs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpdateTrip = useCallback(
     (updates: Partial<Trip>) => {
@@ -446,12 +496,12 @@ function TripApp({ tripId }: { tripId: string }) {
     (itemId: string) => {
       setEditingItemId(itemId);
       setExpandedItemId(null);
-      const clickedItem = items.find((item) => item.itemId === itemId);
+      const clickedItem = committedItems.find((item) => item.itemId === itemId);
       if (clickedItem && selectedDayId !== null && clickedItem.dayId !== selectedDayId) {
         setSelectedDayId(clickedItem.dayId);
       }
     },
-    [items, selectedDayId],
+    [committedItems, selectedDayId],
   );
 
   const handleMapClick = useCallback(
@@ -478,7 +528,7 @@ function TripApp({ tripId }: { tripId: string }) {
   );
 
   const itemAppearanceDayIdsById = useMemo(() => {
-    const renderItemsByDay = buildTimelineRenderItemsByDay(orderedDays, items);
+    const renderItemsByDay = buildTimelineRenderItemsByDay(orderedDays, renderItems);
     const next = new Map<string, string[]>();
 
     for (const day of orderedDays) {
@@ -492,13 +542,13 @@ function TripApp({ tripId }: { tripId: string }) {
     }
 
     return next;
-  }, [items, orderedDays]);
+  }, [orderedDays, renderItems]);
 
   const itemDayColorsById = useMemo(() => {
     const dayColorById = new Map(orderedDays.map((day) => [day.dayId, day.colorHex]));
     const next = new Map<string, string[]>();
 
-    for (const item of items) {
+    for (const item of renderItems) {
       const dayIds = itemAppearanceDayIdsById.get(item.itemId) ?? [];
       const colors = dayIds
         .map((dayId) => dayColorById.get(dayId))
@@ -507,14 +557,16 @@ function TripApp({ tripId }: { tripId: string }) {
     }
 
     return next;
-  }, [itemAppearanceDayIdsById, items, orderedDays]);
+  }, [itemAppearanceDayIdsById, orderedDays, renderItems]);
 
   const filteredItems = useMemo(
     () => {
-      if (!selectedDayId) return items;
-      return items.filter((item) => (itemAppearanceDayIdsById.get(item.itemId) ?? [item.dayId]).includes(selectedDayId));
+      if (!selectedDayId) return renderItems;
+      return renderItems.filter((item) =>
+        (itemAppearanceDayIdsById.get(item.itemId) ?? [item.dayId]).includes(selectedDayId),
+      );
     },
-    [itemAppearanceDayIdsById, items, selectedDayId],
+    [itemAppearanceDayIdsById, renderItems, selectedDayId],
   );
 
   const selectedDayIds = useMemo(
@@ -542,7 +594,7 @@ function TripApp({ tripId }: { tripId: string }) {
 
   const getScheduledItemsForDay = useCallback(
     (dayId: string, excludeItemId?: string) =>
-      items
+      committedItems
         .filter(
           (item) =>
             item.dayId === dayId &&
@@ -554,12 +606,12 @@ function TripApp({ tripId }: { tripId: string }) {
           const bStart = b.scheduledStart || '';
           return aStart.localeCompare(bStart);
         }),
-    [items],
+    [committedItems],
   );
 
   const dayDropValidityById = useMemo(() => {
     if (!draggingItemId) return undefined;
-    const draggedItem = items.find((item) => item.itemId === draggingItemId);
+    const draggedItem = committedItems.find((item) => item.itemId === draggingItemId);
     if (!draggedItem) return undefined;
 
     const validity: Record<string, boolean> = {};
@@ -574,7 +626,7 @@ function TripApp({ tripId }: { tripId: string }) {
     }
 
     return validity;
-  }, [days, draggingItemId, getScheduledItemsForDay, items]);
+  }, [committedItems, days, draggingItemId, getScheduledItemsForDay]);
 
   useEffect(() => {
     if (!selectedItemId) return;
@@ -586,11 +638,11 @@ function TripApp({ tripId }: { tripId: string }) {
 
   useEffect(() => {
     if (!editingItemId) return;
-    const exists = items.some((item) => item.itemId === editingItemId);
+    const exists = committedItems.some((item) => item.itemId === editingItemId);
     if (!exists) {
       setEditingItemId(null);
     }
-  }, [editingItemId, items]);
+  }, [committedItems, editingItemId]);
 
   // Delete key removes item from timeline (unschedules) but keeps it in the event list
   useEffect(() => {
@@ -599,7 +651,7 @@ function TripApp({ tripId }: { tripId: string }) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      const item = items.find((i) => i.itemId === selectedItemId);
+      const item = committedItems.find((i) => i.itemId === selectedItemId);
       if (!item || !item.scheduledStart || item.timelineLocked) return;
 
       e.preventDefault();
@@ -607,7 +659,7 @@ function TripApp({ tripId }: { tripId: string }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedItemId, items, updateItem]);
+  }, [committedItems, selectedItemId, updateItem]);
 
   useEffect(() => {
     if (!selectedLeg) return;
@@ -753,13 +805,13 @@ function TripApp({ tripId }: { tripId: string }) {
     const day = days.find((d) => d.dayId === dayId);
     if (!day) return;
 
-    const eventCount = items.filter((item) => item.dayId === dayId).length;
+    const eventCount = committedItems.filter((item) => item.dayId === dayId).length;
     setPendingDayDelete({
       dayId,
       label: getDayDisplayLabel(day),
       eventCount,
     });
-  }, [days, deleteDay.isPending, items]);
+  }, [committedItems, days, deleteDay.isPending]);
 
   const handleConfirmDeleteDay = useCallback(() => {
     if (!pendingDayDelete || deleteDay.isPending) return;
@@ -817,7 +869,7 @@ function TripApp({ tripId }: { tripId: string }) {
     }) => {
       const targetDayId = selectedDayId ?? days[0]?.dayId ?? '';
       // Calculate sortOrder based on items in the same day, not globally
-      const itemsInDay = items.filter((i) => i.dayId === targetDayId);
+      const itemsInDay = committedItems.filter((i) => i.dayId === targetDayId);
       addItem.mutate({
         itemId: crypto.randomUUID(),
         dayId: targetDayId,
@@ -856,7 +908,7 @@ function TripApp({ tripId }: { tripId: string }) {
       });
       closeAddItemDialog();
     },
-    [addItem, closeAddItemDialog, selectedDayId, days, items, trip],
+    [addItem, closeAddItemDialog, selectedDayId, days, committedItems, trip],
   );
 
   const mergeItemUpdates = useCallback((existing: Item, updates: Partial<Item>): Item => {
@@ -883,8 +935,11 @@ function TripApp({ tripId }: { tripId: string }) {
   }, []);
 
   const editingItem = useMemo(
-    () => (editingItemId ? items.find((item) => item.itemId === editingItemId) ?? null : null),
-    [editingItemId, items],
+    () =>
+      editingItemId
+        ? committedItems.find((item) => item.itemId === editingItemId) ?? null
+        : null,
+    [committedItems, editingItemId],
   );
   const editingItemDayColor = useMemo(() => {
     if (!editingItem) return null;
@@ -906,7 +961,7 @@ function TripApp({ tripId }: { tripId: string }) {
   const handleMoveItemToDay = useCallback(
     (dayId: string, itemId: string) => {
       const day = days.find((d) => d.dayId === dayId);
-      const item = items.find((i) => i.itemId === itemId);
+      const item = committedItems.find((i) => i.itemId === itemId);
       if (!day || !item) return;
       if (item.timelineLocked) return;
 
@@ -920,7 +975,7 @@ function TripApp({ tripId }: { tripId: string }) {
       if (!resolution.valid) return;
 
       // Append position should become the last item in the target day list.
-      const targetDayItems = items.filter(
+      const targetDayItems = committedItems.filter(
         (candidate) => candidate.dayId === dayId && candidate.itemId !== item.itemId,
       );
 
@@ -933,20 +988,37 @@ function TripApp({ tripId }: { tripId: string }) {
         sortOrder: targetDayItems.length,
       });
     },
-    [days, getScheduledItemsForDay, items, updateItem],
+    [days, getScheduledItemsForDay, committedItems, updateItem],
   );
 
   const activeCollaborators = useMemo(
     () =>
       tripCursors
-        .filter((cursor) => cursor.userId !== user?.id)
+        .filter((cursor) => cursor.connectionId !== localConnectionId)
         .map((cursor) => ({
+          connectionId: cursor.connectionId,
           userId: cursor.userId,
           name: cursor.name,
           picture: cursor.picture,
           color: cursor.color,
         })),
-    [tripCursors, user?.id],
+    [localConnectionId, tripCursors],
+  );
+  const handleLiveItemPreviewChange = useCallback(
+    (
+      preview:
+        | {
+            itemId: string;
+            dayId: string;
+            scheduledStart: string;
+            scheduledEnd: string;
+            durationMinutes: number;
+          }
+        | null,
+    ) => {
+      sendItemPreview(tripId, preview);
+    },
+    [sendItemPreview, tripId],
   );
   const canManageSharing = useMemo(
     () => members.some((member) => member.userId === user?.id && member.role === 'owner'),
@@ -1019,7 +1091,10 @@ function TripApp({ tripId }: { tripId: string }) {
         activeCollaborators={activeCollaborators}
         workspaceOverlay={
           isDesktopPresenceEnabled ? (
-            <CursorPresenceOverlay cursors={tripCursors} currentUserId={user?.id} />
+            <CursorPresenceOverlay
+              cursors={tripCursors}
+              currentConnectionId={localConnectionId}
+            />
           ) : null
         }
         topBanner={
@@ -1055,12 +1130,12 @@ function TripApp({ tripId }: { tripId: string }) {
             onReorder={(ids) => {
               const dayId = selectedDayId ?? days[0]?.dayId ?? '';
               const orderedItemIds = selectedDayId
-                ? ids.filter((id) => items.find((i) => i.itemId === id)?.dayId === selectedDayId)
+                ? ids.filter((id) => committedItems.find((i) => i.itemId === id)?.dayId === selectedDayId)
                 : ids;
               reorderItems.mutate({ dayId, orderedItemIds });
             }}
             onUpdateItem={(id, updates) => {
-              const existing = items.find((i) => i.itemId === id);
+              const existing = committedItems.find((i) => i.itemId === id);
               if (existing) updateItem.mutate(mergeItemUpdates(existing, updates));
             }}
             onDeleteItem={(id) => {
@@ -1082,19 +1157,20 @@ function TripApp({ tripId }: { tripId: string }) {
         }
         timeline={
           <VerticalTimeline
-            items={items}
+            items={renderItems}
             days={days}
             selectedDayIds={selectedDayIds ?? []}
             selectedItemId={selectedItemId}
             activeDragItemId={draggingItemId}
             onDragOverTimeline={setIsDragOverTimeline}
             onUpdateItem={(id, updates) => {
-              const existing = items.find((i) => i.itemId === id);
+              const existing = committedItems.find((i) => i.itemId === id);
               if (existing) updateItem.mutate(mergeItemUpdates(existing, updates));
             }}
+            onLiveItemPreviewChange={handleLiveItemPreviewChange}
             onItemClick={(id) => {
               setSelectedItemId(id);
-              const clickedItem = items.find((item) => item.itemId === id);
+              const clickedItem = committedItems.find((item) => item.itemId === id);
               if (clickedItem && selectedDayId !== null && clickedItem.dayId !== selectedDayId) {
                 setSelectedDayId(clickedItem.dayId);
               }
@@ -1103,7 +1179,7 @@ function TripApp({ tripId }: { tripId: string }) {
               setSelectedItemId(id);
               setExpandedItemId(id);
               setActiveTab('itinerary');
-              const clickedItem = items.find((item) => item.itemId === id);
+              const clickedItem = committedItems.find((item) => item.itemId === id);
               if (clickedItem && selectedDayId !== null && clickedItem.dayId !== selectedDayId) {
                 setSelectedDayId(clickedItem.dayId);
               }
@@ -1291,10 +1367,10 @@ function TripApp({ tripId }: { tripId: string }) {
       })()}
 
       <DragOverlay
-        item={draggingItemId ? items.find((i) => i.itemId === draggingItemId) ?? null : null}
+        item={draggingItemId ? committedItems.find((i) => i.itemId === draggingItemId) ?? null : null}
         dayColor={
           draggingItemId
-            ? days.find((d) => d.dayId === items.find((i) => i.itemId === draggingItemId)?.dayId)?.colorHex
+            ? days.find((d) => d.dayId === committedItems.find((i) => i.itemId === draggingItemId)?.dayId)?.colorHex
             : undefined
         }
         isOverTimeline={isDragOverTimeline}

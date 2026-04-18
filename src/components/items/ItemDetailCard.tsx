@@ -81,6 +81,20 @@ export function ItemDetailCard({
 
   useEffect(() => {
     setEditorValue(itemToEditorValue(item));
+  }, [
+    item.itemId,
+    item.type,
+    item.transportMode,
+    item.itemRouteType,
+    item.scheduledStart,
+    item.scheduledEnd,
+    item.durationMinutes,
+    item.notesMd,
+    item.availabilityWindows,
+    item.timelineLocked,
+  ]);
+
+  useEffect(() => {
     setIsEditingOrigin(false);
     setIsEditingDestination(false);
     setIsRouteOpen(false);

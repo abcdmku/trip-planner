@@ -41,7 +41,7 @@ export function useUndoRedo(tripId: string) {
   );
 
   const recordMutation = useCallback(
-    (previous: TripData | undefined) => {
+    (previous: TripSnapshotResponse | undefined) => {
       if (!previous) return;
       const current = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
       if (!current) return;

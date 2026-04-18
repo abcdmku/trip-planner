@@ -18,6 +18,43 @@ interface GoogleUserInfoResponse {
   picture?: string;
 }
 
+function readCookieValue(request: FastifyRequest, name: string): string | null {
+  const decoratedCookies = request.cookies as Record<string, string> | undefined;
+  const decoratedValue = decoratedCookies?.[name];
+  if (decoratedValue) return decoratedValue;
+
+  const cookieHeader = request.headers.cookie;
+  if (!cookieHeader) return null;
+
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    const separatorIndex = trimmed.indexOf('=');
+    if (separatorIndex === -1) continue;
+
+    const cookieName = trimmed.slice(0, separatorIndex).trim();
+    if (cookieName !== name) continue;
+
+    return trimmed.slice(separatorIndex + 1).trim();
+  }
+
+  return null;
+}
+
+function readSignedCookieValue(request: FastifyRequest, name: string): string | null {
+  const raw = readCookieValue(request, name);
+  if (!raw) return null;
+  if (typeof request.unsignCookie !== 'function') return null;
+
+  const unsigned = request.unsignCookie(raw);
+  if (!unsigned.valid || !unsigned.value) {
+    return null;
+  }
+
+  return unsigned.value;
+}
+
 function cookieBaseOptions() {
   return {
     path: '/',
@@ -126,13 +163,11 @@ export function issueOauthState(reply: FastifyReply, nextPath: string): string {
 export function readOauthState(
   request: FastifyRequest,
 ): { nonce: string; nextPath: string } | null {
-  const raw = request.cookies[OAUTH_STATE_COOKIE];
-  if (!raw) return null;
-  const unsigned = request.unsignCookie(raw);
-  if (!unsigned.valid) return null;
-
   try {
-    const parsed = JSON.parse(unsigned.value) as { nonce?: string; nextPath?: string };
+    const unsignedValue = readSignedCookieValue(request, OAUTH_STATE_COOKIE);
+    if (!unsignedValue) return null;
+
+    const parsed = JSON.parse(unsignedValue) as { nonce?: string; nextPath?: string };
     if (!parsed.nonce || typeof parsed.nextPath !== 'string') return null;
     return {
       nonce: parsed.nonce,
@@ -161,16 +196,11 @@ export function clearSessionCookie(reply: FastifyReply): void {
 export async function resolveSessionUser(
   request: FastifyRequest,
 ): Promise<SessionUser | null> {
-  const raw = request.cookies[SESSION_COOKIE];
-  if (!raw) return null;
-
-  const unsigned = request.unsignCookie(raw);
-  if (!unsigned.valid || !unsigned.value) {
-    return null;
-  }
+  const userId = readSignedCookieValue(request, SESSION_COOKIE);
+  if (!userId) return null;
 
   const user = await prisma.user.findUnique({
-    where: { id: unsigned.value },
+    where: { id: userId },
   });
 
   if (!user) return null;

@@ -12,7 +12,7 @@ import {
   getTripQueryKey,
   updateItemsOptimistic,
 } from '@/stores/trip-store';
-import type { Item, TripData } from '@/types/trip';
+import type { Item } from '@/types/trip';
 import type { TripSnapshotResponse } from '@/types/api';
 
 export function useItems(
@@ -33,7 +33,7 @@ export function useAddItem(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Item, Error, Item, TripData | undefined>({
+  return useMutation<Item, Error, Item, TripSnapshotResponse | undefined>({
     mutationFn: async (newItem) => createItemRecord(tripId, newItem),
 
     onMutate: async (newItem) => {
@@ -69,7 +69,7 @@ export function useUpdateItem(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Item, Error, Item, TripData | undefined>({
+  return useMutation<Item, Error, Item, TripSnapshotResponse | undefined>({
     mutationFn: async (updatedItem) => updateItemRecord(tripId, updatedItem),
 
     onMutate: async (updatedItem) => {
@@ -105,14 +105,14 @@ export function useDeleteItem(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<void, Error, string, TripData | undefined>({
+  return useMutation<void, Error, string, TripSnapshotResponse | undefined>({
     mutationFn: async (itemId) => deleteItemRecord(tripId, itemId),
 
     onMutate: async (itemId) => {
       await queryClient.cancelQueries({ queryKey: getTripQueryKey(tripId) });
-      const previous = queryClient.getQueryData<TripData>(getTripQueryKey(tripId));
+      const previous = queryClient.getQueryData<TripSnapshotResponse>(getTripQueryKey(tripId));
       if (previous) {
-        queryClient.setQueryData<TripData>(getTripQueryKey(tripId), {
+        queryClient.setQueryData<TripSnapshotResponse>(getTripQueryKey(tripId), {
           ...previous,
           items: previous.items.filter((item) => item.itemId !== itemId),
           legs: previous.legs.filter((leg) => leg.fromItemId !== itemId && leg.toItemId !== itemId),
@@ -142,7 +142,7 @@ export function useReorderItems(tripId: string) {
   const queryClient = useQueryClient();
   const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<Item[], Error, ReorderPayload, TripData | undefined>({
+  return useMutation<Item[], Error, ReorderPayload, TripSnapshotResponse | undefined>({
     mutationFn: async (payload) => reorderTripItems(tripId, payload),
 
     onMutate: async ({ dayId, orderedItemIds }) => {

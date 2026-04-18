@@ -4,7 +4,12 @@ import type { TimelineConnectorWithTiming } from '@/lib/connectors';
 import { getDayDisplayLabel } from '@/lib/day-labels';
 import { DAY_VIEW_MAX_W, DAY_VIEW_MIN_W } from '../constants';
 import { SingleDayTimeline } from './SingleDayTimeline';
-import type { CommitExternalDrop, ExternalDragPreview, ResolveExternalDrop } from '../types';
+import type {
+  CommitExternalDrop,
+  ExternalDragPreview,
+  LiveItemPreview,
+  ResolveExternalDrop,
+} from '../types';
 
 interface DayViewPanelProps {
   activeDay: Day | null;
@@ -15,6 +20,7 @@ interface DayViewPanelProps {
   selectedItemId: string | null;
   activeDragItemId: string | null;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
+  onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (dayId: string, startTime: string, endTime: string) => void;
@@ -44,6 +50,7 @@ export function DayViewPanel({
   selectedItemId,
   activeDragItemId,
   onUpdateItem,
+  onLiveItemPreviewChange,
   onItemClick,
   onItemDoubleClick,
   onCreateAtTime,
@@ -95,6 +102,7 @@ export function DayViewPanel({
           selectedItemId={selectedItemId}
           activeDragItemId={activeDragItemId}
           onUpdateItem={onUpdateItem}
+          onLiveItemPreviewChange={onLiveItemPreviewChange}
           onItemClick={(itemId) => {
             onItemClick?.(itemId);
             onFocusDay(activeDay.dayId);

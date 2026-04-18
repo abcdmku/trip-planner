@@ -3,6 +3,7 @@ import path from 'node:path';
 import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
+import type { WebSocket } from '@fastify/websocket';
 import { addDays, format, isValid, parseISO } from 'date-fns';
 import Fastify, { type FastifyReply } from 'fastify';
 import type { Prisma, PrismaClient, TripMemberRole, User } from '@prisma/client';
@@ -155,6 +156,21 @@ const cursorSchema = z.object({
   y: z.number(),
 });
 
+const itemPreviewSchema = z.object({
+  type: z.literal('presence.item-preview'),
+  tripId: z.string(),
+  itemId: z.string().min(1),
+  dayId: z.string().min(1),
+  scheduledStart: z.string().min(1),
+  scheduledEnd: z.string().min(1),
+  durationMinutes: z.number().int().nonnegative(),
+});
+
+const clearItemPreviewSchema = z.object({
+  type: z.literal('presence.item-preview.clear'),
+  tripId: z.string(),
+});
+
 const subscribeSchema = z.object({
   type: z.literal('trip.subscribe'),
   tripId: z.string(),
@@ -173,6 +189,7 @@ const snapshotSchema = z.object({
 });
 
 type TxClient = Prisma.TransactionClient;
+const WEBSOCKET_OPEN_STATE = 1;
 
 const TRIP_FIELDS = [
   'name',
@@ -606,6 +623,31 @@ function collectFieldChanges<T extends object>(
       },
     ];
   });
+}
+
+export function resolveRealtimeSocket(candidate: unknown): WebSocket | null {
+  if (!candidate || typeof candidate !== 'object') return null;
+
+  const websocketLike = candidate as Partial<WebSocket>;
+  if (
+    typeof websocketLike.on === 'function' &&
+    typeof websocketLike.send === 'function' &&
+    typeof websocketLike.close === 'function'
+  ) {
+    return websocketLike as WebSocket;
+  }
+
+  const nestedSocket = (candidate as { socket?: Partial<WebSocket> }).socket;
+  if (
+    nestedSocket &&
+    typeof nestedSocket.on === 'function' &&
+    typeof nestedSocket.send === 'function' &&
+    typeof nestedSocket.close === 'function'
+  ) {
+    return nestedSocket as WebSocket;
+  }
+
+  return null;
 }
 
 export function buildApp() {
@@ -1704,50 +1746,106 @@ export function buildApp() {
     }
   });
 
-  app.get('/ws', { websocket: true }, async (socket, request) => {
-    const user = await resolveSessionUser(request);
-    if (!user) {
-      socket.close(4401, 'Authentication required');
+  app.get('/ws', { websocket: true }, (socketOrConnection, request) => {
+    const socket = resolveRealtimeSocket(socketOrConnection);
+    if (!socket) {
+      request.log.error({ socketOrConnection }, 'Unsupported websocket connection shape');
       return;
     }
 
-    presence.register(socket, user);
-
-    socket.on('message', async (raw: Buffer) => {
+    const setupPromise = (async () => {
       try {
-        const parsed = JSON.parse(raw.toString()) as RealtimeClientMessage;
-        const cursorPayload = cursorSchema.safeParse(parsed);
-        if (cursorPayload.success) {
-          presence.updateCursor(
-            socket,
-            cursorPayload.data.tripId,
-            cursorPayload.data.x,
-            cursorPayload.data.y,
-          );
-          return;
+        const user = await resolveSessionUser(request);
+        if (!user) {
+          socket.close(4401, 'Authentication required');
+          return null;
         }
 
-        const subscribePayload = subscribeSchema.safeParse(parsed);
-        if (subscribePayload.success) {
-          await prisma.$transaction(async (tx) => {
-            await acceptInviteForTrip(tx, user, subscribePayload.data.tripId);
-            await requireTripMembership(tx, subscribePayload.data.tripId, user);
-          });
-          presence.subscribe(socket, subscribePayload.data.tripId);
-          return;
+        if (socket.readyState !== WEBSOCKET_OPEN_STATE) {
+          return null;
         }
 
-        const unsubscribePayload = unsubscribeSchema.safeParse(parsed);
-        if (unsubscribePayload.success) {
-          presence.unsubscribe(socket, unsubscribePayload.data.tripId);
-        }
+        const connection = presence.register(socket, user);
+        socket.send(
+          JSON.stringify({
+            type: 'presence.self',
+            connectionId: connection.connectionId,
+          }),
+        );
+        return user;
       } catch (error) {
-        console.error(error);
+        request.log.error(error, 'Failed to initialize realtime websocket');
+        socket.close(1011, 'Realtime initialization failed');
+        return null;
       }
+    })();
+
+    socket.on('message', (raw: Buffer) => {
+      void (async () => {
+        try {
+          const user = await setupPromise;
+          if (!user) return;
+
+          const parsed = JSON.parse(raw.toString()) as RealtimeClientMessage;
+          const cursorPayload = cursorSchema.safeParse(parsed);
+          if (cursorPayload.success) {
+            presence.updateCursor(
+              socket,
+              cursorPayload.data.tripId,
+              cursorPayload.data.x,
+              cursorPayload.data.y,
+            );
+            return;
+          }
+
+          const itemPreviewPayload = itemPreviewSchema.safeParse(parsed);
+          if (itemPreviewPayload.success) {
+            presence.updateItemPreview(socket, itemPreviewPayload.data.tripId, {
+              itemId: itemPreviewPayload.data.itemId,
+              dayId: itemPreviewPayload.data.dayId,
+              scheduledStart: itemPreviewPayload.data.scheduledStart,
+              scheduledEnd: itemPreviewPayload.data.scheduledEnd,
+              durationMinutes: itemPreviewPayload.data.durationMinutes,
+            });
+            return;
+          }
+
+          const clearItemPreviewPayload = clearItemPreviewSchema.safeParse(parsed);
+          if (clearItemPreviewPayload.success) {
+            presence.clearItemPreview(socket, clearItemPreviewPayload.data.tripId);
+            return;
+          }
+
+          const subscribePayload = subscribeSchema.safeParse(parsed);
+          if (subscribePayload.success) {
+            await prisma.$transaction(async (tx) => {
+              await acceptInviteForTrip(tx, user, subscribePayload.data.tripId);
+              await requireTripMembership(tx, subscribePayload.data.tripId, user);
+            });
+            presence.subscribe(socket, subscribePayload.data.tripId);
+            return;
+          }
+
+          const unsubscribePayload = unsubscribeSchema.safeParse(parsed);
+          if (unsubscribePayload.success) {
+            presence.unsubscribe(socket, unsubscribePayload.data.tripId);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      })();
     });
 
     socket.on('close', () => {
-      presence.unregister(socket);
+      void setupPromise
+        .then((user) => {
+          if (user) {
+            presence.unregister(socket);
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+        });
     });
   });
 

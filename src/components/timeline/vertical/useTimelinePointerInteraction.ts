@@ -10,7 +10,7 @@ import {
   RESIZE_EDGE,
   SNAP,
 } from './constants';
-import { mToY, snapM, toMins } from './time';
+import { mToY, snapM, toMins, toTime } from './time';
 import { handlePointerRelease } from './pointerRelease';
 import type {
   Interaction,
@@ -119,6 +119,7 @@ export function useTimelinePointerInteraction(
       if (el) {
         const rect = el.getBoundingClientRect();
         if (e.clientX < rect.left || e.clientX > rect.right) {
+          optsRef.current.onLiveItemPreviewChange?.(null);
           // Cancel the local drag
           document.removeEventListener('pointermove', stableDocMove);
           document.removeEventListener('pointerup', stableDocUp);
@@ -176,6 +177,15 @@ export function useTimelinePointerInteraction(
 
         pointer.curDelta = snappedStart - origStart;
         setInteraction({ type: 'moving', itemId: pointer.itemId ?? '', deltaMin: pointer.curDelta });
+        if (pointer.itemId && sourceItem) {
+          optsRef.current.onLiveItemPreviewChange?.({
+            itemId: pointer.itemId,
+            dayId: sourceItem.dayId,
+            scheduledStart: toTime(snappedStart),
+            scheduledEnd: toTime(snappedStart + duration),
+            durationMinutes: duration,
+          });
+        }
         break;
       }
       case 'resize-top': {
@@ -197,6 +207,15 @@ export function useTimelinePointerInteraction(
           isValid: (candidateStart) =>
             isRangeWithinAvailabilityRanges(ranges, candidateStart, endMin),
         });
+        if (pointer.itemId && sourceItem) {
+          optsRef.current.onLiveItemPreviewChange?.({
+            itemId: pointer.itemId,
+            dayId: sourceItem.dayId,
+            scheduledStart: toTime(pointer.curStartMin),
+            scheduledEnd: toTime(endMin),
+            durationMinutes: endMin - pointer.curStartMin,
+          });
+        }
         setInteraction({
           type: 'resizing',
           itemId: pointer.itemId ?? '',
@@ -224,6 +243,15 @@ export function useTimelinePointerInteraction(
           isValid: (candidateEnd) =>
             isRangeWithinAvailabilityRanges(ranges, startMin, candidateEnd),
         });
+        if (pointer.itemId && sourceItem) {
+          optsRef.current.onLiveItemPreviewChange?.({
+            itemId: pointer.itemId,
+            dayId: sourceItem.dayId,
+            scheduledStart: toTime(startMin),
+            scheduledEnd: toTime(pointer.curEndMin),
+            durationMinutes: pointer.curEndMin - startMin,
+          });
+        }
         setInteraction({
           type: 'resizing',
           itemId: pointer.itemId ?? '',
@@ -244,6 +272,7 @@ export function useTimelinePointerInteraction(
 
     const pointer = ptrRef.current;
     ptrRef.current = null;
+    optsRef.current.onLiveItemPreviewChange?.(null);
 
     if (!pointer) {
       setInteraction({ type: 'idle' });
@@ -278,6 +307,7 @@ export function useTimelinePointerInteraction(
   // Cleanup only on unmount (stable handlers never change)
   useEffect(() => {
     return () => {
+      optsRef.current.onLiveItemPreviewChange?.(null);
       document.removeEventListener('pointermove', stableDocMove);
       document.removeEventListener('pointerup', stableDocUp);
       cancelAnimationFrame(rafRef.current);

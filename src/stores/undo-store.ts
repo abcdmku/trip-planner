@@ -5,7 +5,14 @@
 // server-side collaborative audit trail.
 // ---------------------------------------------------------------------------
 
-import type { Day, Item, Leg, Trip, TripData } from '@/types/trip';
+import type { Day, Item, Leg, Trip } from '@/types/trip';
+
+type TripCoreSource = {
+  trip: Trip;
+  days: Day[];
+  items: Item[];
+  legs: Leg[];
+};
 
 export type TripCoreSnapshot = {
   trip: Trip;
@@ -30,7 +37,7 @@ export const DEFAULT_MAX_HISTORY = 100;
 
 const memoryHistoryByKey = new Map<string, UndoHistory>();
 
-export function extractTripCoreSnapshot(data: TripData): TripCoreSnapshot {
+export function extractTripCoreSnapshot(data: TripCoreSource): TripCoreSnapshot {
   return deepClone({
     trip: data.trip,
     days: data.days,

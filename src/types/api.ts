@@ -61,6 +61,21 @@ export interface PresenceCursor {
   updatedAt: string;
 }
 
+export interface PresenceItemPreview {
+  connectionId: string;
+  tripId: string;
+  userId: string;
+  name: string;
+  picture: string;
+  color: string;
+  itemId: string;
+  dayId: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  durationMinutes: number;
+  updatedAt: string;
+}
+
 export type TripEventType =
   | 'trip.updated'
   | 'day.created'
@@ -112,9 +127,26 @@ export type RealtimeClientMessage =
       tripId: string;
       x: number;
       y: number;
+    }
+  | {
+      type: 'presence.item-preview';
+      tripId: string;
+      itemId: string;
+      dayId: string;
+      scheduledStart: string;
+      scheduledEnd: string;
+      durationMinutes: number;
+    }
+  | {
+      type: 'presence.item-preview.clear';
+      tripId: string;
     };
 
 export type RealtimeServerMessage =
+  | {
+      type: 'presence.self';
+      connectionId: string;
+    }
   | {
       type: 'trip.event';
       event: TripEventEnvelope;
@@ -123,11 +155,13 @@ export type RealtimeServerMessage =
       type: 'presence.snapshot';
       tripId: string;
       cursors: PresenceCursor[];
+      itemPreviews: PresenceItemPreview[];
     }
   | {
       type: 'presence.diff';
       tripId: string;
       upsert: PresenceCursor[];
       removeConnectionIds: string[];
+      previewUpsert: PresenceItemPreview[];
+      previewRemoveConnectionIds: string[];
     };
-

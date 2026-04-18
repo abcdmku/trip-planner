@@ -8,7 +8,8 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryClient } from '@tanstack/react-query';
-import type { Day, Item, Leg, Trip, TripData } from '@/types/trip';
+import type { TripSnapshotResponse } from '@/types/api';
+import type { Day, Item, Leg, Trip } from '@/types/trip';
 
 // ---------------------------------------------------------------------------
 // Query key factory
@@ -48,18 +49,18 @@ export function invalidateTrip(
  * Snapshot the current trip data, apply `updater` to the trip metadata, and
  * write the result back into the cache.
  *
- * Returns the **previous** `TripData` so the caller can rollback on error.
+ * Returns the previous snapshot so the caller can rollback on error.
  */
 export function updateTripOptimistic(
   queryClient: QueryClient,
   tripId: string,
   updater: (trip: Trip) => Trip,
-): TripData | undefined {
+): TripSnapshotResponse | undefined {
   const queryKey = getTripQueryKey(tripId);
-  const previous = queryClient.getQueryData<TripData>(queryKey);
+  const previous = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
 
   if (previous) {
-    queryClient.setQueryData<TripData>(queryKey, {
+    queryClient.setQueryData<TripSnapshotResponse>(queryKey, {
       ...previous,
       trip: updater(previous.trip),
     });
@@ -72,18 +73,18 @@ export function updateTripOptimistic(
  * Snapshot the current trip data, apply `updater` to the items array, and
  * write the result back into the cache.
  *
- * Returns the **previous** `TripData` so the caller can rollback on error.
+ * Returns the previous snapshot so the caller can rollback on error.
  */
 export function updateItemsOptimistic(
   queryClient: QueryClient,
   tripId: string,
   updater: (items: Item[]) => Item[],
-): TripData | undefined {
+): TripSnapshotResponse | undefined {
   const queryKey = getTripQueryKey(tripId);
-  const previous = queryClient.getQueryData<TripData>(queryKey);
+  const previous = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
 
   if (previous) {
-    queryClient.setQueryData<TripData>(queryKey, {
+    queryClient.setQueryData<TripSnapshotResponse>(queryKey, {
       ...previous,
       items: updater(previous.items),
     });
@@ -96,18 +97,18 @@ export function updateItemsOptimistic(
  * Snapshot the current trip data, apply `updater` to the legs array, and
  * write the result back into the cache.
  *
- * Returns the **previous** `TripData` so the caller can rollback on error.
+ * Returns the previous snapshot so the caller can rollback on error.
  */
 export function updateLegsOptimistic(
   queryClient: QueryClient,
   tripId: string,
   updater: (legs: Leg[]) => Leg[],
-): TripData | undefined {
+): TripSnapshotResponse | undefined {
   const queryKey = getTripQueryKey(tripId);
-  const previous = queryClient.getQueryData<TripData>(queryKey);
+  const previous = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
 
   if (previous) {
-    queryClient.setQueryData<TripData>(queryKey, {
+    queryClient.setQueryData<TripSnapshotResponse>(queryKey, {
       ...previous,
       legs: updater(previous.legs),
     });
@@ -120,18 +121,18 @@ export function updateLegsOptimistic(
  * Snapshot the current trip data, apply `updater` to the days array, and
  * write the result back into the cache.
  *
- * Returns the **previous** `TripData` so the caller can rollback on error.
+ * Returns the previous snapshot so the caller can rollback on error.
  */
 export function updateDaysOptimistic(
   queryClient: QueryClient,
   tripId: string,
   updater: (days: Day[]) => Day[],
-): TripData | undefined {
+): TripSnapshotResponse | undefined {
   const queryKey = getTripQueryKey(tripId);
-  const previous = queryClient.getQueryData<TripData>(queryKey);
+  const previous = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
 
   if (previous) {
-    queryClient.setQueryData<TripData>(queryKey, {
+    queryClient.setQueryData<TripSnapshotResponse>(queryKey, {
       ...previous,
       days: updater(previous.days),
     });

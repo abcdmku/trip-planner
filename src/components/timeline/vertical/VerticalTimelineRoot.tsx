@@ -10,7 +10,13 @@ import {
   TIMELINE_ZOOM_STEP_PX_PER_MIN,
 } from './constants';
 import { snapM, toMins, toTime } from './time';
-import type { CrossDayDragPreview, CrossDayMoveInfo, VerticalTimelineProps, ViewMode } from './types';
+import type {
+  CrossDayDragPreview,
+  CrossDayMoveInfo,
+  LiveItemPreview,
+  VerticalTimelineProps,
+  ViewMode,
+} from './types';
 import { useExternalTimelineDrop } from './useExternalTimelineDrop';
 import { useWindowDragCleanup } from './useWindowDragCleanup';
 import { TimelineViewControls } from './TimelineViewControls';
@@ -27,6 +33,7 @@ export function VerticalTimeline({
   activeDragItemId = null,
   onDragOverTimeline,
   onUpdateItem,
+  onLiveItemPreviewChange,
   onItemClick,
   onItemDoubleClick,
   onCreateAtTime,
@@ -225,6 +232,13 @@ export function VerticalTimeline({
   const [crossDayDrag, setCrossDayDrag] = useState<CrossDayDragPreview | null>(null);
   const crossDayDragRef = useRef<CrossDayDragPreview | null>(null);
 
+  const emitLiveItemPreview = useCallback(
+    (preview: LiveItemPreview | null) => {
+      onLiveItemPreviewChange?.(preview);
+    },
+    [onLiveItemPreviewChange],
+  );
+
   const handleCrossDayMove = useCallback(
     (info: CrossDayMoveInfo) => {
       if (!onUpdateItem) return;
@@ -270,6 +284,17 @@ export function VerticalTimeline({
       const initial = findTarget(info.clientX, info.clientY);
       crossDayDragRef.current = initial;
       setCrossDayDrag(initial);
+      if (initial) {
+        emitLiveItemPreview({
+          itemId: initial.itemId,
+          dayId: initial.targetDayId,
+          scheduledStart: toTime(initial.startMin),
+          scheduledEnd: toTime(initial.endMin),
+          durationMinutes: initial.endMin - initial.startMin,
+        });
+      } else {
+        emitLiveItemPreview(null);
+      }
 
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
@@ -279,6 +304,15 @@ export function VerticalTimeline({
         if (target) {
           crossDayDragRef.current = target;
           setCrossDayDrag(target);
+          emitLiveItemPreview({
+            itemId: target.itemId,
+            dayId: target.targetDayId,
+            scheduledStart: toTime(target.startMin),
+            scheduledEnd: toTime(target.endMin),
+            durationMinutes: target.endMin - target.startMin,
+          });
+        } else {
+          emitLiveItemPreview(null);
         }
       };
 
@@ -291,6 +325,7 @@ export function VerticalTimeline({
         const final = crossDayDragRef.current;
         crossDayDragRef.current = null;
         setCrossDayDrag(null);
+        emitLiveItemPreview(null);
 
         if (final) {
           onUpdateItem(final.itemId, {
@@ -305,7 +340,7 @@ export function VerticalTimeline({
       document.addEventListener('pointermove', handleMove);
       document.addEventListener('pointerup', handleUp);
     },
-    [globalRange.startH, itemsById, onUpdateItem, orderedDays, pxPerMin],
+    [emitLiveItemPreview, globalRange.startH, itemsById, onUpdateItem, orderedDays, pxPerMin],
   );
 
   if (!orderedDays.length) {
@@ -356,6 +391,7 @@ export function VerticalTimeline({
             selectedItemId={selectedItemId}
             activeDragItemId={activeDragItemId}
             onUpdateItem={onUpdateItem}
+            onLiveItemPreviewChange={emitLiveItemPreview}
             onItemClick={onItemClick}
             onItemDoubleClick={onItemDoubleClick}
             onCreateAtTime={onCreateAtTime}
@@ -409,6 +445,7 @@ export function VerticalTimeline({
                     isActive={effectiveDayId === day.dayId}
                     scrollerRef={scrollerRef}
                     onUpdateItem={onUpdateItem}
+                    onLiveItemPreviewChange={emitLiveItemPreview}
                     onItemClick={(itemId) => {
                       onItemClick?.(itemId);
                       setFocusedDayId(day.dayId);

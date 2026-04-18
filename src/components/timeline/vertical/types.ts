@@ -33,6 +33,14 @@ export interface ItemVisualPosition {
   active: boolean;
 }
 
+export interface LiveItemPreview {
+  itemId: string;
+  dayId: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  durationMinutes: number;
+}
+
 export interface ExternalDragPreview {
   itemId: string;
   dayId: string;
@@ -61,6 +69,7 @@ export interface VerticalTimelineProps {
   activeDragItemId?: string | null;
   onDragOverTimeline?: (isOver: boolean) => void;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
+  onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (dayId: string, startTime: string, endTime: string) => void;
@@ -85,6 +94,7 @@ export interface SingleDayTimelineProps {
   selectedItemId?: string | null;
   activeDragItemId?: string | null;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
+  onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (startTime: string, endTime: string) => void;
@@ -117,6 +127,7 @@ export interface MultiDayColumnProps {
   isActive: boolean;
   scrollerRef: RefObject<HTMLDivElement>;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
+  onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (dayId: string, start: string, end: string) => void;
@@ -161,6 +172,7 @@ export interface UseTimelinePointerInteractionOptions {
   pxPerMin: number;
   itemsById: Map<string, Item>;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
+  onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (startTime: string, endTime: string) => void;

@@ -1,5 +1,10 @@
 import type { WebSocket } from '@fastify/websocket';
-import type { SessionUser, PresenceCursor, TripEventEnvelope } from '../src/types/api';
+import type {
+  SessionUser,
+  PresenceCursor,
+  PresenceItemPreview,
+  TripEventEnvelope,
+} from '../src/types/api';
 
 interface ConnectionState {
   connectionId: string;
@@ -40,6 +45,8 @@ export class PresenceManager {
 
   private readonly cursorsByTrip = new Map<string, Map<string, PresenceCursor>>();
 
+  private readonly itemPreviewsByTrip = new Map<string, Map<string, PresenceItemPreview>>();
+
   register(socket: WebSocket, user: SessionUser): ConnectionState {
     const state: ConnectionState = {
       connectionId: crypto.randomUUID(),
@@ -76,10 +83,12 @@ export class PresenceManager {
     set.add(socket);
 
     const snapshot = [...(this.cursorsByTrip.get(tripId)?.values() ?? [])];
+    const itemPreviews = [...(this.itemPreviewsByTrip.get(tripId)?.values() ?? [])];
     safeSend(socket, {
       type: 'presence.snapshot',
       tripId,
       cursors: snapshot,
+      itemPreviews,
     });
   }
 
@@ -96,12 +105,10 @@ export class PresenceManager {
       }
     }
 
-    const cursors = this.cursorsByTrip.get(tripId);
-    if (cursors?.delete(state.connectionId)) {
-      if (cursors.size === 0) {
-        this.cursorsByTrip.delete(tripId);
-      }
-      this.broadcastPresenceDiff(tripId, [], [state.connectionId]);
+    const removedCursorConnectionIds = this.removeTripCursor(tripId, state.connectionId);
+    const removedPreviewConnectionIds = this.removeTripPreview(tripId, state.connectionId);
+    if (removedCursorConnectionIds.length > 0 || removedPreviewConnectionIds.length > 0) {
+      this.broadcastPresenceDiff(tripId, [], removedCursorConnectionIds, [], removedPreviewConnectionIds);
     }
   }
 
@@ -127,7 +134,56 @@ export class PresenceManager {
       updatedAt: new Date().toISOString(),
     };
     tripCursors.set(state.connectionId, cursor);
-    this.broadcastPresenceDiff(tripId, [cursor], []);
+    this.broadcastPresenceDiff(tripId, [cursor], [], [], []);
+  }
+
+  updateItemPreview(
+    socket: WebSocket,
+    tripId: string,
+    payload: {
+      itemId: string;
+      dayId: string;
+      scheduledStart: string;
+      scheduledEnd: string;
+      durationMinutes: number;
+    },
+  ): void {
+    const state = this.connections.get(socket);
+    if (!state || !state.trips.has(tripId)) return;
+
+    let tripPreviews = this.itemPreviewsByTrip.get(tripId);
+    if (!tripPreviews) {
+      tripPreviews = new Map();
+      this.itemPreviewsByTrip.set(tripId, tripPreviews);
+    }
+
+    const preview: PresenceItemPreview = {
+      connectionId: state.connectionId,
+      tripId,
+      userId: state.user.id,
+      name: state.user.name,
+      picture: state.user.picture,
+      color: state.color,
+      itemId: payload.itemId,
+      dayId: payload.dayId,
+      scheduledStart: payload.scheduledStart,
+      scheduledEnd: payload.scheduledEnd,
+      durationMinutes: payload.durationMinutes,
+      updatedAt: new Date().toISOString(),
+    };
+
+    tripPreviews.set(state.connectionId, preview);
+    this.broadcastPresenceDiff(tripId, [], [], [preview], []);
+  }
+
+  clearItemPreview(socket: WebSocket, tripId: string): void {
+    const state = this.connections.get(socket);
+    if (!state || !state.trips.has(tripId)) return;
+
+    const removedPreviewConnectionIds = this.removeTripPreview(tripId, state.connectionId);
+    if (removedPreviewConnectionIds.length > 0) {
+      this.broadcastPresenceDiff(tripId, [], [], [], removedPreviewConnectionIds);
+    }
   }
 
   broadcastTripEvent(tripId: string, event: TripEventEnvelope): void {
@@ -160,25 +216,40 @@ export class PresenceManager {
       this.subscribersByTrip.delete(tripId);
     }
 
-    const tripCursors = this.cursorsByTrip.get(tripId);
-    if (tripCursors) {
-      for (const connectionId of removedConnectionIds) {
-        tripCursors.delete(connectionId);
-      }
-      if (tripCursors.size === 0) {
-        this.cursorsByTrip.delete(tripId);
-      }
+    for (const connectionId of removedConnectionIds) {
+      this.removeTripCursor(tripId, connectionId);
+      this.removeTripPreview(tripId, connectionId);
     }
 
     if (removedConnectionIds.length > 0) {
-      this.broadcastPresenceDiff(tripId, [], removedConnectionIds);
+      this.broadcastPresenceDiff(tripId, [], removedConnectionIds, [], removedConnectionIds);
     }
+  }
+
+  private removeTripCursor(tripId: string, connectionId: string): string[] {
+    const cursors = this.cursorsByTrip.get(tripId);
+    if (!cursors?.delete(connectionId)) return [];
+    if (cursors.size === 0) {
+      this.cursorsByTrip.delete(tripId);
+    }
+    return [connectionId];
+  }
+
+  private removeTripPreview(tripId: string, connectionId: string): string[] {
+    const previews = this.itemPreviewsByTrip.get(tripId);
+    if (!previews?.delete(connectionId)) return [];
+    if (previews.size === 0) {
+      this.itemPreviewsByTrip.delete(tripId);
+    }
+    return [connectionId];
   }
 
   private broadcastPresenceDiff(
     tripId: string,
     upsert: PresenceCursor[],
     removeConnectionIds: string[],
+    previewUpsert: PresenceItemPreview[],
+    previewRemoveConnectionIds: string[],
   ): void {
     const subscribers = this.subscribersByTrip.get(tripId);
     if (!subscribers) return;
@@ -189,6 +260,8 @@ export class PresenceManager {
         tripId,
         upsert,
         removeConnectionIds,
+        previewUpsert,
+        previewRemoveConnectionIds,
       });
     }
   }

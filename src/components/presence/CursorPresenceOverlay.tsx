@@ -2,28 +2,29 @@ import type { PresenceCursor } from '@/types/api';
 
 interface CursorPresenceOverlayProps {
   cursors: PresenceCursor[];
-  currentUserId?: string;
+  currentConnectionId?: string | null;
 }
 
 export function CursorPresenceOverlay({
   cursors,
-  currentUserId,
+  currentConnectionId,
 }: CursorPresenceOverlayProps) {
   return (
     <div className="pointer-events-none absolute inset-0 z-40 hidden md:block">
       {cursors
-        .filter((cursor) => cursor.userId !== currentUserId)
+        .filter((cursor) => cursor.connectionId !== currentConnectionId)
         .map((cursor) => (
           <div
             key={cursor.connectionId}
-            className="absolute transition-transform duration-75 ease-out"
+            className="absolute transition-[left,top] duration-75 ease-out"
             style={{
-              transform: `translate(${cursor.x}px, ${cursor.y}px)`,
+              left: `${Math.min(1, Math.max(0, cursor.x)) * 100}%`,
+              top: `${Math.min(1, Math.max(0, cursor.y)) * 100}%`,
             }}
           >
-            <div className="relative">
+            <div className="relative -translate-x-0.5 -translate-y-0.5">
               <div
-                className="h-4 w-4 rounded-full border-2 border-white shadow-lg"
+                className="h-3 w-3 rotate-45 rounded-[2px] border border-white/80 shadow-lg"
                 style={{ backgroundColor: cursor.color }}
               />
               <div
