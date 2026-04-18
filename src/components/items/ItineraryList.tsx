@@ -92,6 +92,7 @@ function SortableItem({
           dayDate={dayDate}
           density="compact"
           onUpdate={onUpdate ? (updates) => onUpdate(updates) : undefined}
+          onDelete={onDelete}
           onClose={onToggleExpand}
         />
       ) : (

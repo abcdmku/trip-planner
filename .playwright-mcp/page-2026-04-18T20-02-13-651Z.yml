@@ -1,0 +1,14 @@
+- generic [ref=e2]:
+  - link "Skip to main content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - heading "Trip Planner" [level=1] [ref=e12]
+    - paragraph [ref=e14]: Plan trips with shared editing, live presence, and a real database.
+    - button "Sign in with Google" [ref=e15] [cursor=pointer]:
+      - img [ref=e18]
+      - generic [ref=e23]:
+        - generic [ref=e24]: Sign in with Google
+        - generic [ref=e25]: Secure backend session
+    - paragraph [ref=e26]: Google sign-in is handled server-side

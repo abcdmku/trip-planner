@@ -101,10 +101,8 @@ export function useRecalculateLegs(tripId: string) {
       );
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedLegs, _payload, previous) => {
@@ -180,10 +178,8 @@ export function useUpdateLegMode(tripId: string) {
       );
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedLeg, _payload, previous) => {
@@ -276,10 +272,8 @@ export function useUpdateLegRouteType(tripId: string) {
       );
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedLeg, _payload, previous) => {

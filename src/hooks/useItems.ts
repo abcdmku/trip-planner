@@ -41,10 +41,8 @@ export function useAddItem(tripId: string) {
       return updateItemsOptimistic(queryClient, tripId, (items) => [...items, newItem]);
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedItem, _payload, previous) => {
@@ -79,10 +77,8 @@ export function useUpdateItem(tripId: string) {
       );
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedItem, _payload, previous) => {
@@ -121,10 +117,8 @@ export function useDeleteItem(tripId: string) {
       return previous;
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (_data, _payload, previous) => {
@@ -157,10 +151,8 @@ export function useReorderItems(tripId: string) {
       );
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedItems, _payload, previous) => {

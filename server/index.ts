@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { env } from './config';
+import { listenPort } from './config';
 import { buildApp } from './app';
 
 const app = buildApp();
@@ -8,7 +8,7 @@ const start = async () => {
   try {
     await app.listen({
       host: '0.0.0.0',
-      port: env.PORT,
+      port: listenPort,
     });
   } catch (error) {
     app.log.error(error);

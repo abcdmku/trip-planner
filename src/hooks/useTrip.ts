@@ -19,9 +19,9 @@ export function useTrip(tripId: string | null | undefined) {
 
   const query = useQuery<TripSnapshotResponse, Error>({
     queryKey: tripId ? getTripQueryKey(tripId) : ['trip', 'disabled'],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!tripId) throw new Error('tripId is required');
-      return getTripSnapshot(tripId);
+      return getTripSnapshot(tripId, signal);
     },
     enabled,
     staleTime: 1000 * 15,
@@ -85,10 +85,8 @@ export function useUpdateTrip(tripId: string) {
       return previous;
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedTrip, _payload, previous) => {

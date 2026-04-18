@@ -10,8 +10,14 @@ import {
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { buildRealtimeUrl } from '@/services/api-client';
-import { clearUndoHistory } from '@/stores/undo-store';
+import {
+  getCommittedPreviewConnectionIds,
+  isRemoteTripEvent,
+  mergeTripItemPreviewDiff,
+  removeTripItemPreviewConnections,
+  shouldRefetchTripForEvent,
+} from '@/lib/realtime';
+import { buildRealtimeUrl, setRealtimeConnectionId } from '@/services/api-client';
 import { getTripQueryKey } from '@/stores/trip-store';
 import type {
   PresenceCursor,
@@ -37,6 +43,7 @@ interface RealtimeContextValue {
   subscribeToTrip: (tripId: string) => void;
   unsubscribeFromTrip: (tripId: string) => void;
   sendCursor: (tripId: string, x: number, y: number) => void;
+  clearCursor: (tripId: string) => void;
   sendItemPreview: (tripId: string, preview: LiveItemPreviewPayload | null) => void;
   getTripCursors: (tripId: string) => PresenceCursor[];
   getTripItemPreviews: (tripId: string) => PresenceItemPreview[];
@@ -191,9 +198,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [itemPreviewsByTrip, setItemPreviewsByTrip] = useState<Record<string, PresenceItemPreview[]>>({});
   const [noticesByTrip, setNoticesByTrip] = useState<Record<string, string>>({});
   const socketRef = useRef<WebSocket | null>(null);
+  const localConnectionIdRef = useRef<string | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const tripRefCountsRef = useRef(new Map<string, number>());
   const tripSubscribeRetryTimersRef = useRef(new Map<string, number>());
+  const previewClearTimersRef = useRef(new Map<string, number>());
   const subscribedTripsRef = useRef(new Set<string>());
   const lastCursorPayloadRef = useRef(new Map<string, string>());
   const lastItemPreviewPayloadRef = useRef(new Map<string, string | null>());
@@ -207,6 +216,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(timerId);
     }
     tripSubscribeRetryTimersRef.current.clear();
+    for (const timerId of previewClearTimersRef.current.values()) {
+      window.clearTimeout(timerId);
+    }
+    previewClearTimersRef.current.clear();
     if (socketRef.current) {
       socketRef.current.close();
       socketRef.current = null;
@@ -227,6 +240,65 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  const getPreviewTimerKey = useCallback((tripId: string, connectionId: string) => `${tripId}:${connectionId}`, []);
+
+  const removeTripItemPreviews = useCallback((tripId: string, connectionIds: string[]) => {
+    if (connectionIds.length === 0) return;
+
+    setItemPreviewsByTrip((current) => {
+      const existing = current[tripId] ?? [];
+      if (existing.length === 0) return current;
+
+      const next = removeTripItemPreviewConnections(existing, connectionIds);
+      if (next.length === existing.length) return current;
+
+      return {
+        ...current,
+        [tripId]: next,
+      };
+    });
+  }, []);
+
+  const cancelPreviewClear = useCallback(
+    (tripId: string, connectionId: string) => {
+      const key = getPreviewTimerKey(tripId, connectionId);
+      const timerId = previewClearTimersRef.current.get(key);
+      if (timerId !== undefined) {
+        window.clearTimeout(timerId);
+        previewClearTimersRef.current.delete(key);
+      }
+    },
+    [getPreviewTimerKey],
+  );
+
+  const schedulePreviewClear = useCallback(
+    (tripId: string, connectionId: string) => {
+      cancelPreviewClear(tripId, connectionId);
+
+      const key = getPreviewTimerKey(tripId, connectionId);
+      const timerId = window.setTimeout(() => {
+        previewClearTimersRef.current.delete(key);
+        removeTripItemPreviews(tripId, [connectionId]);
+      }, 1500);
+
+      previewClearTimersRef.current.set(key, timerId);
+    },
+    [cancelPreviewClear, getPreviewTimerKey, removeTripItemPreviews],
+  );
+
+  const finalizePreviewForTripEvent = useCallback(
+    (event: TripEventEnvelope) => {
+      const connectionIds = getCommittedPreviewConnectionIds(event);
+      if (connectionIds.length === 0) return;
+
+      for (const connectionId of connectionIds) {
+        cancelPreviewClear(event.tripId, connectionId);
+      }
+      removeTripItemPreviews(event.tripId, connectionIds);
+    },
+    [cancelPreviewClear, removeTripItemPreviews],
+  );
 
   const clearSubscribeRetry = useCallback((tripId: string) => {
     const timerId = tripSubscribeRetryTimersRef.current.get(tripId);
@@ -261,12 +333,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       cleanupSocket();
       setConnectionState('disconnected');
       setLocalConnectionId(null);
-      subscribedTripsRef.current.clear();
-      setCursorsByTrip({});
-      setItemPreviewsByTrip({});
-      lastCursorPayloadRef.current.clear();
-      lastItemPreviewPayloadRef.current.clear();
-      return;
+      localConnectionIdRef.current = null;
+      setRealtimeConnectionId(null);
+        subscribedTripsRef.current.clear();
+        setCursorsByTrip({});
+        setItemPreviewsByTrip({});
+        setNoticesByTrip({});
+        lastCursorPayloadRef.current.clear();
+        lastItemPreviewPayloadRef.current.clear();
+        return;
     }
 
     let cancelled = false;
@@ -282,6 +357,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setConnectionState('connected');
         setLocalConnectionId(null);
+        localConnectionIdRef.current = null;
+        setRealtimeConnectionId(null);
         subscribedTripsRef.current.clear();
         lastCursorPayloadRef.current.clear();
         lastItemPreviewPayloadRef.current.clear();
@@ -296,12 +373,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           const payload = JSON.parse(messageEvent.data) as RealtimeServerMessage;
           if (payload.type === 'presence.self') {
             setLocalConnectionId(payload.connectionId);
+            localConnectionIdRef.current = payload.connectionId;
+            setRealtimeConnectionId(payload.connectionId);
             return;
           }
 
           if (payload.type === 'presence.snapshot') {
             subscribedTripsRef.current.add(payload.tripId);
             clearSubscribeRetry(payload.tripId);
+            for (const preview of payload.itemPreviews) {
+              cancelPreviewClear(payload.tripId, preview.connectionId);
+            }
             setCursorsByTrip((current) => ({
               ...current,
               [payload.tripId]: payload.cursors,
@@ -328,18 +410,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
                 [payload.tripId]: [...next.values()],
               };
             });
+            for (const connectionId of payload.previewRemoveConnectionIds) {
+              schedulePreviewClear(payload.tripId, connectionId);
+            }
+            for (const preview of payload.previewUpsert) {
+              cancelPreviewClear(payload.tripId, preview.connectionId);
+            }
             setItemPreviewsByTrip((current) => {
               const existing = current[payload.tripId] ?? [];
-              const next = new Map(existing.map((preview) => [preview.connectionId, preview]));
-              for (const connectionId of payload.previewRemoveConnectionIds) {
-                next.delete(connectionId);
-              }
-              for (const preview of payload.previewUpsert) {
-                next.set(preview.connectionId, preview);
-              }
+              const next = mergeTripItemPreviewDiff(existing, payload.previewUpsert);
               return {
                 ...current,
-                [payload.tripId]: [...next.values()],
+                [payload.tripId]: next,
               };
             });
             return;
@@ -347,11 +429,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
           if (payload.type === 'trip.event') {
             const { event } = payload;
+            finalizePreviewForTripEvent(event);
             const queryKey = getTripQueryKey(event.tripId);
             const current = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
-            const isRemoteChange = event.actorUserId !== user.id;
-            const shouldRefetchTrip =
-              event.type === 'snapshot.restored' || isRemoteChange || !current;
+            const isRemoteChange = isRemoteTripEvent(event, user.id, localConnectionIdRef.current);
+            const shouldRefetchTrip = shouldRefetchTripForEvent(event, Boolean(current), isRemoteChange);
             if (event.type !== 'snapshot.restored' && current) {
               queryClient.setQueryData<TripSnapshotResponse>(queryKey, (snapshot) => {
                 if (!snapshot) return snapshot;
@@ -360,14 +442,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
             }
             if (shouldRefetchTrip) {
               void queryClient.invalidateQueries({ queryKey });
-            }
-
-            if (isRemoteChange) {
-              clearUndoHistory(event.tripId);
-              setNoticesByTrip((currentNotices) => ({
-                ...currentNotices,
-                [event.tripId]: 'Undo history was cleared because another user edited this trip.',
-              }));
             }
 
             if (event.type !== 'invite.created' && event.type !== 'invite.removed') {
@@ -384,6 +458,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         socketRef.current = null;
         setConnectionState('disconnected');
         setLocalConnectionId(null);
+        localConnectionIdRef.current = null;
+        setRealtimeConnectionId(null);
         subscribedTripsRef.current.clear();
         setCursorsByTrip({});
         setItemPreviewsByTrip({});
@@ -406,8 +482,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       cleanupSocket();
       setConnectionState('disconnected');
-    };
-  }, [cleanupSocket, clearSubscribeRetry, isAuthenticated, queryClient, refreshSession, scheduleSubscribeRetry, sendMessage, user]);
+        setLocalConnectionId(null);
+        localConnectionIdRef.current = null;
+        setRealtimeConnectionId(null);
+        setNoticesByTrip({});
+      };
+  }, [cancelPreviewClear, cleanupSocket, clearSubscribeRetry, finalizePreviewForTripEvent, isAuthenticated, queryClient, refreshSession, schedulePreviewClear, scheduleSubscribeRetry, sendMessage, user]);
 
   const subscribeToTrip = useCallback(
     (tripId: string) => {
@@ -476,6 +556,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     [scheduleSubscribeRetry, sendMessage],
   );
 
+  const clearCursor = useCallback(
+    (tripId: string) => {
+      if (!subscribedTripsRef.current.has(tripId)) return;
+      lastCursorPayloadRef.current.delete(tripId);
+      sendMessage({
+        type: 'presence.cursor.clear',
+        tripId,
+      });
+    },
+    [sendMessage],
+  );
+
   const sendItemPreview = useCallback(
     (tripId: string, preview: LiveItemPreviewPayload | null) => {
       if (!subscribedTripsRef.current.has(tripId)) {
@@ -534,6 +626,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       subscribeToTrip,
       unsubscribeFromTrip,
       sendCursor,
+      clearCursor,
       sendItemPreview,
       getTripCursors,
       getTripItemPreviews,
@@ -547,6 +640,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       getRemoteEditNotice,
       getTripCursors,
       getTripItemPreviews,
+      clearCursor,
       sendItemPreview,
       sendCursor,
       subscribeToTrip,

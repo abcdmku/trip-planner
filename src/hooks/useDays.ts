@@ -27,10 +27,8 @@ export function useAddDay(tripId: string) {
       return updateDaysOptimistic(queryClient, tripId, (days) => [...days, newDay]);
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedDay, _payload, previous) => {
@@ -65,10 +63,8 @@ export function useUpdateDay(tripId: string) {
       );
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (savedDay, _payload, previous) => {
@@ -117,10 +113,8 @@ export function useDeleteDay(tripId: string) {
       return previous;
     },
 
-    onError: (_error, _payload, previous) => {
-      if (previous) {
-        queryClient.setQueryData(getTripQueryKey(tripId), previous);
-      }
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: getTripQueryKey(tripId) });
     },
 
     onSuccess: (_data, _payload, previous) => {

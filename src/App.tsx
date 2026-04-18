@@ -149,6 +149,7 @@ function TripApp({ tripId }: { tripId: string }) {
     getTripCursors,
     getTripItemPreviews,
     sendCursor,
+    clearCursor,
     sendItemPreview,
     getRemoteEditNotice,
     dismissRemoteEditNotice,
@@ -266,6 +267,11 @@ function TripApp({ tripId }: { tripId: string }) {
     if (!workspaceRef.current || !isDesktopPresenceEnabled) return;
 
     let frame = 0;
+    const workspace = workspaceRef.current;
+    const clearLocalCursor = () => {
+      clearCursor(tripId);
+    };
+
     const handlePointerMove = (event: PointerEvent) => {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
@@ -278,6 +284,7 @@ function TripApp({ tripId }: { tripId: string }) {
           event.clientY < rect.top ||
           event.clientY > rect.bottom
         ) {
+          clearLocalCursor();
           return;
         }
         sendCursor(
@@ -288,14 +295,27 @@ function TripApp({ tripId }: { tripId: string }) {
       });
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        clearLocalCursor();
+      }
+    };
+
     window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('blur', clearLocalCursor);
+    workspace.addEventListener('pointerleave', clearLocalCursor);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('blur', clearLocalCursor);
+      workspace.removeEventListener('pointerleave', clearLocalCursor);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearLocalCursor();
       if (frame) {
         window.cancelAnimationFrame(frame);
       }
     };
-  }, [isDesktopPresenceEnabled, sendCursor, tripId]);
+  }, [clearCursor, isDesktopPresenceEnabled, sendCursor, tripId]);
 
   const resetAddItemDraft = useCallback(() => {
     setMapSelectedPlace(null);
@@ -315,6 +335,10 @@ function TripApp({ tripId }: { tripId: string }) {
     resetAddItemDraft();
   }, [resetAddItemDraft]);
 
+  const clearLiveItemPreview = useCallback(() => {
+    sendItemPreview(tripId, null);
+  }, [sendItemPreview, tripId]);
+
   const scheduleDragCleanup = useCallback((defer: boolean) => {
     if (dragClearTimerRef.current !== null) {
       window.clearTimeout(dragClearTimerRef.current);
@@ -324,6 +348,7 @@ function TripApp({ tripId }: { tripId: string }) {
     if (!defer) {
       setDraggingItemId(null);
       setIsDragOverTimeline(false);
+      clearLiveItemPreview();
       return;
     }
 
@@ -331,16 +356,18 @@ function TripApp({ tripId }: { tripId: string }) {
       dragClearTimerRef.current = null;
       setDraggingItemId(null);
       setIsDragOverTimeline(false);
+      clearLiveItemPreview();
     }, 0);
-  }, []);
+  }, [clearLiveItemPreview]);
 
   const handleExternalDragStart = useCallback((itemId: string) => {
     if (dragClearTimerRef.current !== null) {
       window.clearTimeout(dragClearTimerRef.current);
       dragClearTimerRef.current = null;
     }
+    clearLiveItemPreview();
     setDraggingItemId(itemId);
-  }, []);
+  }, [clearLiveItemPreview]);
 
   const handleExternalDragEnd = useCallback(() => {
     scheduleDragCleanup(true);
@@ -663,23 +690,6 @@ function TripApp({ tripId }: { tripId: string }) {
       setEditingItemId(null);
     }
   }, [committedItems, editingItemId]);
-
-  // Delete key removes item from timeline (unschedules) but keeps it in the event list
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Delete' || !selectedItemId) return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-      const item = committedItems.find((i) => i.itemId === selectedItemId);
-      if (!item || !item.scheduledStart || item.timelineLocked) return;
-
-      e.preventDefault();
-      updateItem.mutate({ ...item, scheduledStart: '', scheduledEnd: '' });
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [committedItems, selectedItemId, updateItem]);
 
   useEffect(() => {
     if (!selectedLeg) return;
@@ -1039,6 +1049,53 @@ function TripApp({ tripId }: { tripId: string }) {
     },
     [sendItemPreview, tripId],
   );
+  const handleDeleteItem = useCallback(
+    (itemId: string) => {
+      if (selectedItemId === itemId) {
+        setSelectedItemId(null);
+      }
+      setExpandedItemId((current) => (current === itemId ? null : current));
+      setEditingItemId((current) => (current === itemId ? null : current));
+      deleteItem.mutate(itemId);
+    },
+    [deleteItem, selectedItemId, setSelectedItemId],
+  );
+  const handleDayTabItemPreviewChange = useCallback(
+    (preview: { dayId: string; itemId: string } | null) => {
+      if (!preview) {
+        clearLiveItemPreview();
+        return;
+      }
+
+      const day = days.find((entry) => entry.dayId === preview.dayId);
+      const item = committedItems.find((entry) => entry.itemId === preview.itemId);
+      if (!day || !item || item.timelineLocked) {
+        clearLiveItemPreview();
+        return;
+      }
+
+      const dayScheduledItems = getScheduledItemsForDay(preview.dayId, preview.itemId);
+      const resolution = resolveAppendDropAfterLast({
+        item,
+        day,
+        scheduledItems: dayScheduledItems,
+        snapMinutes: timelineSnapMinutes,
+      });
+      if (!resolution.valid) {
+        clearLiveItemPreview();
+        return;
+      }
+
+      sendItemPreview(tripId, {
+        itemId: preview.itemId,
+        dayId: preview.dayId,
+        scheduledStart: minutesToTime(resolution.startMin),
+        scheduledEnd: minutesToTime(resolution.endMin),
+        durationMinutes: resolution.durationMinutes,
+      });
+    },
+    [clearLiveItemPreview, committedItems, days, getScheduledItemsForDay, sendItemPreview, timelineSnapMinutes, tripId],
+  );
   const canManageSharing = useMemo(
     () => members.some((member) => member.userId === user?.id && member.role === 'owner'),
     [members, user?.id],
@@ -1132,6 +1189,7 @@ function TripApp({ tripId }: { tripId: string }) {
             onAddDay={handleAddDay}
             onDeleteSelectedDay={handleDeleteSelectedDay}
             onDropItem={handleMoveItemToDay}
+            onItemDragPreviewChange={handleDayTabItemPreviewChange}
             draggingItemId={draggingItemId}
             dropValidityByDay={dayDropValidityById}
           />
@@ -1157,10 +1215,7 @@ function TripApp({ tripId }: { tripId: string }) {
               const existing = committedItems.find((i) => i.itemId === id);
               if (existing) updateItem.mutate(mergeItemUpdates(existing, updates));
             }}
-            onDeleteItem={(id) => {
-              if (selectedItemId === id) setSelectedItemId(null);
-              deleteItem.mutate(id);
-            }}
+            onDeleteItem={handleDeleteItem}
             onAddItem={() => {
               resetAddItemDraft();
               setShowAddItem(true);
@@ -1238,10 +1293,7 @@ function TripApp({ tripId }: { tripId: string }) {
                 setEditingItemId(itemId);
                 setSelectedItemId(itemId);
               }}
-              onDeleteItem={(itemId) => {
-                if (selectedItemId === itemId) setSelectedItemId(null);
-                deleteItem.mutate(itemId);
-              }}
+              onDeleteItem={handleDeleteItem}
               connectors={mapConnectors}
               onConnectorClick={handleConnectorClick}
               showLegacyLegs={ENABLE_LEGACY_LEGS}
@@ -1326,6 +1378,10 @@ function TripApp({ tripId }: { tripId: string }) {
         onUpdate={(updates) => {
           if (!editingItem) return;
           updateItem.mutate(mergeItemUpdates(editingItem, updates));
+        }}
+        onDelete={() => {
+          if (!editingItem) return;
+          handleDeleteItem(editingItem.itemId);
         }}
         onClose={() => setEditingItemId(null)}
       />

@@ -8,6 +8,7 @@ interface ItemEditorDialogProps {
   dayColor?: string;
   dayDate?: string;
   onUpdate?: (updates: Partial<Item>) => void;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
@@ -17,6 +18,7 @@ export function ItemEditorDialog({
   dayColor,
   dayDate,
   onUpdate,
+  onDelete,
   onClose,
 }: ItemEditorDialogProps) {
   useEscapeHotkey(isOpen, onClose);
@@ -33,6 +35,7 @@ export function ItemEditorDialog({
           dayDate={dayDate}
           density="comfortable"
           onUpdate={onUpdate}
+          onDelete={onDelete}
           onClose={onClose}
         />
       </div>

@@ -54,8 +54,18 @@ export function ItemCard({
     return Boolean(target.closest('[data-reorder-handle="true"]'));
   };
 
+  const isInteractiveTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(target.closest('[data-no-native-drag="true"],button,a,input,textarea,select,[contenteditable="true"]'));
+  };
+
   const handleDragStart = (e: React.DragEvent) => {
-    if (!enableNativeDrag || dragOriginIsHandleRef.current || isReorderHandleTarget(e.target)) {
+    if (
+      !enableNativeDrag ||
+      dragOriginIsHandleRef.current ||
+      isReorderHandleTarget(e.target) ||
+      isInteractiveTarget(e.target)
+    ) {
       e.preventDefault();
       dragOriginIsHandleRef.current = false;
       return;
@@ -85,6 +95,16 @@ export function ItemCard({
     onNativeDragEnd?.();
   };
 
+  const suppressActionPointer = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const suppressActionMouse = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   return (
     <div
       className={`group rounded-xl border transition-all ${
@@ -105,11 +125,19 @@ export function ItemCard({
       }}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onKeyDown={(event) => {
+        if ((event.key === 'Delete' || event.key === 'Backspace') && onDelete) {
+          event.preventDefault();
+          event.stopPropagation();
+          onDelete();
+        }
+      }}
     >
       <div className="flex items-start gap-2 p-3">
         {/* Drag handle */}
         {dragHandleProps && (
           <button
+            type="button"
             className="mt-1 cursor-grab rounded p-0.5 text-theme-tertiary transition-colors hover:text-theme-secondary active:cursor-grabbing"
             aria-label="Drag to reorder"
             data-reorder-handle="true"
@@ -188,18 +216,42 @@ export function ItemCard({
         <div className="flex flex-shrink-0 items-center gap-1">
           {onDelete && (
             <button
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              type="button"
+              onPointerDown={suppressActionPointer}
+              onMouseDown={suppressActionMouse}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete();
+              }}
               className="rounded p-1 text-theme-tertiary opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
               aria-label="Delete item"
+              data-no-native-drag="true"
+              draggable={false}
+              onDragStart={(event) => {
+                event.preventDefault();
+              }}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
           {onToggleExpand && (
             <button
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+              type="button"
+              onPointerDown={suppressActionPointer}
+              onMouseDown={suppressActionMouse}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleExpand();
+              }}
               className="rounded p-1 text-theme-tertiary transition-colors hover:bg-theme-subtle hover:text-theme-secondary"
               aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              data-no-native-drag="true"
+              draggable={false}
+              onDragStart={(event) => {
+                event.preventDefault();
+              }}
             >
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>

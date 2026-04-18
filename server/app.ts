@@ -36,7 +36,9 @@ import {
   toTripDto,
 } from './dto';
 import { PresenceManager } from './presence';
+import { SharedUndoManager } from './undo-manager';
 import { getAutoDayLabel } from '../src/lib/day-labels';
+import { extractTripCoreSnapshot, type TripCoreSnapshot } from '../src/lib/undo-core';
 import type { RealtimeClientMessage, SessionUser } from '../src/types/api';
 import type { Day, Item, Leg, Trip } from '../src/types/trip';
 
@@ -154,6 +156,11 @@ const cursorSchema = z.object({
   tripId: z.string(),
   x: z.number(),
   y: z.number(),
+});
+
+const clearCursorSchema = z.object({
+  type: z.literal('presence.cursor.clear'),
+  tripId: z.string(),
 });
 
 const itemPreviewSchema = z.object({
@@ -504,6 +511,138 @@ async function loadTripSnapshot(tx: PrismaClient | TxClient, tripId: string) {
   });
 }
 
+async function loadTripCoreSnapshot(tx: PrismaClient | TxClient, tripId: string): Promise<TripCoreSnapshot> {
+  const trip = await tx.trip.findUnique({
+    where: { id: tripId },
+  });
+  if (!trip) {
+    throw new HttpError(404, 'Trip not found');
+  }
+
+  const [days, items, legs] = await Promise.all([
+    tx.day.findMany({
+      where: { tripId },
+      orderBy: {
+        date: 'asc',
+      },
+    }),
+    tx.item.findMany({
+      where: { tripId },
+      orderBy: [
+        {
+          dayId: 'asc',
+        },
+        {
+          sortOrder: 'asc',
+        },
+      ],
+    }),
+    tx.leg.findMany({
+      where: { tripId },
+      orderBy: {
+        legId: 'asc',
+      },
+    }),
+  ]);
+
+  return {
+    trip: toTripDto(trip),
+    days: days.map(toDayDto),
+    items: items.map(toItemDto),
+    legs: legs.map(toLegDto),
+  };
+}
+
+async function captureUndoableTripMutation<T>(
+  tx: TxClient,
+  tripId: string,
+  operation: () => Promise<T>,
+): Promise<{
+  result: T;
+  before: TripCoreSnapshot;
+  after: TripCoreSnapshot;
+}> {
+  const before = await loadTripCoreSnapshot(tx, tripId);
+  const result = await operation();
+  const after = await loadTripCoreSnapshot(tx, tripId);
+  return {
+    result,
+    before,
+    after,
+  };
+}
+
+async function replaceTripCoreSnapshot(
+  tx: TxClient,
+  tripId: string,
+  snapshot: {
+    trip: Trip;
+    days: Day[];
+    items: Item[];
+    legs: Leg[];
+  },
+  user: SessionUser,
+  historyField: string,
+): Promise<void> {
+  await tx.trip.update({
+    where: { id: tripId },
+    data: {
+      ...applyTripUpdates(snapshot.trip),
+      version: { increment: 1 },
+      updatedByUserId: user.id,
+    },
+  });
+
+  await tx.day.deleteMany({ where: { tripId } });
+  await tx.item.deleteMany({ where: { tripId } });
+  await tx.leg.deleteMany({ where: { tripId } });
+
+  if (snapshot.days.length > 0) {
+    await tx.day.createMany({
+      data: snapshot.days.map((day) => ({
+        dayId: day.dayId,
+        tripId,
+        date: day.date,
+        label: day.label,
+        colorHex: day.colorHex,
+        dayStart: day.dayStart,
+        dayEnd: day.dayEnd,
+        updatedByUserId: user.id,
+      })),
+    });
+  }
+
+  if (snapshot.items.length > 0) {
+    await tx.item.createMany({
+      data: snapshot.items.map((item) => ({
+        itemId: item.itemId,
+        ...applyItemUpdates(item, tripId),
+        updatedByUserId: user.id,
+      })),
+    });
+  }
+
+  if (snapshot.legs.length > 0) {
+    await tx.leg.createMany({
+      data: snapshot.legs.map((leg) => ({
+        legId: leg.legId,
+        ...applyLegUpdates(leg, tripId),
+        updatedByUserId: user.id,
+      })),
+    });
+  }
+
+  await writeHistoryEvents(tx, user, tripId, [
+    {
+      entityType: 'trip',
+      entityId: tripId,
+      field: historyField,
+      oldValue: '',
+      newValue: new Date().toISOString(),
+    },
+  ]);
+}
+
 function handleError(reply: FastifyReply, error: unknown): void {
   if (reply.sent) return;
   if (error instanceof HttpError) {
@@ -625,29 +764,19 @@ function collectFieldChanges<T extends object>(
   });
 }
 
-export function resolveRealtimeSocket(candidate: unknown): WebSocket | null {
-  if (!candidate || typeof candidate !== 'object') return null;
-
-  const websocketLike = candidate as Partial<WebSocket>;
-  if (
-    typeof websocketLike.on === 'function' &&
-    typeof websocketLike.send === 'function' &&
-    typeof websocketLike.close === 'function'
-  ) {
-    return websocketLike as WebSocket;
-  }
-
-  const nestedSocket = (candidate as { socket?: Partial<WebSocket> }).socket;
-  if (
-    nestedSocket &&
-    typeof nestedSocket.on === 'function' &&
-    typeof nestedSocket.send === 'function' &&
-    typeof nestedSocket.close === 'function'
-  ) {
-    return nestedSocket as WebSocket;
-  }
-
+function getRealtimeConnectionId(request: { headers: Record<string, unknown> }): string | null {
+  const raw = request.headers['x-realtime-connection-id'];
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
   return null;
+}
+
+function buildTripEventBase(request: { headers: Record<string, unknown> }, user: SessionUser, tripId: string) {
+  return {
+    tripId,
+    actorUserId: user.id,
+    actorConnectionId: getRealtimeConnectionId(request),
+    timestamp: new Date().toISOString(),
+  };
 }
 
 export function buildApp() {
@@ -655,12 +784,12 @@ export function buildApp() {
     logger: true,
   });
   const presence = new PresenceManager();
+  const sharedUndo = new SharedUndoManager();
 
   app.register(fastifyCookie, {
     secret: env.SESSION_SECRET,
     hook: 'onRequest',
   });
-  app.register(fastifyWebsocket);
 
   const distRoot = path.resolve(process.cwd(), 'dist');
   if (fs.existsSync(distRoot)) {
@@ -861,19 +990,15 @@ export function buildApp() {
 
       if (acceptance?.member) {
         presence.broadcastTripEvent(tripId, {
-          tripId,
+          ...buildTripEventBase(request, user, tripId),
           type: 'member.added',
-          actorUserId: user.id,
-          timestamp: new Date().toISOString(),
           member: toMemberDto(acceptance.member),
         });
       }
       if (acceptance?.inviteId) {
         presence.broadcastTripEvent(tripId, {
-          tripId,
+          ...buildTripEventBase(request, user, tripId),
           type: 'invite.removed',
-          actorUserId: user.id,
-          timestamp: new Date().toISOString(),
           inviteId: acceptance.inviteId,
         });
       }
@@ -895,38 +1020,39 @@ export function buildApp() {
     }
 
     try {
-      const updated = await prisma.$transaction(async (tx) => {
+      const { result: updated, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const existing = await tx.trip.findUnique({ where: { id: tripId } });
         if (!existing) {
           throw new HttpError(404, 'Trip not found');
         }
 
-        const updatedTrip = await tx.trip.update({
-          where: { id: tripId },
-          data: {
-            ...applyTripUpdates(parsed.data),
-            version: { increment: 1 },
-            updatedByUserId: user.id,
-          },
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          const updatedTrip = await tx.trip.update({
+            where: { id: tripId },
+            data: {
+              ...applyTripUpdates(parsed.data),
+              version: { increment: 1 },
+              updatedByUserId: user.id,
+            },
+          });
+
+          await writeHistoryEvents(
+            tx,
+            user,
+            tripId,
+            collectFieldChanges('trip', tripId, toTripDto(existing), parsed.data as unknown as Trip, TRIP_FIELDS),
+          );
+
+          return updatedTrip;
         });
-
-        await writeHistoryEvents(
-          tx,
-          user,
-          tripId,
-          collectFieldChanges('trip', tripId, toTripDto(existing), parsed.data as unknown as Trip, TRIP_FIELDS),
-        );
-
-        return updatedTrip;
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const dto = toTripDto(updated);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'trip.updated',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         trip: dto,
       });
       reply.send(dto);
@@ -1033,10 +1159,8 @@ export function buildApp() {
 
       const dto = toInviteDto(invite);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'invite.created',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         invite: dto,
       });
       reply.code(201).send(dto);
@@ -1079,10 +1203,8 @@ export function buildApp() {
       });
 
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'invite.removed',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         inviteId,
       });
       reply.code(204).send();
@@ -1130,10 +1252,8 @@ export function buildApp() {
 
       presence.removeUserFromTrip(tripId, removed.userId);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'member.removed',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         memberId,
       });
       reply.code(204).send();
@@ -1153,39 +1273,40 @@ export function buildApp() {
     }
 
     try {
-      const day = await prisma.$transaction(async (tx) => {
+      const { result: day, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
-        const created = await tx.day.create({
-          data: {
-            dayId: parsed.data.dayId,
-            tripId,
-            date: parsed.data.date,
-            label: parsed.data.label,
-            colorHex: parsed.data.colorHex,
-            dayStart: parsed.data.dayStart,
-            dayEnd: parsed.data.dayEnd,
-            updatedByUserId: user.id,
-          },
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          const created = await tx.day.create({
+            data: {
+              dayId: parsed.data.dayId,
+              tripId,
+              date: parsed.data.date,
+              label: parsed.data.label,
+              colorHex: parsed.data.colorHex,
+              dayStart: parsed.data.dayStart,
+              dayEnd: parsed.data.dayEnd,
+              updatedByUserId: user.id,
+            },
+          });
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(tx, user, tripId, [
+            {
+              entityType: 'day',
+              entityId: created.dayId,
+              field: 'created',
+              oldValue: '',
+              newValue: created.label,
+            },
+          ]);
+          return created;
         });
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(tx, user, tripId, [
-          {
-            entityType: 'day',
-            entityId: created.dayId,
-            field: 'created',
-            oldValue: '',
-            newValue: created.label,
-          },
-        ]);
-        return created;
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const dto = toDayDto(day);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'day.created',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         day: dto,
       });
       reply.code(201).send(dto);
@@ -1205,7 +1326,7 @@ export function buildApp() {
     }
 
     try {
-      const updated = await prisma.$transaction(async (tx) => {
+      const { result: updated, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const existing = await tx.day.findUnique({
           where: { dayId },
@@ -1214,32 +1335,33 @@ export function buildApp() {
           throw new HttpError(404, 'Day not found');
         }
 
-        const next = await tx.day.update({
-          where: { dayId },
-          data: {
-            ...applyDayUpdates(parsed.data),
-            version: { increment: 1 },
-            updatedByUserId: user.id,
-          },
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          const next = await tx.day.update({
+            where: { dayId },
+            data: {
+              ...applyDayUpdates(parsed.data),
+              version: { increment: 1 },
+              updatedByUserId: user.id,
+            },
+          });
+
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(
+            tx,
+            user,
+            tripId,
+            collectFieldChanges('day', dayId, toDayDto(existing), parsed.data as unknown as Day, DAY_FIELDS),
+          );
+
+          return next;
         });
-
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(
-          tx,
-          user,
-          tripId,
-          collectFieldChanges('day', dayId, toDayDto(existing), parsed.data as unknown as Day, DAY_FIELDS),
-        );
-
-        return next;
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const dto = toDayDto(updated);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'day.updated',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         day: dto,
       });
       reply.send(dto);
@@ -1254,7 +1376,7 @@ export function buildApp() {
     const { tripId, dayId } = z.object({ tripId: z.string(), dayId: z.string() }).parse(request.params);
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
+      const { result, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const day = await tx.day.findUnique({
           where: { dayId },
@@ -1263,45 +1385,46 @@ export function buildApp() {
           throw new HttpError(404, 'Day not found');
         }
 
-        const dayItems = await tx.item.findMany({
-          where: { tripId, dayId },
-        });
-        const itemIds = dayItems.map((item) => item.itemId);
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          const dayItems = await tx.item.findMany({
+            where: { tripId, dayId },
+          });
+          const itemIds = dayItems.map((item) => item.itemId);
 
-        await tx.leg.deleteMany({
-          where: {
-            tripId,
-            OR: [{ fromItemId: { in: itemIds } }, { toItemId: { in: itemIds } }],
-          },
-        });
-        await tx.item.deleteMany({
-          where: { tripId, dayId },
-        });
-        await tx.day.delete({
-          where: { dayId },
-        });
+          await tx.leg.deleteMany({
+            where: {
+              tripId,
+              OR: [{ fromItemId: { in: itemIds } }, { toItemId: { in: itemIds } }],
+            },
+          });
+          await tx.item.deleteMany({
+            where: { tripId, dayId },
+          });
+          await tx.day.delete({
+            where: { dayId },
+          });
 
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(tx, user, tripId, [
-          {
-            entityType: 'day',
-            entityId: dayId,
-            field: 'deleted',
-            oldValue: day.label,
-            newValue: '',
-          },
-        ]);
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(tx, user, tripId, [
+            {
+              entityType: 'day',
+              entityId: dayId,
+              field: 'deleted',
+              oldValue: day.label,
+              newValue: '',
+            },
+          ]);
 
-        return {
-          dayId,
-        };
+          return {
+            dayId,
+          };
+        });
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'day.deleted',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         dayId: result.dayId,
       });
       reply.code(204).send();
@@ -1321,41 +1444,42 @@ export function buildApp() {
     }
 
     try {
-      const item = await prisma.$transaction(async (tx) => {
+      const { result: item, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const day = await tx.day.findUnique({ where: { dayId: parsed.data.dayId } });
         if (!day || day.tripId !== tripId) {
           throw new HttpError(400, 'Target day does not belong to this trip');
         }
 
-        const created = await tx.item.create({
-          data: {
-            itemId: parsed.data.itemId,
-            ...applyItemUpdates(parsed.data, tripId),
-            updatedByUserId: user.id,
-          },
-        });
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          const created = await tx.item.create({
+            data: {
+              itemId: parsed.data.itemId,
+              ...applyItemUpdates(parsed.data, tripId),
+              updatedByUserId: user.id,
+            },
+          });
 
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(tx, user, tripId, [
-          {
-            entityType: 'item',
-            entityId: created.itemId,
-            field: 'created',
-            oldValue: '',
-            newValue: created.placeName,
-            itemId: created.itemId,
-          },
-        ]);
-        return created;
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(tx, user, tripId, [
+            {
+              entityType: 'item',
+              entityId: created.itemId,
+              field: 'created',
+              oldValue: '',
+              newValue: created.placeName,
+              itemId: created.itemId,
+            },
+          ]);
+          return created;
+        });
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const dto = toItemDto(item);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'item.created',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         item: dto,
       });
       reply.code(201).send(dto);
@@ -1375,7 +1499,7 @@ export function buildApp() {
     }
 
     try {
-      const updated = await prisma.$transaction(async (tx) => {
+      const { result: updated, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const existing = await tx.item.findUnique({
           where: { itemId },
@@ -1389,31 +1513,32 @@ export function buildApp() {
           throw new HttpError(400, 'Target day does not belong to this trip');
         }
 
-        const next = await tx.item.update({
-          where: { itemId },
-          data: {
-            ...applyItemUpdates(parsed.data, tripId),
-            version: { increment: 1 },
-            updatedByUserId: user.id,
-          },
-        });
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          const next = await tx.item.update({
+            where: { itemId },
+            data: {
+              ...applyItemUpdates(parsed.data, tripId),
+              version: { increment: 1 },
+              updatedByUserId: user.id,
+            },
+          });
 
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(
-          tx,
-          user,
-          tripId,
-          collectFieldChanges('item', itemId, toItemDto(existing), parsed.data as unknown as Item, ITEM_FIELDS, itemId),
-        );
-        return next;
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(
+            tx,
+            user,
+            tripId,
+            collectFieldChanges('item', itemId, toItemDto(existing), parsed.data as unknown as Item, ITEM_FIELDS, itemId),
+          );
+          return next;
+        });
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const dto = toItemDto(updated);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'item.updated',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         item: dto,
       });
       reply.send(dto);
@@ -1428,7 +1553,7 @@ export function buildApp() {
     const { tripId, itemId } = z.object({ tripId: z.string(), itemId: z.string() }).parse(request.params);
 
     try {
-      await prisma.$transaction(async (tx) => {
+      const { before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const existing = await tx.item.findUnique({
           where: { itemId },
@@ -1437,33 +1562,35 @@ export function buildApp() {
           throw new HttpError(404, 'Item not found');
         }
 
-        await tx.leg.deleteMany({
-          where: {
-            tripId,
-            OR: [{ fromItemId: itemId }, { toItemId: itemId }],
-          },
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          await tx.leg.deleteMany({
+            where: {
+              tripId,
+              OR: [{ fromItemId: itemId }, { toItemId: itemId }],
+            },
+          });
+          await tx.item.delete({
+            where: { itemId },
+          });
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(tx, user, tripId, [
+            {
+              entityType: 'item',
+              entityId: itemId,
+              field: 'deleted',
+              oldValue: existing.placeName,
+              newValue: '',
+              itemId,
+            },
+          ]);
+          return undefined;
         });
-        await tx.item.delete({
-          where: { itemId },
-        });
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(tx, user, tripId, [
-          {
-            entityType: 'item',
-            entityId: itemId,
-            field: 'deleted',
-            oldValue: existing.placeName,
-            newValue: '',
-            itemId,
-          },
-        ]);
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'item.deleted',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         itemId,
       });
       reply.code(204).send();
@@ -1483,7 +1610,7 @@ export function buildApp() {
     }
 
     try {
-      const reorderedItems = await prisma.$transaction(async (tx) => {
+      const { result: reorderedItems, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const currentItems = await tx.item.findMany({
           where: {
@@ -1502,51 +1629,52 @@ export function buildApp() {
           }
         }
 
-        for (const [index, id] of parsed.data.orderedItemIds.entries()) {
-          await tx.item.update({
-            where: { itemId: id },
-            data: {
-              sortOrder: index,
-              version: { increment: 1 },
-              updatedByUserId: user.id,
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          for (const [index, id] of parsed.data.orderedItemIds.entries()) {
+            await tx.item.update({
+              where: { itemId: id },
+              data: {
+                sortOrder: index,
+                version: { increment: 1 },
+                updatedByUserId: user.id,
+              },
+            });
+          }
+
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(
+            tx,
+            user,
+            tripId,
+            currentItems
+              .filter((item) => parsed.data.orderedItemIds.indexOf(item.itemId) !== item.sortOrder)
+              .map((item) => ({
+                entityType: 'item' as const,
+                entityId: item.itemId,
+                field: 'sortOrder',
+                oldValue: String(item.sortOrder),
+                newValue: String(parsed.data.orderedItemIds.indexOf(item.itemId)),
+                itemId: item.itemId,
+              })),
+          );
+
+          return tx.item.findMany({
+            where: {
+              tripId,
+              dayId: parsed.data.dayId,
+            },
+            orderBy: {
+              sortOrder: 'asc',
             },
           });
-        }
-
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(
-          tx,
-          user,
-          tripId,
-          currentItems
-            .filter((item) => parsed.data.orderedItemIds.indexOf(item.itemId) !== item.sortOrder)
-            .map((item) => ({
-              entityType: 'item' as const,
-              entityId: item.itemId,
-              field: 'sortOrder',
-              oldValue: String(item.sortOrder),
-              newValue: String(parsed.data.orderedItemIds.indexOf(item.itemId)),
-              itemId: item.itemId,
-            })),
-        );
-
-        return tx.item.findMany({
-          where: {
-            tripId,
-            dayId: parsed.data.dayId,
-          },
-          orderBy: {
-            sortOrder: 'asc',
-          },
         });
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const items = reorderedItems.map(toItemDto);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'items.reordered',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         items,
       });
       reply.send(items);
@@ -1566,38 +1694,39 @@ export function buildApp() {
     }
 
     try {
-      const updated = await prisma.$transaction(async (tx) => {
+      const { result: updated, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
         const existing = await tx.leg.findUnique({ where: { legId } });
         if (!existing || existing.tripId !== tripId) {
           throw new HttpError(404, 'Leg not found');
         }
 
-        const next = await tx.leg.update({
-          where: { legId },
-          data: {
-            ...applyLegUpdates(parsed.data, tripId),
-            version: { increment: 1 },
-            updatedByUserId: user.id,
-          },
-        });
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          const next = await tx.leg.update({
+            where: { legId },
+            data: {
+              ...applyLegUpdates(parsed.data, tripId),
+              version: { increment: 1 },
+              updatedByUserId: user.id,
+            },
+          });
 
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(
-          tx,
-          user,
-          tripId,
-          collectFieldChanges('leg', legId, toLegDto(existing), parsed.data as unknown as Leg, LEG_FIELDS),
-        );
-        return next;
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(
+            tx,
+            user,
+            tripId,
+            collectFieldChanges('leg', legId, toLegDto(existing), parsed.data as unknown as Leg, LEG_FIELDS),
+          );
+          return next;
+        });
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const dto = toLegDto(updated);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'leg.updated',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         leg: dto,
       });
       reply.send(dto);
@@ -1617,43 +1746,44 @@ export function buildApp() {
     }
 
     try {
-      const legs = await prisma.$transaction(async (tx) => {
+      const { result: legs, before, after } = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
-        await tx.leg.deleteMany({
-          where: { tripId },
-        });
-        if (parsed.data.length > 0) {
-          await tx.leg.createMany({
-            data: parsed.data.map((leg) => ({
-              legId: leg.legId,
-              ...applyLegUpdates(leg, tripId),
-              updatedByUserId: user.id,
-            })),
+        return captureUndoableTripMutation(tx, tripId, async () => {
+          await tx.leg.deleteMany({
+            where: { tripId },
           });
-        }
+          if (parsed.data.length > 0) {
+            await tx.leg.createMany({
+              data: parsed.data.map((leg) => ({
+                legId: leg.legId,
+                ...applyLegUpdates(leg, tripId),
+                updatedByUserId: user.id,
+              })),
+            });
+          }
 
-        await touchTrip(tx, tripId, user.id);
-        await writeHistoryEvents(tx, user, tripId, [
-          {
-            entityType: 'leg',
-            entityId: tripId,
-            field: 'replaceAll',
-            oldValue: '',
-            newValue: String(parsed.data.length),
-          },
-        ]);
+          await touchTrip(tx, tripId, user.id);
+          await writeHistoryEvents(tx, user, tripId, [
+            {
+              entityType: 'leg',
+              entityId: tripId,
+              field: 'replaceAll',
+              oldValue: '',
+              newValue: String(parsed.data.length),
+            },
+          ]);
 
-        return tx.leg.findMany({
-          where: { tripId },
+          return tx.leg.findMany({
+            where: { tripId },
+          });
         });
       });
+      sharedUndo.recordMutation(tripId, before, after);
 
       const dto = legs.map(toLegDto);
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'legs.replaced',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
         legs: dto,
       });
       reply.send(dto);
@@ -1673,179 +1803,201 @@ export function buildApp() {
     }
 
     try {
-      await prisma.$transaction(async (tx) => {
+      const snapshot = await prisma.$transaction(async (tx) => {
         await requireTripMembership(tx, tripId, user);
-        await tx.trip.update({
-          where: { id: tripId },
-          data: {
-            ...applyTripUpdates(parsed.data.trip),
-            version: { increment: 1 },
-            updatedByUserId: user.id,
-          },
-        });
-
-        await tx.day.deleteMany({ where: { tripId } });
-        await tx.item.deleteMany({ where: { tripId } });
-        await tx.leg.deleteMany({ where: { tripId } });
-
-        if (parsed.data.days.length > 0) {
-          await tx.day.createMany({
-            data: parsed.data.days.map((day) => ({
-              dayId: day.dayId,
-              tripId,
-              date: day.date,
-              label: day.label,
-              colorHex: day.colorHex,
-              dayStart: day.dayStart,
-              dayEnd: day.dayEnd,
-              updatedByUserId: user.id,
-            })),
-          });
-        }
-
-        if (parsed.data.items.length > 0) {
-          await tx.item.createMany({
-            data: parsed.data.items.map((item) => ({
-              itemId: item.itemId,
-              ...applyItemUpdates(item, tripId),
-              updatedByUserId: user.id,
-            })),
-          });
-        }
-
-        if (parsed.data.legs.length > 0) {
-          await tx.leg.createMany({
-            data: parsed.data.legs.map((leg) => ({
-              legId: leg.legId,
-              ...applyLegUpdates(leg, tripId),
-              updatedByUserId: user.id,
-            })),
-          });
-        }
-
-        await writeHistoryEvents(tx, user, tripId, [
-          {
-            entityType: 'trip',
-            entityId: tripId,
-            field: 'snapshotRestored',
-            oldValue: '',
-            newValue: new Date().toISOString(),
-          },
-        ]);
+        await replaceTripCoreSnapshot(tx, tripId, parsed.data, user, 'snapshotRestored');
+        return loadTripSnapshot(tx, tripId);
       });
+      sharedUndo.resetTrip(
+        tripId,
+        extractTripCoreSnapshot(snapshot),
+      );
 
       presence.broadcastTripEvent(tripId, {
-        tripId,
+        ...buildTripEventBase(request, user, tripId),
         type: 'snapshot.restored',
-        actorUserId: user.id,
-        timestamp: new Date().toISOString(),
       });
-      reply.send(await loadTripSnapshot(prisma, tripId));
+      reply.send(snapshot);
     } catch (error) {
       handleError(reply, error);
     }
   });
 
-  app.get('/ws', { websocket: true }, (socketOrConnection, request) => {
-    const socket = resolveRealtimeSocket(socketOrConnection);
-    if (!socket) {
-      request.log.error({ socketOrConnection }, 'Unsupported websocket connection shape');
-      return;
+  app.post('/api/trips/:tripId/undo', async (request, reply) => {
+    const user = await requireSessionUser(request, reply);
+    if (!user) return;
+    const tripId = z.object({ tripId: z.string() }).parse(request.params).tripId;
+
+    try {
+      const { snapshot, nextHistory } = await prisma.$transaction(async (tx) => {
+        await requireTripMembership(tx, tripId, user);
+        const present = await loadTripCoreSnapshot(tx, tripId);
+        const step = sharedUndo.computeUndo(tripId, present);
+        if (!step) {
+          throw new HttpError(409, 'No undo history available');
+        }
+
+        await replaceTripCoreSnapshot(tx, tripId, step.nextSnapshot, user, 'undoApplied');
+        return {
+          snapshot: await loadTripSnapshot(tx, tripId),
+          nextHistory: step.nextHistory,
+        };
+      });
+
+      sharedUndo.commitStep(tripId, nextHistory);
+      presence.broadcastTripEvent(tripId, {
+        ...buildTripEventBase(request, user, tripId),
+        type: 'snapshot.restored',
+      });
+      reply.send(snapshot);
+    } catch (error) {
+      handleError(reply, error);
     }
+  });
 
-    const setupPromise = (async () => {
-      try {
-        const user = await resolveSessionUser(request);
-        if (!user) {
-          socket.close(4401, 'Authentication required');
-          return null;
+  app.post('/api/trips/:tripId/redo', async (request, reply) => {
+    const user = await requireSessionUser(request, reply);
+    if (!user) return;
+    const tripId = z.object({ tripId: z.string() }).parse(request.params).tripId;
+
+    try {
+      const { snapshot, nextHistory } = await prisma.$transaction(async (tx) => {
+        await requireTripMembership(tx, tripId, user);
+        const present = await loadTripCoreSnapshot(tx, tripId);
+        const step = sharedUndo.computeRedo(tripId, present);
+        if (!step) {
+          throw new HttpError(409, 'No redo history available');
         }
 
-        if (socket.readyState !== WEBSOCKET_OPEN_STATE) {
-          return null;
-        }
+        await replaceTripCoreSnapshot(tx, tripId, step.nextSnapshot, user, 'redoApplied');
+        return {
+          snapshot: await loadTripSnapshot(tx, tripId),
+          nextHistory: step.nextHistory,
+        };
+      });
 
-        const connection = presence.register(socket, user);
-        socket.send(
-          JSON.stringify({
-            type: 'presence.self',
-            connectionId: connection.connectionId,
-          }),
-        );
-        return user;
-      } catch (error) {
-        request.log.error(error, 'Failed to initialize realtime websocket');
-        socket.close(1011, 'Realtime initialization failed');
-        return null;
-      }
-    })();
+      sharedUndo.commitStep(tripId, nextHistory);
+      presence.broadcastTripEvent(tripId, {
+        ...buildTripEventBase(request, user, tripId),
+        type: 'snapshot.restored',
+      });
+      reply.send(snapshot);
+    } catch (error) {
+      handleError(reply, error);
+    }
+  });
 
-    socket.on('message', (raw: Buffer) => {
-      void (async () => {
-        try {
-          const user = await setupPromise;
-          if (!user) return;
+  app.register(async (realtimeApp) => {
+    await realtimeApp.register(fastifyWebsocket);
 
-          const parsed = JSON.parse(raw.toString()) as RealtimeClientMessage;
-          const cursorPayload = cursorSchema.safeParse(parsed);
-          if (cursorPayload.success) {
-            presence.updateCursor(
-              socket,
-              cursorPayload.data.tripId,
-              cursorPayload.data.x,
-              cursorPayload.data.y,
+    realtimeApp.route({
+      method: 'GET',
+      url: '/ws',
+      handler(_request, reply) {
+        reply.code(404).send();
+      },
+      wsHandler(socket: WebSocket, request) {
+        const setupPromise = (async () => {
+          try {
+            const user = await resolveSessionUser(request);
+            if (!user) {
+              socket.close(4401, 'Authentication required');
+              return null;
+            }
+
+            if (socket.readyState !== WEBSOCKET_OPEN_STATE) {
+              return null;
+            }
+
+            const connection = presence.register(socket, user);
+            socket.send(
+              JSON.stringify({
+                type: 'presence.self',
+                connectionId: connection.connectionId,
+              }),
             );
-            return;
+            return user;
+          } catch (error) {
+            request.log.error(error, 'Failed to initialize realtime websocket');
+            socket.close(1011, 'Realtime initialization failed');
+            return null;
           }
+        })();
 
-          const itemPreviewPayload = itemPreviewSchema.safeParse(parsed);
-          if (itemPreviewPayload.success) {
-            presence.updateItemPreview(socket, itemPreviewPayload.data.tripId, {
-              itemId: itemPreviewPayload.data.itemId,
-              dayId: itemPreviewPayload.data.dayId,
-              scheduledStart: itemPreviewPayload.data.scheduledStart,
-              scheduledEnd: itemPreviewPayload.data.scheduledEnd,
-              durationMinutes: itemPreviewPayload.data.durationMinutes,
-            });
-            return;
-          }
+        socket.on('message', (raw: Buffer) => {
+          void (async () => {
+            try {
+              const user = await setupPromise;
+              if (!user) return;
 
-          const clearItemPreviewPayload = clearItemPreviewSchema.safeParse(parsed);
-          if (clearItemPreviewPayload.success) {
-            presence.clearItemPreview(socket, clearItemPreviewPayload.data.tripId);
-            return;
-          }
+              const parsed = JSON.parse(raw.toString()) as RealtimeClientMessage;
+              const cursorPayload = cursorSchema.safeParse(parsed);
+              if (cursorPayload.success) {
+                presence.updateCursor(
+                  socket,
+                  cursorPayload.data.tripId,
+                  cursorPayload.data.x,
+                  cursorPayload.data.y,
+                );
+                return;
+              }
 
-          const subscribePayload = subscribeSchema.safeParse(parsed);
-          if (subscribePayload.success) {
-            await prisma.$transaction(async (tx) => {
-              await acceptInviteForTrip(tx, user, subscribePayload.data.tripId);
-              await requireTripMembership(tx, subscribePayload.data.tripId, user);
-            });
-            presence.subscribe(socket, subscribePayload.data.tripId);
-            return;
-          }
+              const clearCursorPayload = clearCursorSchema.safeParse(parsed);
+              if (clearCursorPayload.success) {
+                presence.clearCursor(socket, clearCursorPayload.data.tripId);
+                return;
+              }
 
-          const unsubscribePayload = unsubscribeSchema.safeParse(parsed);
-          if (unsubscribePayload.success) {
-            presence.unsubscribe(socket, unsubscribePayload.data.tripId);
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      })();
-    });
+              const itemPreviewPayload = itemPreviewSchema.safeParse(parsed);
+              if (itemPreviewPayload.success) {
+                presence.updateItemPreview(socket, itemPreviewPayload.data.tripId, {
+                  itemId: itemPreviewPayload.data.itemId,
+                  dayId: itemPreviewPayload.data.dayId,
+                  scheduledStart: itemPreviewPayload.data.scheduledStart,
+                  scheduledEnd: itemPreviewPayload.data.scheduledEnd,
+                  durationMinutes: itemPreviewPayload.data.durationMinutes,
+                });
+                return;
+              }
 
-    socket.on('close', () => {
-      void setupPromise
-        .then((user) => {
-          if (user) {
-            presence.unregister(socket);
-          }
-        })
-        .catch((error) => {
-          console.error(error);
+              const clearItemPreviewPayload = clearItemPreviewSchema.safeParse(parsed);
+              if (clearItemPreviewPayload.success) {
+                presence.clearItemPreview(socket, clearItemPreviewPayload.data.tripId);
+                return;
+              }
+
+              const subscribePayload = subscribeSchema.safeParse(parsed);
+              if (subscribePayload.success) {
+                await prisma.$transaction(async (tx) => {
+                  await acceptInviteForTrip(tx, user, subscribePayload.data.tripId);
+                  await requireTripMembership(tx, subscribePayload.data.tripId, user);
+                });
+                presence.subscribe(socket, subscribePayload.data.tripId);
+                return;
+              }
+
+              const unsubscribePayload = unsubscribeSchema.safeParse(parsed);
+              if (unsubscribePayload.success) {
+                presence.unsubscribe(socket, unsubscribePayload.data.tripId);
+              }
+            } catch (error) {
+              console.error(error);
+            }
+          })();
         });
+
+        socket.on('close', () => {
+          void setupPromise
+            .then((user) => {
+              if (user) {
+                presence.unregister(socket);
+              }
+            })
+            .catch((error) => {
+              console.error(error);
+            });
+        });
+      },
     });
   });
 

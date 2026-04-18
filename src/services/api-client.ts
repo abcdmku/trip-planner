@@ -7,6 +7,8 @@ import type {
 } from '@/types/api';
 import type { Day, Item, Leg, Trip } from '@/types/trip';
 
+let realtimeConnectionId: string | null = null;
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -26,13 +28,21 @@ async function readResponseBody(response: Response): Promise<unknown> {
 }
 
 async function request<T>(input: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  const hasBody = init?.body !== undefined && init.body !== null;
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData;
+
+  if (hasBody && !isFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (realtimeConnectionId && !headers.has('X-Realtime-Connection-Id')) {
+    headers.set('X-Realtime-Connection-Id', realtimeConnectionId);
+  }
+
   const response = await fetch(input, {
     ...init,
     credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   const body = await readResponseBody(response);
@@ -51,6 +61,10 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
 export function buildRealtimeUrl(): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.host}/ws`;
+}
+
+export function setRealtimeConnectionId(connectionId: string | null): void {
+  realtimeConnectionId = connectionId;
 }
 
 export async function getSession(): Promise<SessionUser | null> {
@@ -92,9 +106,10 @@ export async function createTrip(payload: {
   });
 }
 
-export async function getTripSnapshot(tripId: string): Promise<TripSnapshotResponse> {
+export async function getTripSnapshot(tripId: string, signal?: AbortSignal): Promise<TripSnapshotResponse> {
   return request<TripSnapshotResponse>(`/api/trips/${tripId}`, {
     method: 'GET',
+    signal,
   });
 }
 
@@ -212,5 +227,17 @@ export async function restoreTripSnapshot(
   return request(`/api/trips/${tripId}/snapshot`, {
     method: 'PUT',
     body: JSON.stringify(snapshot),
+  });
+}
+
+export async function undoTripSnapshot(tripId: string): Promise<TripSnapshotResponse> {
+  return request(`/api/trips/${tripId}/undo`, {
+    method: 'POST',
+  });
+}
+
+export async function redoTripSnapshot(tripId: string): Promise<TripSnapshotResponse> {
+  return request(`/api/trips/${tripId}/redo`, {
+    method: 'POST',
   });
 }

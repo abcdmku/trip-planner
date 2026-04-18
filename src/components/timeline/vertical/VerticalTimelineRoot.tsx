@@ -102,6 +102,7 @@ export function VerticalTimeline({
     activeDragItemId,
     snapMinutes: effectiveSnapMinutes,
     onUpdateItem,
+    onLiveItemPreviewChange,
     getScheduledItemsForDay,
   });
 

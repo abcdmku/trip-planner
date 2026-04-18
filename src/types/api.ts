@@ -97,6 +97,7 @@ export interface TripEventEnvelope {
   tripId: string;
   type: TripEventType;
   actorUserId: string;
+  actorConnectionId?: string | null;
   timestamp: string;
   trip?: Trip;
   day?: Day;
@@ -127,6 +128,10 @@ export type RealtimeClientMessage =
       tripId: string;
       x: number;
       y: number;
+    }
+  | {
+      type: 'presence.cursor.clear';
+      tripId: string;
     }
   | {
       type: 'presence.item-preview';
