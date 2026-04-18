@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Loader2, RotateCw, Bike, Bus, Car, Circle, Footprints, Plane, ChevronDown } from 'lucide-react';
+import { Bike, Bus, Car, Circle, Footprints, Loader2, Plane, RotateCw } from 'lucide-react';
 import type { RouteType, TransportMode } from '@/types/trip';
 
 const MODE_OPTIONS: { value: TransportMode; label: string; Icon: typeof Car }[] = [
@@ -27,10 +26,28 @@ function nextModeRoute(mode: TransportMode, current: RouteType): RouteType {
   return current;
 }
 
-function getTransportBadge(mode: TransportMode, routeType: RouteType): string {
-  const modeLabel = MODE_OPTIONS.find((m) => m.value === mode)?.label ?? 'Drive';
-  const routeLabel = routeType === 'directions' ? 'Routed' : 'Straight';
-  return `${modeLabel} \u00b7 ${routeLabel}`;
+function getCalculateHint({
+  canCalculateRoute,
+  hasOrigin,
+  hasDestination,
+  itemRouteType,
+  transportMode,
+}: {
+  canCalculateRoute: boolean;
+  hasOrigin: boolean;
+  hasDestination: boolean;
+  itemRouteType: RouteType;
+  transportMode: TransportMode;
+}): string {
+  if (canCalculateRoute) return 'Estimated time updates the Time section below.';
+  if (itemRouteType !== 'directions') {
+    return isGoogleRouteModeCapable(transportMode)
+      ? 'Switch route style to Routed to calculate.'
+      : 'Routed directions are unavailable for this mode.';
+  }
+  if (!hasOrigin) return 'Choose an origin to calculate.';
+  if (!hasDestination) return 'Add a destination to calculate.';
+  return 'Unable to calculate travel time.';
 }
 
 export function RouteTravelControls({
@@ -45,6 +62,7 @@ export function RouteTravelControls({
   isCalculatingRoute = false,
   canCalculateRoute = false,
   hasCalculatedRoute = false,
+  travelDurationMinutes = 0,
 }: {
   transportMode: TransportMode;
   itemRouteType: RouteType;
@@ -57,151 +75,143 @@ export function RouteTravelControls({
   isCalculatingRoute?: boolean;
   canCalculateRoute?: boolean;
   hasCalculatedRoute?: boolean;
+  travelDurationMinutes?: number;
 }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const pill = (active: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+  const routeModeCapable = isGoogleRouteModeCapable(transportMode);
+  const calculateHint = getCalculateHint({
+    canCalculateRoute,
+    hasOrigin,
+    hasDestination,
+    itemRouteType,
+    transportMode,
+  });
+  const durationLabel = isCalculatingRoute
+    ? 'Updating...'
+    : travelDurationMinutes > 0
+      ? `${travelDurationMinutes} min`
+      : 'Not estimated';
+  const durationStatus = isCalculatingRoute
+    ? 'Fetching route details'
+    : travelDurationMinutes > 0
+      ? 'Latest route duration'
+      : canCalculateRoute
+        ? 'Ready to estimate'
+        : 'Estimate unavailable';
+  const modePill = (active: boolean) =>
+    `inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold transition-colors ${
       active
         ? 'border-[rgba(var(--color-accent),0.35)] bg-[rgba(var(--color-accent),0.15)] text-accent'
         : 'border-theme bg-theme text-theme-secondary hover:bg-theme-subtle hover:text-theme'
     }`;
 
-  const modeBadge = getTransportBadge(transportMode, itemRouteType);
-
   return (
-    <div className={compact ? 'space-y-2' : 'space-y-2.5'}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold text-theme-secondary">Travel</span>
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-[11px] text-theme-tertiary">
-            {modeBadge}
-          </span>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Travel mode">
+        {MODE_OPTIONS.map(({ value: mode, label, Icon }) => (
           <button
+            key={mode}
             type="button"
-            onClick={() => setDetailsOpen((v) => !v)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-theme-secondary hover:bg-theme-subtle"
-            aria-expanded={detailsOpen}
+            onClick={() =>
+              onChange({
+                transportMode: mode,
+                itemRouteType: nextModeRoute(mode, itemRouteType),
+              })
+            }
+            className={modePill(transportMode === mode)}
+            aria-pressed={transportMode === mode}
+            aria-label={label}
+            title={label}
           >
-            {detailsOpen ? 'Hide' : 'Details'}
-            <ChevronDown className={`h-3 w-3 transition-transform ${detailsOpen ? '' : '-rotate-90'}`} />
+            <Icon className="h-3.5 w-3.5" />
+            <span className={compact ? 'hidden sm:inline' : ''}>{label}</span>
           </button>
-        </div>
+        ))}
       </div>
 
-      <div>
-        <label className="mb-1 block text-[10px] text-theme-tertiary">Mode</label>
-        <div className="flex flex-wrap gap-1.5">
-          {MODE_OPTIONS.map(({ value: mode, label, Icon }) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() =>
-                onChange({
-                  transportMode: mode,
-                  itemRouteType: nextModeRoute(mode, itemRouteType),
-                })
-              }
-              className={pill(transportMode === mode)}
-              aria-pressed={transportMode === mode}
-              aria-label={label}
-              title={label}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span className={compact ? 'hidden sm:inline' : ''}>{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <div className="grid auto-rows-fr gap-2 md:grid-cols-[minmax(0,1fr)_188px]">
+        <div className="flex h-full min-h-[88px] flex-col rounded-lg border border-theme bg-theme px-2.5 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-theme-tertiary">
+              Route options
+            </span>
+            <span className="truncate text-[10px] text-theme-tertiary">
+              {routeModeCapable ? 'Maps or direct line' : 'Direct line only'}
+            </span>
+          </div>
 
-      {detailsOpen ? (
-        <div className={compact ? 'space-y-2' : 'space-y-2.5'}>
-          <div>
-            <label className="mb-1 block text-[10px] text-theme-tertiary">Route Style</label>
-            {!isGoogleRouteModeCapable(transportMode) ? (
-              <div className="rounded-lg border border-theme bg-theme px-2.5 py-2 text-[11px] text-theme-secondary">
-                <div className="font-semibold text-theme">Straight line</div>
-                <div className="mt-0.5 text-theme-tertiary">
-                  Routed directions are unavailable for Flight and Other.
-                </div>
-              </div>
+          <div className="mt-2 grid flex-1 grid-cols-2 gap-1.5">
+            {routeModeCapable ? (
+              ROUTE_OPTIONS.map((option) => {
+                const active = itemRouteType === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onChange({ transportMode, itemRouteType: option.value })}
+                    className={`flex h-full min-h-[42px] items-center justify-center rounded-lg border px-3 text-[11px] font-semibold transition-all ${
+                      active
+                        ? 'border-[rgba(var(--color-accent),0.35)] bg-[rgba(var(--color-accent),0.12)] text-accent'
+                        : 'border-theme bg-theme-elevated text-theme-secondary hover:bg-theme-subtle hover:text-theme'
+                    }`}
+                    aria-pressed={active}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })
             ) : (
-              <div className="flex rounded-lg border border-theme bg-theme-subtle p-0.5">
-                {ROUTE_OPTIONS.map((option) => {
-                  const active = itemRouteType === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => onChange({ transportMode, itemRouteType: option.value })}
-                      className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition-all ${
-                        active
-                          ? 'bg-theme-elevated text-theme shadow-sm'
-                          : 'text-theme-tertiary hover:text-theme-secondary'
-                      }`}
-                      aria-pressed={active}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+              <div className="col-span-2 flex h-full min-h-[42px] items-center rounded-lg border border-theme bg-theme-elevated px-3 text-[11px] text-theme-secondary">
+                Flight and Other always use a straight line.
               </div>
             )}
-            <p className="mt-1 text-[11px] text-theme-tertiary">
-              Routed uses Google directions. Straight draws a simple line.
-            </p>
+          </div>
+        </div>
+
+        <div className="flex h-full min-h-[88px] rounded-lg border border-theme bg-theme">
+          <div className="min-w-0 flex-1 px-3 py-2">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-theme-tertiary">
+              Estimated time
+            </div>
+            <div className="mt-2 text-[18px] font-semibold leading-none tabular-nums text-theme">
+              {durationLabel}
+            </div>
+            <div className="mt-1 truncate text-[11px] text-theme-tertiary">
+              {durationStatus}
+            </div>
           </div>
 
           {onCalculateRoute ? (
-            <div className="rounded-lg border border-theme bg-theme px-2.5 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-theme">Travel time</div>
-                  <div className="text-[11px] text-theme-tertiary">
-                    {canCalculateRoute
-                      ? 'Use Maps to estimate duration.'
-                      : itemRouteType !== 'directions'
-                        ? isGoogleRouteModeCapable(transportMode)
-                          ? 'Switch route style to Routed to calculate.'
-                          : 'Routed directions are unavailable for this mode.'
-                        : !hasOrigin
-                          ? 'Choose an origin to calculate.'
-                          : !hasDestination
-                            ? 'Add a destination to calculate.'
-                            : 'Unable to calculate travel time.'}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onCalculateRoute}
-                  disabled={!canCalculateRoute || isCalculatingRoute}
-                  className="inline-flex items-center gap-2 rounded-lg border border-theme bg-theme-elevated px-3 py-2 text-xs font-semibold text-theme-secondary transition-colors hover:bg-theme disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isCalculatingRoute ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RotateCw className="h-4 w-4" />
-                  )}
-                  {hasCalculatedRoute ? 'Recalculate' : 'Calculate'}
-                </button>
-              </div>
-              {isCalculatingRoute ? (
-                <div className="mt-1 text-[11px] text-theme-tertiary">Calculating...</div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {openInGoogleMapsUrl ? (
-            <a
-              href={openInGoogleMapsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+            <button
+              type="button"
+              onClick={onCalculateRoute}
+              disabled={!canCalculateRoute || isCalculatingRoute}
+              className="inline-flex w-11 shrink-0 items-center justify-center border-l border-theme bg-theme-elevated text-theme-secondary transition-colors hover:bg-theme-subtle disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={hasCalculatedRoute ? 'Update travel time' : 'Calculate travel time'}
+              title={hasCalculatedRoute ? 'Update travel time' : 'Calculate travel time'}
             >
-              Open route in Google Maps
-            </a>
+              {isCalculatingRoute ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCw className="h-3.5 w-3.5" />
+              )}
+            </button>
           ) : null}
         </div>
-      ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <span className="min-w-0 text-[11px] text-theme-tertiary">{calculateHint}</span>
+        {openInGoogleMapsUrl ? (
+          <a
+            href={openInGoogleMapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-theme-secondary underline-offset-4 transition-colors hover:text-theme hover:underline"
+          >
+            Open in Maps
+          </a>
+        ) : null}
+      </div>
     </div>
   );
 }

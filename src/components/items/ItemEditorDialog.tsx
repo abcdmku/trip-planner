@@ -26,18 +26,31 @@ export function ItemEditorDialog({
   if (!isOpen || !item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative max-h-[88vh] w-full max-w-[560px] overflow-y-auto">
-        <ItemDetailCard
-          item={item}
-          dayColor={dayColor}
-          dayDate={dayDate}
-          density="comfortable"
-          onUpdate={onUpdate}
-          onDelete={onDelete}
-          onClose={onClose}
-        />
+      <div className="relative w-full max-w-[560px]">
+        <div
+          className={`overflow-hidden rounded-2xl border border-theme bg-theme-elevated shadow-theme-lg ${
+            dayColor ? 'border-t-2' : ''
+          }`}
+          style={dayColor ? { borderTopColor: dayColor } : undefined}
+        >
+          <div
+            className="max-h-[88vh] overflow-x-hidden overflow-y-auto overscroll-contain"
+            style={{ scrollbarGutter: 'stable' }}
+          >
+            <ItemDetailCard
+              item={item}
+              dayColor={dayColor}
+              dayDate={dayDate}
+              density="comfortable"
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+              onClose={onClose}
+              embedded
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

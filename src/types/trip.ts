@@ -66,7 +66,7 @@ export interface Item {
   durationMinutes: number;
   notesMd: string;
   photoUrls: string[];
-  availabilityWindows: string; // JSON-encoded array of time windows
+  availabilityWindows: string; // JSON-encoded availability payload (legacy weekly/date or v3 mixed entries)
   isOptional: boolean;
   priority: number;
   sortOrder: number;

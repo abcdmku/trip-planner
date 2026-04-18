@@ -426,6 +426,7 @@ export function AddItemDialog({
                   {isEditingOrigin ? (
                     <div className="space-y-1.5">
                       <PlaceSearch
+                        autoFocus
                         onSelect={(place) => {
                           setSelectedPlace(place);
                           setCustomName('');
@@ -568,6 +569,7 @@ export function AddItemDialog({
                     <div className="space-y-2.5">
                       <div className="space-y-1.5">
                         <PlaceSearch
+                          autoFocus
                           onSelect={(place) => {
                             setDestPlace(place);
                             setIsEditingDestination(false);
@@ -611,6 +613,7 @@ export function AddItemDialog({
                               selectedPlace && destPlace && editor.itemRouteType === 'directions',
                             )}
                             hasCalculatedRoute={Boolean(calculatedRoute)}
+                            travelDurationMinutes={calculatedRoute?.itemRouteDurationMinutes ?? 0}
                           />
                         </div>
                       ) : null}
@@ -671,6 +674,7 @@ export function AddItemDialog({
                               selectedPlace && destPlace && editor.itemRouteType === 'directions',
                             )}
                             hasCalculatedRoute={Boolean(calculatedRoute)}
+                            travelDurationMinutes={calculatedRoute?.itemRouteDurationMinutes ?? 0}
                           />
                         </div>
                       ) : null}
