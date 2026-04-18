@@ -31,6 +31,7 @@ import type { PlaceSearchResult } from './services/maps-repository';
 import { deriveTimelineConnectors, type TimelineConnector, type TimelineConnectorWithTiming } from './lib/connectors';
 import { getAutoDayLabel, getDayDisplayLabel } from './lib/day-labels';
 import { resolveAppendDropAfterLast, minutesToTime } from './lib/timeline-drop';
+import { DEFAULT_TIMELINE_SNAP_MINUTES, normalizeTimelineSnapMinutes } from './lib/timeline-snap';
 import { Plane, Loader2 } from 'lucide-react';
 import type { Day, Item, Leg, Trip, TransportMode, RouteType } from './types/trip';
 import type { PresenceItemPreview, TripListItem } from './types/api';
@@ -39,6 +40,19 @@ import { DragOverlay } from './components/items/DragOverlay';
 import { CursorPresenceOverlay } from './components/presence/CursorPresenceOverlay';
 import { ConflictBanner } from './components/sync/ConflictBanner';
 import { TripShareMenu } from './components/trips/TripShareMenu';
+
+const TIMELINE_SNAP_STORAGE_KEY = 'trip-planner:timeline-snap-minutes';
+
+function loadTimelineSnapMinutes(): number {
+  if (typeof window === 'undefined') return DEFAULT_TIMELINE_SNAP_MINUTES;
+
+  try {
+    const stored = window.localStorage.getItem(TIMELINE_SNAP_STORAGE_KEY);
+    return normalizeTimelineSnapMinutes(stored === null ? undefined : Number(stored));
+  } catch {
+    return DEFAULT_TIMELINE_SNAP_MINUTES;
+  }
+}
 
 function TripSetup({
   onCreateTrip,
@@ -207,6 +221,7 @@ function TripApp({ tripId }: { tripId: string }) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [isDragOverTimeline, setIsDragOverTimeline] = useState(false);
+  const [timelineSnapMinutes, setTimelineSnapMinutes] = useState(loadTimelineSnapMinutes);
   const [suppressedConnectorIds, setSuppressedConnectorIds] = useState<Set<string>>(new Set());
   const [showTimelineConnectors, setShowTimelineConnectors] = useState(true);
   const dragClearTimerRef = useRef<number | null>(null);
@@ -330,6 +345,10 @@ function TripApp({ tripId }: { tripId: string }) {
   const handleExternalDragEnd = useCallback(() => {
     scheduleDragCleanup(true);
   }, [scheduleDragCleanup]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TIMELINE_SNAP_STORAGE_KEY, String(timelineSnapMinutes));
+  }, [timelineSnapMinutes]);
 
   useEffect(() => {
     const handleWindowDrop = () => scheduleDragCleanup(false);
@@ -621,12 +640,13 @@ function TripApp({ tripId }: { tripId: string }) {
         item: draggedItem,
         day,
         scheduledItems: dayScheduledItems,
+        snapMinutes: timelineSnapMinutes,
       });
       validity[day.dayId] = resolution.valid;
     }
 
     return validity;
-  }, [committedItems, days, draggingItemId, getScheduledItemsForDay]);
+  }, [committedItems, days, draggingItemId, getScheduledItemsForDay, timelineSnapMinutes]);
 
   useEffect(() => {
     if (!selectedItemId) return;
@@ -920,8 +940,6 @@ function TripApp({ tripId }: { tripId: string }) {
       'destLng',
       'transportMode',
       'itemRouteType',
-      'scheduledStart',
-      'scheduledEnd',
     ];
     const shouldResetRoute = routeRelevantKeys.some(
       (key) => key in updates && updates[key] !== existing[key],
@@ -971,6 +989,7 @@ function TripApp({ tripId }: { tripId: string }) {
         item,
         day,
         scheduledItems: dayScheduledItems,
+        snapMinutes: timelineSnapMinutes,
       });
       if (!resolution.valid) return;
 
@@ -988,7 +1007,7 @@ function TripApp({ tripId }: { tripId: string }) {
         sortOrder: targetDayItems.length,
       });
     },
-    [days, getScheduledItemsForDay, committedItems, updateItem],
+    [committedItems, days, getScheduledItemsForDay, timelineSnapMinutes, updateItem],
   );
 
   const activeCollaborators = useMemo(
@@ -1162,6 +1181,8 @@ function TripApp({ tripId }: { tripId: string }) {
             selectedDayIds={selectedDayIds ?? []}
             selectedItemId={selectedItemId}
             activeDragItemId={draggingItemId}
+            snapMinutes={timelineSnapMinutes}
+            onSnapMinutesChange={setTimelineSnapMinutes}
             onDragOverTimeline={setIsDragOverTimeline}
             onUpdateItem={(id, updates) => {
               const existing = committedItems.find((i) => i.itemId === id);

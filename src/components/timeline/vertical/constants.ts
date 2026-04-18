@@ -5,7 +5,6 @@ export const TIMELINE_MAX_PX_PER_MIN = 2.4;
 export const TIMELINE_ZOOM_STEP_PX_PER_MIN = 0.2;
 
 export const MIN_BLOCK_H = 22;
-export const SNAP = 5;
 export const GUTTER = 52;
 export const RESIZE_EDGE = 7;
 export const DRAG_THRESH = 5;

@@ -67,6 +67,8 @@ export interface VerticalTimelineProps {
   selectedDayIds?: string[];
   selectedItemId?: string | null;
   activeDragItemId?: string | null;
+  snapMinutes?: number;
+  onSnapMinutesChange?: (minutes: number) => void;
   onDragOverTimeline?: (isOver: boolean) => void;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
   onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
@@ -91,6 +93,7 @@ export interface SingleDayTimelineProps {
   allItems?: Item[];
   pxPerMin: number;
   pxPerHr: number;
+  snapMinutes: number;
   selectedItemId?: string | null;
   activeDragItemId?: string | null;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
@@ -118,6 +121,7 @@ export interface MultiDayColumnProps {
   activeDragItemId?: string | null;
   pxPerMin: number;
   pxPerHr: number;
+  snapMinutes: number;
   globalStartH: number;
   globalEndH: number;
   gTotalH: number;
@@ -170,6 +174,7 @@ export interface UseTimelinePointerInteractionOptions {
   getScrollTop: () => number;
   startHourRef: MutableRefObject<number>;
   pxPerMin: number;
+  snapMinutes: number;
   itemsById: Map<string, Item>;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
   onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;

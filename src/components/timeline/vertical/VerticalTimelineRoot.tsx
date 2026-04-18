@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { deriveTimelineConnectorsWithTiming } from '@/lib/connectors';
 import { resolvePointDropNearest } from '@/lib/timeline-drop';
+import { DEFAULT_TIMELINE_SNAP_MINUTES } from '@/lib/timeline-snap';
 import {
   PX_PER_MIN,
-  SNAP,
+  TIME_AXIS_W,
   TIMELINE_MAX_PX_PER_MIN,
   TIMELINE_MIN_PX_PER_MIN,
   TIMELINE_ZOOM_STEP_PX_PER_MIN,
@@ -31,6 +32,8 @@ export function VerticalTimeline({
   selectedDayIds = [],
   selectedItemId = null,
   activeDragItemId = null,
+  snapMinutes,
+  onSnapMinutesChange,
   onDragOverTimeline,
   onUpdateItem,
   onLiveItemPreviewChange,
@@ -50,7 +53,11 @@ export function VerticalTimeline({
   const [viewMode, setViewMode] = useState<ViewMode>('multi');
   const [focusedDayId, setFocusedDayId] = useState<string | null>(selectedDayIds[0] ?? days[0]?.dayId ?? null);
   const [pxPerMin, setPxPerMin] = useState(PX_PER_MIN);
+  const [internalSnapMinutes, setInternalSnapMinutes] = useState(DEFAULT_TIMELINE_SNAP_MINUTES);
+  const hasAutoRevealedDayRef = useRef(false);
   const pxPerHr = pxPerMin * 60;
+  const effectiveSnapMinutes = snapMinutes ?? internalSnapMinutes;
+  const setEffectiveSnapMinutes = onSnapMinutesChange ?? setInternalSnapMinutes;
 
   const orderedDays = useMemo(() => [...days].sort((a, b) => a.date.localeCompare(b.date)), [days]);
   const timelineItemsByDay = useMemo(() => buildTimelineRenderItemsByDay(orderedDays, items), [items, orderedDays]);
@@ -93,6 +100,7 @@ export function VerticalTimeline({
     items,
     itemsById,
     activeDragItemId,
+    snapMinutes: effectiveSnapMinutes,
     onUpdateItem,
     getScheduledItemsForDay,
   });
@@ -172,20 +180,28 @@ export function VerticalTimeline({
     if (!hasFocusedDay) setFocusedDayId(orderedDays[0].dayId);
   }, [focusedDayId, orderedDays, selectedDayId]);
 
-  const centerDay = useCallback((dayId: string, behavior: ScrollBehavior = 'smooth') => {
+  const scrollDayIntoView = useCallback((dayId: string, behavior: ScrollBehavior = 'smooth') => {
     const scroller = scrollerRef.current;
     const target = dayColumnRefs.current[dayId];
     if (!scroller || !target) return;
 
-    const nextLeft = target.offsetLeft - (scroller.clientWidth - target.clientWidth) / 2;
-    scroller.scrollTo({ left: Math.max(0, nextLeft), behavior });
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const targetLeft = scroller.scrollLeft + (targetRect.left - scrollerRect.left);
+    const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const nextLeft = Math.max(0, Math.min(maxLeft, targetLeft - TIME_AXIS_W));
+    scroller.scrollTo({ left: nextLeft, behavior });
   }, []);
 
   useEffect(() => {
     if (viewMode !== 'multi' || !effectiveDayId) return;
-    const frame = requestAnimationFrame(() => centerDay(effectiveDayId));
+    const behavior = hasAutoRevealedDayRef.current ? 'smooth' : 'auto';
+    const frame = requestAnimationFrame(() => {
+      scrollDayIntoView(effectiveDayId, behavior);
+      hasAutoRevealedDayRef.current = true;
+    });
     return () => cancelAnimationFrame(frame);
-  }, [centerDay, effectiveDayId, viewMode]);
+  }, [effectiveDayId, scrollDayIntoView, viewMode]);
 
   const activeDay = effectiveDayId ? orderedDays.find((day) => day.dayId === effectiveDayId) ?? null : null;
 
@@ -261,12 +277,13 @@ export function VerticalTimeline({
             const rawY = clientY - bodyRect.top;
             const anchorMin = snapM(
               Math.max(0, Math.min(1440 - duration, rawY / pxPerMin + globalRange.startH * 60)),
-              SNAP,
+              effectiveSnapMinutes,
             );
             const resolution = resolvePointDropNearest({
               item: sourceItem,
               day,
               anchorMin,
+              snapMinutes: effectiveSnapMinutes,
             });
             if (!resolution.valid) return null;
             return {
@@ -340,7 +357,7 @@ export function VerticalTimeline({
       document.addEventListener('pointermove', handleMove);
       document.addEventListener('pointerup', handleUp);
     },
-    [emitLiveItemPreview, globalRange.startH, itemsById, onUpdateItem, orderedDays, pxPerMin],
+    [effectiveSnapMinutes, emitLiveItemPreview, globalRange.startH, itemsById, onUpdateItem, orderedDays, pxPerMin],
   );
 
   if (!orderedDays.length) {
@@ -364,6 +381,7 @@ export function VerticalTimeline({
         canZoomOut={canZoomOut}
         canZoomIn={canZoomIn}
         zoomPercent={Math.round((pxPerMin / PX_PER_MIN) * 100)}
+        snapMinutes={effectiveSnapMinutes}
         onPrev={() => {
           if (!showPrev) return;
           const prev = orderedDays[effectiveDayIndex - 1];
@@ -377,6 +395,7 @@ export function VerticalTimeline({
         onZoomOut={() => updateZoom(pxPerMin - TIMELINE_ZOOM_STEP_PX_PER_MIN)}
         onZoomIn={() => updateZoom(pxPerMin + TIMELINE_ZOOM_STEP_PX_PER_MIN)}
         onResetZoom={() => updateZoom(PX_PER_MIN)}
+        onSnapMinutesChange={setEffectiveSnapMinutes}
         onModeChange={setViewMode}
         showConnectors={showTimelineConnectors}
         onToggleConnectors={onToggleTimelineConnectors}
@@ -408,6 +427,7 @@ export function VerticalTimeline({
             showConnectors={showTimelineConnectors}
             pxPerMin={pxPerMin}
             pxPerHr={pxPerHr}
+            snapMinutes={effectiveSnapMinutes}
           />
         </div>
       ) : (
@@ -435,6 +455,7 @@ export function VerticalTimeline({
                     allItems={items}
                     pxPerMin={pxPerMin}
                     pxPerHr={pxPerHr}
+                    snapMinutes={effectiveSnapMinutes}
                     globalStartH={globalRange.startH}
                     globalEndH={globalRange.endH}
                     gTotalH={gTotalH}
@@ -454,7 +475,7 @@ export function VerticalTimeline({
                     onCreateAtTime={onCreateAtTime}
                     onFocusDay={() => {
                       setFocusedDayId(day.dayId);
-                      centerDay(day.dayId);
+                      scrollDayIntoView(day.dayId);
                     }}
                     resolveExternalDrop={resolveExternalDrop}
                     commitExternalDrop={commitExternalDrop}

@@ -1,10 +1,10 @@
 import { isRangeAllowedForDate } from '@/lib/availability';
 import { toMinutesOfDay } from '@/lib/date-time';
+import { DEFAULT_TIMELINE_SNAP_MINUTES } from '@/lib/timeline-snap';
 import type { Day, Item } from '@/types/trip';
 
 export const TIMELINE_ITEM_DRAG_MIME = 'application/x-trip-item-id';
 export const DEFAULT_DRAG_DURATION_MINUTES = 60;
-const SNAP_MINUTES = 5;
 const MAX_MINUTE_OF_DAY = 24 * 60;
 
 export type ExternalDropMode = 'point' | 'append';
@@ -20,12 +20,14 @@ interface PointDropParams {
   item: Item;
   day: Day;
   anchorMin: number;
+  snapMinutes?: number;
 }
 
 interface AppendDropParams {
   item: Item;
   day: Day;
   scheduledItems: Item[];
+  snapMinutes?: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -90,18 +92,28 @@ export function getDragDurationMinutes(item: Item): number {
   const start = toMinutesOfDay(item.scheduledStart);
   const end = toMinutesOfDay(item.scheduledEnd);
   if (start !== null && end !== null && end > start) {
-    return Math.max(SNAP_MINUTES, end - start);
+    return Math.max(1, end - start);
   }
 
   const raw = Number(item.durationMinutes);
   if (!Number.isFinite(raw) || raw <= 0) {
     return DEFAULT_DRAG_DURATION_MINUTES;
   }
-  return Math.max(SNAP_MINUTES, Math.round(raw));
+  return Math.max(1, Math.round(raw));
 }
 
-export function snapToFiveMinutes(minutes: number): number {
-  return Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES;
+export function snapToTimelineMinutes(
+  minutes: number,
+  snapMinutes = DEFAULT_TIMELINE_SNAP_MINUTES,
+): number {
+  return Math.round(minutes / snapMinutes) * snapMinutes;
+}
+
+export function snapUpToTimelineMinutes(
+  minutes: number,
+  snapMinutes = DEFAULT_TIMELINE_SNAP_MINUTES,
+): number {
+  return Math.ceil(minutes / snapMinutes) * snapMinutes;
 }
 
 export function minutesToTime(minutes: number): string {
@@ -112,10 +124,11 @@ export function resolvePointDropNearest({
   item,
   day,
   anchorMin,
+  snapMinutes = DEFAULT_TIMELINE_SNAP_MINUTES,
 }: PointDropParams): DropResolution {
   const durationMinutes = getDragDurationMinutes(item);
   const maxStart = Math.max(0, MAX_MINUTE_OF_DAY - durationMinutes);
-  const snappedAnchor = clamp(snapToFiveMinutes(anchorMin), 0, maxStart);
+  const snappedAnchor = clamp(snapToTimelineMinutes(anchorMin, snapMinutes), 0, maxStart);
 
   if (isCandidateAllowed(item, day, snappedAnchor, durationMinutes)) {
     return {
@@ -126,7 +139,7 @@ export function resolvePointDropNearest({
     };
   }
 
-  for (let offset = SNAP_MINUTES; offset <= MAX_MINUTE_OF_DAY; offset += SNAP_MINUTES) {
+  for (let offset = snapMinutes; offset <= MAX_MINUTE_OF_DAY; offset += snapMinutes) {
     const forward = snappedAnchor + offset;
     const backward = snappedAnchor - offset;
 
@@ -171,6 +184,7 @@ export function resolveAppendDropAfterLast({
   item,
   day,
   scheduledItems,
+  snapMinutes = DEFAULT_TIMELINE_SNAP_MINUTES,
 }: AppendDropParams): DropResolution {
   const durationMinutes = getDragDurationMinutes(item);
   const maxStart = Math.max(0, MAX_MINUTE_OF_DAY - durationMinutes);
@@ -183,9 +197,9 @@ export function resolveAppendDropAfterLast({
 
   const dayStart = parseTimeToMinutes(day.dayStart, 0);
   const appendAnchor = lastScheduledEnd >= 0 ? lastScheduledEnd : dayStart;
-  const startFrom = clamp(snapToFiveMinutes(appendAnchor), 0, maxStart);
+  const startFrom = clamp(snapUpToTimelineMinutes(appendAnchor, snapMinutes), 0, maxStart);
 
-  for (let candidate = startFrom; candidate <= maxStart; candidate += SNAP_MINUTES) {
+  for (let candidate = startFrom; candidate <= maxStart; candidate += snapMinutes) {
     if (!isCandidateAllowed(item, day, candidate, durationMinutes)) {
       continue;
     }

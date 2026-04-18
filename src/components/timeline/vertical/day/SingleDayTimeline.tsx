@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
-import { SNAP } from '../constants';
 import { mToY, snapM, toMins } from '../time';
 import type { ExternalDragPreview, SingleDayTimelineProps } from '../types';
 import { useTimelinePointerInteraction } from '../useTimelinePointerInteraction';
@@ -14,6 +13,7 @@ export function SingleDayTimeline({
   allItems,
   pxPerMin,
   pxPerHr,
+  snapMinutes,
   selectedItemId,
   activeDragItemId,
   onUpdateItem,
@@ -111,6 +111,7 @@ export function SingleDayTimeline({
     onItemDoubleClick,
     onCreateAtTime,
     pxPerMin,
+    snapMinutes,
   });
 
   const clearPointDropPreview = useCallback(() => {
@@ -123,8 +124,8 @@ export function SingleDayTimeline({
     if (!rect) return startHRef.current * 60;
 
     const rawY = e.clientY - rect.top + (scrollRef.current?.scrollTop ?? 0);
-    return snapM(Math.max(0, Math.min(1440, rawY / pxPerMin + startHRef.current * 60)), SNAP);
-  }, [pxPerMin]);
+    return snapM(Math.max(0, Math.min(1440, rawY / pxPerMin + startHRef.current * 60)), snapMinutes);
+  }, [pxPerMin, snapMinutes]);
 
   const handleExternalPointDragOver = useCallback(
     (e: React.DragEvent) => {

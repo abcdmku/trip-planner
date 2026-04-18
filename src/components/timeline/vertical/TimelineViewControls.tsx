@@ -1,4 +1,5 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Link2, Link2Off, Minus, Plus } from 'lucide-react';
+import { TIMELINE_SNAP_MINUTE_OPTIONS } from '@/lib/timeline-snap';
 import type { ViewMode } from './types';
 
 interface TimelineViewControlsProps {
@@ -8,11 +9,13 @@ interface TimelineViewControlsProps {
   canZoomOut: boolean;
   canZoomIn: boolean;
   zoomPercent: number;
+  snapMinutes: number;
   onPrev: () => void;
   onNext: () => void;
   onZoomOut: () => void;
   onZoomIn: () => void;
   onResetZoom: () => void;
+  onSnapMinutesChange: (minutes: number) => void;
   onModeChange: (mode: ViewMode) => void;
   /** Whether auto-connect lines are shown */
   showConnectors?: boolean;
@@ -27,11 +30,13 @@ export function TimelineViewControls({
   canZoomOut,
   canZoomIn,
   zoomPercent,
+  snapMinutes,
   onPrev,
   onNext,
   onZoomOut,
   onZoomIn,
   onResetZoom,
+  onSnapMinutesChange,
   onModeChange,
   showConnectors = true,
   onToggleConnectors,
@@ -108,6 +113,24 @@ export function TimelineViewControls({
             <Plus className="h-3.5 w-3.5" />
           </button>
         </div>
+
+        <label className="inline-flex items-center overflow-hidden rounded-md border border-theme bg-theme">
+          <span className="border-r border-theme px-2 text-[10px] font-semibold uppercase tracking-wide text-theme-tertiary">
+            Snap
+          </span>
+          <select
+            value={snapMinutes}
+            onChange={(e) => onSnapMinutesChange(Number(e.target.value))}
+            className="h-7 bg-transparent px-2 text-[11px] font-medium text-theme-secondary outline-none"
+            title="Timeline snap interval"
+          >
+            {TIMELINE_SNAP_MINUTE_OPTIONS.map((minutes) => (
+              <option key={minutes} value={minutes}>
+                {minutes} min
+              </option>
+            ))}
+          </select>
+        </label>
 
         <div className="inline-flex rounded-md border border-theme bg-theme p-0.5">
           <button

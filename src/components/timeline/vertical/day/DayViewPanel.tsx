@@ -17,6 +17,7 @@ interface DayViewPanelProps {
   dayItems: Item[];
   pxPerMin: number;
   pxPerHr: number;
+  snapMinutes: number;
   selectedItemId: string | null;
   activeDragItemId: string | null;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
@@ -47,6 +48,7 @@ export function DayViewPanel({
   dayItems,
   pxPerMin,
   pxPerHr,
+  snapMinutes,
   selectedItemId,
   activeDragItemId,
   onUpdateItem,
@@ -99,6 +101,7 @@ export function DayViewPanel({
           allItems={items}
           pxPerMin={pxPerMin}
           pxPerHr={pxPerHr}
+          snapMinutes={snapMinutes}
           selectedItemId={selectedItemId}
           activeDragItemId={activeDragItemId}
           onUpdateItem={onUpdateItem}

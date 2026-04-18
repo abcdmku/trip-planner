@@ -8,6 +8,7 @@ interface UseExternalTimelineDropOptions {
   items: Item[];
   itemsById: Map<string, Item>;
   activeDragItemId: string | null;
+  snapMinutes: number;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
   getScheduledItemsForDay: (dayId: string, excludeItemId: string) => Item[];
 }
@@ -16,6 +17,7 @@ export function useExternalTimelineDrop({
   items,
   itemsById,
   activeDragItemId,
+  snapMinutes,
   onUpdateItem,
   getScheduledItemsForDay,
 }: UseExternalTimelineDropOptions) {
@@ -42,8 +44,13 @@ export function useExternalTimelineDrop({
       const scheduledItems = getScheduledItemsForDay(day.dayId, itemId);
       const resolution =
         mode === 'append'
-          ? resolveAppendDropAfterLast({ item, day, scheduledItems })
-          : resolvePointDropNearest({ item, day, anchorMin: anchorMin ?? toMins(day.dayStart || '08:00') });
+          ? resolveAppendDropAfterLast({ item, day, scheduledItems, snapMinutes })
+          : resolvePointDropNearest({
+              item,
+              day,
+              anchorMin: anchorMin ?? toMins(day.dayStart || '08:00'),
+              snapMinutes,
+            });
 
       return {
         itemId,
@@ -55,7 +62,7 @@ export function useExternalTimelineDrop({
         durationMinutes: resolution.durationMinutes,
       };
     },
-    [getScheduledItemsForDay, itemsById],
+    [getScheduledItemsForDay, itemsById, snapMinutes],
   );
 
   const commitExternalDrop = useCallback<CommitExternalDrop>(

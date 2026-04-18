@@ -8,7 +8,6 @@ import {
   DRAG_THRESH,
   MIN_BLOCK_H,
   RESIZE_EDGE,
-  SNAP,
 } from './constants';
 import { mToY, snapM, toMins, toTime } from './time';
 import { handlePointerRelease } from './pointerRelease';
@@ -64,17 +63,19 @@ function findNearestSnappedValue({
   desired,
   min,
   max,
+  snapMinutes,
   isValid,
 }: {
   desired: number;
   min: number;
   max: number;
+  snapMinutes: number;
   isValid: (value: number) => boolean;
 }): number {
-  const snapped = clamp(snapM(desired, SNAP), min, max);
+  const snapped = clamp(snapM(desired, snapMinutes), min, max);
   if (isValid(snapped)) return snapped;
 
-  for (let offset = SNAP; offset <= 24 * 60; offset += SNAP) {
+  for (let offset = snapMinutes; offset <= 24 * 60; offset += snapMinutes) {
     const forward = snapped + offset;
     const backward = snapped - offset;
     const forwardInBounds = forward <= max;
@@ -111,7 +112,7 @@ export function useTimelinePointerInteraction(
     if (!pointer.activated && Math.abs(deltaY) < DRAG_THRESH) return;
     pointer.activated = true;
 
-    const { contentRef, onMoveOutOfBounds, startHourRef, pxPerMin } = optsRef.current;
+    const { contentRef, onMoveOutOfBounds, startHourRef, pxPerMin, snapMinutes } = optsRef.current;
 
     // Cross-day detection: if moving an item and pointer leaves column bounds
     if (pointer.action === 'move' && pointer.itemId && onMoveOutOfBounds) {
@@ -144,7 +145,7 @@ export function useTimelinePointerInteraction(
     const rawY = e.clientY - pointer.containerTop + scrollTop;
     const currentMin = snapM(
       Math.max(0, Math.min(1440, rawY / pxPerMin + startHourRef.current * 60)),
-      SNAP,
+      snapMinutes,
     );
 
     switch (pointer.action) {
@@ -152,14 +153,14 @@ export function useTimelinePointerInteraction(
         const low = Math.min(pointer.anchorMin, currentMin);
         const high = Math.max(pointer.anchorMin, currentMin);
         pointer.curStartMin = low;
-        pointer.curEndMin = Math.max(low + SNAP, high);
+        pointer.curEndMin = Math.max(low + snapMinutes, high);
         setInteraction({ type: 'creating', startMin: pointer.curStartMin, endMin: pointer.curEndMin });
         break;
       }
       case 'move': {
         const origStart = pointer.origStartMin ?? 0;
         const origEnd = pointer.origEndMin ?? origStart + DEFAULT_DUR;
-        const duration = Math.max(SNAP, origEnd - origStart);
+        const duration = Math.max(1, origEnd - origStart);
         const desiredStart = origStart + (currentMin - pointer.anchorMin);
 
         const sourceItem = pointer.itemId ? optsRef.current.itemsById.get(pointer.itemId) : undefined;
@@ -171,6 +172,7 @@ export function useTimelinePointerInteraction(
           desired: desiredStart,
           min: 0,
           max: Math.max(0, 1440 - duration),
+          snapMinutes,
           isValid: (candidateStart) =>
             isRangeWithinAvailabilityRanges(ranges, candidateStart, candidateStart + duration),
         });
@@ -192,7 +194,7 @@ export function useTimelinePointerInteraction(
         const delta = currentMin - pointer.anchorMin;
         const desiredStart = Math.max(
           0,
-          Math.min((pointer.origStartMin ?? 0) + delta, (pointer.origEndMin ?? 0) - SNAP),
+          Math.min((pointer.origStartMin ?? 0) + delta, (pointer.origEndMin ?? 0) - snapMinutes),
         );
         const endMin = pointer.origEndMin ?? pointer.curEndMin;
         const sourceItem = pointer.itemId ? optsRef.current.itemsById.get(pointer.itemId) : undefined;
@@ -203,7 +205,8 @@ export function useTimelinePointerInteraction(
         pointer.curStartMin = findNearestSnappedValue({
           desired: desiredStart,
           min: 0,
-          max: Math.max(0, endMin - SNAP),
+          max: Math.max(0, endMin - snapMinutes),
+          snapMinutes,
           isValid: (candidateStart) =>
             isRangeWithinAvailabilityRanges(ranges, candidateStart, endMin),
         });
@@ -228,7 +231,7 @@ export function useTimelinePointerInteraction(
         const delta = currentMin - pointer.anchorMin;
         const desiredEnd = Math.min(
           1440,
-          Math.max((pointer.origEndMin ?? 0) + delta, (pointer.origStartMin ?? 0) + SNAP),
+          Math.max((pointer.origEndMin ?? 0) + delta, (pointer.origStartMin ?? 0) + snapMinutes),
         );
         const startMin = pointer.origStartMin ?? pointer.curStartMin;
         const sourceItem = pointer.itemId ? optsRef.current.itemsById.get(pointer.itemId) : undefined;
@@ -238,8 +241,9 @@ export function useTimelinePointerInteraction(
 
         pointer.curEndMin = findNearestSnappedValue({
           desired: desiredEnd,
-          min: Math.min(1440, startMin + SNAP),
+          min: Math.min(1440, startMin + snapMinutes),
           max: 1440,
+          snapMinutes,
           isValid: (candidateEnd) =>
             isRangeWithinAvailabilityRanges(ranges, startMin, candidateEnd),
         });
@@ -324,7 +328,7 @@ export function useTimelinePointerInteraction(
       origStart?: number,
       origEnd?: number,
     ) => {
-      const { contentRef, getScrollTop, startHourRef, pxPerMin } = optsRef.current;
+      const { contentRef, getScrollTop, startHourRef, pxPerMin, snapMinutes } = optsRef.current;
       const contentElement = contentRef.current;
       if (!contentElement) return;
 
@@ -333,7 +337,7 @@ export function useTimelinePointerInteraction(
       const rawY = e.clientY - rect.top + getScrollTop();
       const anchorMin = snapM(
         Math.max(0, Math.min(1440, rawY / pxPerMin + startHourRef.current * 60)),
-        SNAP,
+        snapMinutes,
       );
 
       document.body.style.cursor =

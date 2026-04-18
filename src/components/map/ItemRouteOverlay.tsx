@@ -86,6 +86,39 @@ type ComputedRoute = {
   durationMinutes: number;
 };
 
+export function buildItemRouteSignature(item: Item): string {
+  return routeSignature(item);
+}
+
+export function resolveItemRouteRenderState(
+  item: Item,
+  computedRoutes: Record<string, ComputedRoute>,
+): {
+  cachedRoute: ComputedRoute | null;
+  encodedPath: string;
+  isStraight: boolean;
+} {
+  const cachedRoute = computedRoutes[item.itemId];
+  const matchingCachedRoute =
+    cachedRoute && cachedRoute.signature === buildItemRouteSignature(item)
+      ? cachedRoute
+      : null;
+
+  if (item.itemRouteType === 'straight') {
+    return {
+      cachedRoute: matchingCachedRoute,
+      encodedPath: '',
+      isStraight: true,
+    };
+  }
+
+  return {
+    cachedRoute: matchingCachedRoute,
+    encodedPath: item.itemRoutePathEncoded || matchingCachedRoute?.routePathEncoded || '',
+    isStraight: false,
+  };
+}
+
 export default function ItemRouteOverlay({
   items,
   days,
@@ -96,6 +129,7 @@ export default function ItemRouteOverlay({
   const selectedSet = selectedDayIds && selectedDayIds.length > 0 ? new Set(selectedDayIds) : null;
   const [computedRoutes, setComputedRoutes] = useState<Record<string, ComputedRoute>>({});
   const inflightRef = useRef<Set<string>>(new Set());
+  const visibleRouteSignaturesRef = useRef<Map<string, string>>(new Map());
 
   const visible = items.filter((item) => {
     if (!item.scheduledStart) return false;
@@ -106,24 +140,59 @@ export default function ItemRouteOverlay({
   });
 
   useEffect(() => {
-    let cancelled = false;
+    visibleRouteSignaturesRef.current = new Map(
+      visible.map((item) => [item.itemId, buildItemRouteSignature(item)]),
+    );
+  }, [visible]);
 
+  useEffect(() => {
+    setComputedRoutes((prev) => {
+      let next = prev;
+
+      for (const item of visible) {
+        if (item.itemRouteType !== 'directions' || !item.itemRoutePathEncoded) continue;
+
+        const signature = buildItemRouteSignature(item);
+        const existing = prev[item.itemId];
+        const matchesExisting =
+          existing &&
+          existing.signature === signature &&
+          existing.routePathEncoded === item.itemRoutePathEncoded &&
+          existing.distanceMeters === item.itemRouteDistanceMeters &&
+          existing.durationMinutes === item.itemRouteDurationMinutes;
+
+        if (matchesExisting) continue;
+
+        if (next === prev) {
+          next = { ...prev };
+        }
+
+        next[item.itemId] = {
+          signature,
+          routePathEncoded: item.itemRoutePathEncoded,
+          distanceMeters: item.itemRouteDistanceMeters,
+          durationMinutes: item.itemRouteDurationMinutes,
+        };
+      }
+
+      return next;
+    });
+  }, [visible]);
+
+  useEffect(() => {
     const candidates = visible.filter((item) => {
-      if (item.itemRouteType !== 'directions') return false;
+      const routeState = resolveItemRouteRenderState(item, computedRoutes);
+      if (routeState.isStraight) return false;
       if (item.transportMode === 'flight' || item.transportMode === 'other') return false;
-      if (item.itemRoutePathEncoded) return false;
+      if (routeState.encodedPath) return false;
 
       const key = item.itemId;
       if (inflightRef.current.has(key)) return false;
 
-      const sig = routeSignature(item);
-      const cached = computedRoutes[key];
-      if (cached && cached.signature === sig && cached.routePathEncoded) return false;
-
       return true;
     });
 
-    if (candidates.length === 0) return () => { cancelled = true; };
+    if (candidates.length === 0) return;
 
     for (const item of candidates) {
       const key = item.itemId;
@@ -137,41 +206,48 @@ export default function ItemRouteOverlay({
         )
         .then((result) => {
           inflightRef.current.delete(key);
-          if (cancelled) return;
           if (!result?.routePathEncoded) return;
 
           const signature = routeSignature(item);
-          setComputedRoutes((prev) => ({
-            ...prev,
-            [key]: {
-              signature,
-              routePathEncoded: result.routePathEncoded,
-              distanceMeters: result.distanceMeters,
-              durationMinutes: result.durationMinutes,
-            },
-          }));
+          setComputedRoutes((prev) => {
+            const currentSignature = visibleRouteSignaturesRef.current.get(key);
+            if (currentSignature !== signature) return prev;
+
+            const existing = prev[key];
+            if (
+              existing &&
+              existing.signature === signature &&
+              existing.routePathEncoded === result.routePathEncoded &&
+              existing.distanceMeters === result.distanceMeters &&
+              existing.durationMinutes === result.durationMinutes
+            ) {
+              return prev;
+            }
+
+            return {
+              ...prev,
+              [key]: {
+                signature,
+                routePathEncoded: result.routePathEncoded,
+                distanceMeters: result.distanceMeters,
+                durationMinutes: result.durationMinutes,
+              },
+            };
+          });
         })
         .catch(() => {
           inflightRef.current.delete(key);
         });
     }
 
-    return () => {
-      cancelled = true;
-    };
   }, [computedRoutes, visible]);
 
   // Compute midpoints and durations for ALL routes (including polylines without duration)
   const routeMidpoints = useMemo(() => {
     return visible
       .map((item) => {
-        const cached = computedRoutes[item.itemId];
-        const cachedEncoded =
-          cached && cached.signature === routeSignature(item)
-            ? cached.routePathEncoded
-            : '';
-        const encodedPath = item.itemRoutePathEncoded || cachedEncoded;
-        const isStraight = item.itemRouteType === 'straight' || !encodedPath;
+        const routeState = resolveItemRouteRenderState(item, computedRoutes);
+        const { cachedRoute, encodedPath, isStraight } = routeState;
         let midpoint: { lat: number; lng: number } | null = null;
 
         if (isStraight) {
@@ -196,8 +272,8 @@ export default function ItemRouteOverlay({
 
         // Calculate distance for all routes
         let distanceMeters = item.itemRouteDistanceMeters;
-        if (!distanceMeters && cached && cached.signature === routeSignature(item)) {
-          distanceMeters = cached.distanceMeters;
+        if (!distanceMeters && cachedRoute) {
+          distanceMeters = cachedRoute.distanceMeters;
         }
         if (!distanceMeters && hasCoordinates(item.lat, item.lng) && hasCoordinates(item.destLat, item.destLng)) {
           distanceMeters = haversineDistance(
@@ -214,14 +290,9 @@ export default function ItemRouteOverlay({
   return (
     <>
       {visible.map((item) => {
-        const cached = computedRoutes[item.itemId];
-        const cachedEncoded =
-          cached && cached.signature === routeSignature(item)
-            ? cached.routePathEncoded
-            : '';
-        const encodedPath = item.itemRoutePathEncoded || cachedEncoded;
+        const { encodedPath, isStraight } = resolveItemRouteRenderState(item, computedRoutes);
         const color = dayColorMap.get(item.dayId) ?? '#4285F4';
-        const isStraight = item.itemRouteType === 'straight' || !encodedPath;
+        if (!isStraight && !encodedPath) return null;
         return (
           <RoutePath
             key={`item-route-${item.itemId}`}
@@ -238,16 +309,16 @@ export default function ItemRouteOverlay({
 
       {/* Duration/Distance labels at route midpoints */}
       {routeMidpoints.map(({ item, midpoint, distanceMeters }) => {
-        const cached = computedRoutes[item.itemId];
+        const { cachedRoute } = resolveItemRouteRenderState(item, computedRoutes);
         const color = dayColorMap.get(item.dayId) ?? '#4285F4';
         const effectiveDurationMinutes =
           item.itemRouteDurationMinutes > 0
             ? item.itemRouteDurationMinutes
-            : cached && cached.signature === routeSignature(item) && cached.durationMinutes > 0
-              ? cached.durationMinutes
-            : item.transportMode === 'flight'
-              ? estimateFlightDurationMinutes(distanceMeters)
-              : 0;
+            : cachedRoute && cachedRoute.durationMinutes > 0
+              ? cachedRoute.durationMinutes
+              : item.transportMode === 'flight'
+                ? estimateFlightDurationMinutes(distanceMeters)
+                : 0;
         const duration = formatTravelDuration(effectiveDurationMinutes);
         const distance = formatDistance(distanceMeters);
         const modeEmoji = MODE_EMOJI[item.transportMode] ?? '';

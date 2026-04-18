@@ -11,7 +11,7 @@ interface MultiViewTimeAxisProps {
 export function MultiViewTimeAxis({ globalStartH, gHours, gTotalH, pxPerHr }: MultiViewTimeAxisProps) {
   return (
     <div
-      className="sticky left-0 z-20 flex-shrink-0 border-r border-theme-subtle bg-theme"
+      className="sticky left-0 z-20 flex-shrink-0 border-r border-theme-subtle bg-theme py-2"
       style={{ width: TIME_AXIS_W }}
     >
       <div className="sticky top-0 z-30 border-b border-theme-subtle bg-theme" style={{ height: MULTI_HEADER_H }} />

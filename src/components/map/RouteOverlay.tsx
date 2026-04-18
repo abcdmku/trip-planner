@@ -93,11 +93,9 @@ export default function RouteOverlay({
           if (!selectedDaySet.has(dayId)) return null;
         }
 
-        // For straight-line legs, we render via fromLatLng/toLatLng.
-        const isStraight = leg.routeType === 'straight' || !leg.routePathEncoded;
-
-        // Skip legs without a route polyline AND without straight-line data.
-        if (!leg.routePathEncoded && !isStraight) return null;
+        // Only render a straight segment when the leg is explicitly marked straight.
+        const isStraight = leg.routeType === 'straight';
+        if (!isStraight && !leg.routePathEncoded) return null;
 
         // Compute feasibility colour.
         // For start legs, use a neutral colour since there's no fromItem schedule.

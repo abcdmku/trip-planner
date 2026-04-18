@@ -1,3 +1,5 @@
+import { DEFAULT_TIMELINE_SNAP_MINUTES } from '@/lib/timeline-snap';
+
 export function toMins(value: string): number {
   if (!value) return 0;
   const part = value.includes('T') ? value.split('T')[1] : value;
@@ -19,7 +21,7 @@ export function displayShort(value: string): string {
   return minutes ? `${hour12}:${String(minutes).padStart(2, '0')}${suffix}` : `${hour12}${suffix}`;
 }
 
-export function snapM(minutes: number, snapSize = 5): number {
+export function snapM(minutes: number, snapSize = DEFAULT_TIMELINE_SNAP_MINUTES): number {
   return Math.round(minutes / snapSize) * snapSize;
 }
 
