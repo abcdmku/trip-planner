@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import type { Day } from '../../types/trip';
+import { getDayDisplayLabel } from '@/lib/day-labels';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
 
 interface DayTabsProps {
@@ -92,6 +93,7 @@ export function DayTabs({
         const isSelected = day.dayId === selectedDayId;
         const isDropTarget = draggingItemId && !isSelected;
         const isValidTarget = dropValidityByDay?.[day.dayId] ?? true;
+        const displayLabel = getDayDisplayLabel(day);
 
         return (
           <button
@@ -115,7 +117,7 @@ export function DayTabs({
                 className={`h-2 w-2 rounded-full ${isSelected ? 'bg-white/50' : ''}`}
                 style={!isSelected ? { backgroundColor: day.colorHex } : undefined}
               />
-              <span className="whitespace-nowrap">{day.label}</span>
+              <span className="whitespace-nowrap">{displayLabel}</span>
             </div>
             <span className={`text-[10px] leading-tight ${isSelected ? 'text-white/70' : 'text-theme-tertiary'}`}>
               {day.date}

@@ -1,16 +1,18 @@
-import { useState, useRef, useEffect } from 'react';
-import { Compass, RefreshCw, Check, AlertTriangle, LogOut, ChevronDown, Sun, Moon, Monitor } from 'lucide-react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { Compass, RefreshCw, Check, AlertTriangle, LogOut, ChevronDown, Sun, Moon, Monitor, WifiOff } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
 interface NavbarProps {
   tripName?: string;
   onTripNameChange?: (name: string) => void;
-  syncStatus?: 'synced' | 'syncing' | 'error';
+  syncStatus?: 'synced' | 'syncing' | 'error' | 'offline';
   user?: { name: string; picture: string };
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
+  shareControl?: ReactNode;
+  activeCollaborators?: Array<{ userId: string; name: string; picture: string; color: string }>;
 }
 
-function SyncBadge({ status }: { status: 'synced' | 'syncing' | 'error' }) {
+function SyncBadge({ status }: { status: 'synced' | 'syncing' | 'error' | 'offline' }) {
   if (status === 'syncing') {
     return (
       <span className="flex items-center gap-1.5 text-xs text-theme-secondary">
@@ -24,6 +26,14 @@ function SyncBadge({ status }: { status: 'synced' | 'syncing' | 'error' }) {
       <span className="flex items-center gap-1.5 text-xs text-red-500">
         <AlertTriangle className="h-3 w-3" />
         <span className="hidden sm:inline">Error</span>
+      </span>
+    );
+  }
+  if (status === 'offline') {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-amber-500">
+        <WifiOff className="h-3 w-3" />
+        <span className="hidden sm:inline">Offline</span>
       </span>
     );
   }
@@ -96,7 +106,15 @@ function ThemeToggle() {
   );
 }
 
-export function Navbar({ tripName, onTripNameChange, syncStatus = 'synced', user, onLogout }: NavbarProps) {
+export function Navbar({
+  tripName,
+  onTripNameChange,
+  syncStatus = 'synced',
+  user,
+  onLogout,
+  shareControl,
+  activeCollaborators = [],
+}: NavbarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(tripName ?? '');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -178,6 +196,27 @@ export function Navbar({ tripName, onTripNameChange, syncStatus = 'synced', user
 
       {/* Right */}
       <div className="flex items-center gap-1">
+        {activeCollaborators.length > 0 && (
+          <div className="flex items-center gap-1 md:hidden">
+            {activeCollaborators.slice(0, 3).map((collaborator) => (
+              <div
+                key={collaborator.userId}
+                className="rounded-full p-[1px]"
+                style={{ backgroundColor: collaborator.color }}
+                title={collaborator.name}
+              >
+                <img
+                  src={collaborator.picture}
+                  alt={collaborator.name}
+                  className="h-6 w-6 rounded-full border border-white"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {shareControl}
         <ThemeToggle />
 
         {user && (

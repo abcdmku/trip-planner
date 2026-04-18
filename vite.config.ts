@@ -4,10 +4,21 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/trip-planner/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:3000',
+        ws: true,
+      },
     },
   },
 });

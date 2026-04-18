@@ -12,8 +12,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return Boolean(editableAncestor);
 }
 
-export function useUndoRedoHotkeys(spreadsheetId: string) {
-  const { undo, redo, canUndo, canRedo } = useUndoRedo(spreadsheetId);
+export function useUndoRedoHotkeys(tripId: string) {
+  const { undo, redo, canUndo, canRedo } = useUndoRedo(tripId);
 
   useHotkey(
     'Mod+Z',
@@ -27,7 +27,7 @@ export function useUndoRedoHotkeys(spreadsheetId: string) {
       keyboardEvent.stopPropagation();
       void undo();
     },
-    { enabled: Boolean(spreadsheetId), conflictBehavior: 'allow' },
+    { enabled: Boolean(tripId), conflictBehavior: 'allow' },
   );
 
   useHotkey(
@@ -41,7 +41,7 @@ export function useUndoRedoHotkeys(spreadsheetId: string) {
       keyboardEvent.stopPropagation();
       void redo();
     },
-    { enabled: Boolean(spreadsheetId), conflictBehavior: 'allow' },
+    { enabled: Boolean(tripId), conflictBehavior: 'allow' },
   );
 
   useHotkey(
@@ -55,7 +55,7 @@ export function useUndoRedoHotkeys(spreadsheetId: string) {
       keyboardEvent.stopPropagation();
       void redo();
     },
-    { enabled: Boolean(spreadsheetId), conflictBehavior: 'allow' },
+    { enabled: Boolean(tripId), conflictBehavior: 'allow' },
   );
 }
 

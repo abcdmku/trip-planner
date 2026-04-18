@@ -15,13 +15,13 @@ import type { Day, Item, Leg, Trip, TripData } from '@/types/trip';
 // ---------------------------------------------------------------------------
 
 /**
- * Returns the canonical query key used by `useTrip` for a given spreadsheet.
+ * Returns the canonical query key used by `useTrip` for a given trip.
  *
  * Keeping the key in one place guarantees that reads, optimistic writes, and
  * invalidations all target the same cache entry.
  */
-export function getTripQueryKey(spreadsheetId: string): readonly [string, string] {
-  return ['trip', spreadsheetId] as const;
+export function getTripQueryKey(tripId: string): readonly [string, string] {
+  return ['trip', tripId] as const;
 }
 
 // ---------------------------------------------------------------------------
@@ -33,10 +33,10 @@ export function getTripQueryKey(spreadsheetId: string): readonly [string, string
  */
 export function invalidateTrip(
   queryClient: QueryClient,
-  spreadsheetId: string,
+  tripId: string,
 ): Promise<void> {
   return queryClient.invalidateQueries({
-    queryKey: getTripQueryKey(spreadsheetId),
+    queryKey: getTripQueryKey(tripId),
   });
 }
 
@@ -52,10 +52,10 @@ export function invalidateTrip(
  */
 export function updateTripOptimistic(
   queryClient: QueryClient,
-  spreadsheetId: string,
+  tripId: string,
   updater: (trip: Trip) => Trip,
 ): TripData | undefined {
-  const queryKey = getTripQueryKey(spreadsheetId);
+  const queryKey = getTripQueryKey(tripId);
   const previous = queryClient.getQueryData<TripData>(queryKey);
 
   if (previous) {
@@ -76,10 +76,10 @@ export function updateTripOptimistic(
  */
 export function updateItemsOptimistic(
   queryClient: QueryClient,
-  spreadsheetId: string,
+  tripId: string,
   updater: (items: Item[]) => Item[],
 ): TripData | undefined {
-  const queryKey = getTripQueryKey(spreadsheetId);
+  const queryKey = getTripQueryKey(tripId);
   const previous = queryClient.getQueryData<TripData>(queryKey);
 
   if (previous) {
@@ -100,10 +100,10 @@ export function updateItemsOptimistic(
  */
 export function updateLegsOptimistic(
   queryClient: QueryClient,
-  spreadsheetId: string,
+  tripId: string,
   updater: (legs: Leg[]) => Leg[],
 ): TripData | undefined {
-  const queryKey = getTripQueryKey(spreadsheetId);
+  const queryKey = getTripQueryKey(tripId);
   const previous = queryClient.getQueryData<TripData>(queryKey);
 
   if (previous) {
@@ -124,10 +124,10 @@ export function updateLegsOptimistic(
  */
 export function updateDaysOptimistic(
   queryClient: QueryClient,
-  spreadsheetId: string,
+  tripId: string,
   updater: (days: Day[]) => Day[],
 ): TripData | undefined {
-  const queryKey = getTripQueryKey(spreadsheetId);
+  const queryKey = getTripQueryKey(tripId);
   const previous = queryClient.getQueryData<TripData>(queryKey);
 
   if (previous) {

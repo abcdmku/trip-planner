@@ -1,5 +1,6 @@
 import { Plus, Calendar, Trash2 } from 'lucide-react';
 import type { Day } from '../../types/trip';
+import { getDayDisplayLabel } from '@/lib/day-labels';
 
 interface DayListProps {
   days: Day[];
@@ -52,6 +53,7 @@ export function DayList({ days, selectedDayId, onSelectDay, onAddDay, onDeleteDa
 
       {days.map((day) => {
         const isSelected = day.dayId === selectedDayId;
+        const displayLabel = getDayDisplayLabel(day);
         return (
           <button
             key={day.dayId}
@@ -67,11 +69,11 @@ export function DayList({ days, selectedDayId, onSelectDay, onAddDay, onDeleteDa
               className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
               style={{ backgroundColor: day.colorHex || '#3B82F6' }}
             >
-              {day.label?.slice(0, 2) || 'D'}
+              {displayLabel.slice(0, 2) || 'D'}
             </span>
             <div className="min-w-0 flex-1">
               <p className={`truncate text-sm font-medium ${isSelected ? 'text-stone-800' : 'text-stone-600'}`}>
-                {day.label || 'Untitled Day'}
+                {displayLabel}
               </p>
               <p className="text-xs text-stone-400">{day.date}</p>
             </div>
@@ -82,7 +84,7 @@ export function DayList({ days, selectedDayId, onSelectDay, onAddDay, onDeleteDa
                   onDeleteDay(day.dayId);
                 }}
                 className="rounded p-1 text-stone-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
-                aria-label={`Delete ${day.label}`}
+                aria-label={`Delete ${displayLabel}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>

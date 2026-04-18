@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
 import { Loader2 } from 'lucide-react';
 
 interface LoginButtonProps {
-  onSuccess: (tokenResponse: { access_token: string }) => void;
-  onError?: () => void;
+  onClick: () => Promise<void> | void;
+  isLoading?: boolean;
 }
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -30,30 +28,10 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-export function LoginButton({ onSuccess, onError }: LoginButtonProps) {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const login = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
-      setIsLoading(false);
-      onSuccess(tokenResponse);
-    },
-    onError: () => {
-      setIsLoading(false);
-      onError?.();
-    },
-    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-    flow: 'implicit',
-  });
-
-  const handleClick = () => {
-    setIsLoading(true);
-    login();
-  };
-
+export function LoginButton({ onClick, isLoading = false }: LoginButtonProps) {
   return (
     <button
-      onClick={handleClick}
+      onClick={() => void onClick()}
       disabled={isLoading}
       className="group relative flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-6 py-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-stone-200/60 active:translate-y-0 active:shadow-sm disabled:pointer-events-none disabled:opacity-60"
       aria-label="Sign in with Google"
@@ -71,7 +49,7 @@ export function LoginButton({ onSuccess, onError }: LoginButtonProps) {
           Sign in with Google
         </span>
         <span className="text-xs text-stone-400">
-          Access your trip sheets
+          Secure backend session
         </span>
       </span>
     </button>

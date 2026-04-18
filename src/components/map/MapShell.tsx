@@ -107,7 +107,7 @@ export interface MapShellProps {
 const DEFAULT_CENTER = { lat: 0, lng: 0 } as const;
 const DEFAULT_ZOOM = 2;
 const GOOGLE_MAPS_API_KEY: string =
-  import.meta.env.VITE_GOOGLE_API_KEY?? '';
+  import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '';
 const GOOGLE_MAP_LIBRARIES = ['places', 'geometry'];
 const BOUNDS_PADDING = 60; // px padding when fitting bounds
 

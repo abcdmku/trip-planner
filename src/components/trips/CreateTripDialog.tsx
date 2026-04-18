@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Plane } from 'lucide-react';
-import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
+import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
 
 interface CreateTripDialogProps {
   isOpen: boolean;
@@ -56,8 +56,8 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
 
   const isValid = name.trim().length > 0 && startDate && endDate && endDate >= startDate;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!isValid) return;
     setIsSubmitting(true);
     onCreate(name.trim(), startDate, endDate, timezone);
@@ -66,21 +66,9 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-trip-title"
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Dialog */}
-      <div className="relative w-full max-w-md animate-in rounded-2xl border border-theme bg-theme-elevated p-6 shadow-theme-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="relative w-full max-w-md rounded-2xl border border-theme bg-theme-elevated p-6 shadow-theme-2xl">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-lg p-1 text-theme-tertiary transition-colors hover:bg-theme-subtle hover:text-theme-secondary"
@@ -93,9 +81,7 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent shadow-sm">
             <Plane className="h-5 w-5 text-white dark:text-neutral-900" />
           </div>
-          <h2 id="create-trip-title" className="text-xl font-bold tracking-tight text-theme">
-            New Trip
-          </h2>
+          <h2 className="text-xl font-bold tracking-tight text-theme">New Trip</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -108,7 +94,7 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
               id="trip-name"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               placeholder="Summer in Tokyo"
               className="input"
             />
@@ -123,7 +109,7 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
                 id="start-date"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(event) => setStartDate(event.target.value)}
                 className="input"
               />
             </div>
@@ -136,7 +122,7 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
                 type="date"
                 value={endDate}
                 min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(event) => setEndDate(event.target.value)}
                 className="input"
               />
             </div>
@@ -149,7 +135,7 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
             <select
               id="timezone"
               value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
+              onChange={(event) => setTimezone(event.target.value)}
               className="input"
             >
               {TIMEZONES.map((tz) => (
@@ -160,14 +146,10 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
             </select>
           </div>
 
-          {startDate && endDate && endDate < startDate && (
-            <p className="text-xs text-red-500">End date must be on or after start date</p>
-          )}
-
           <button
             type="submit"
             disabled={!isValid || isSubmitting}
-            className="btn-primary mt-2 flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold"
+            className="btn-primary flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold"
           >
             {isSubmitting ? (
               <>

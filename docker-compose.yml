@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-trip_planner}
+      POSTGRES_USER: ${POSTGRES_USER:-trip_planner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trip_planner}
+    ports:
+      - "${POSTGRES_PORT:-5175}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trip_planner} -d ${POSTGRES_DB:-trip_planner}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY:-}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 5173
+      APP_URL: ${APP_URL:-http://localhost:5173}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-please-12345}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-set-google-client-id}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-set-google-client-secret}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trip_planner}:${POSTGRES_PASSWORD:-trip_planner}@postgres:5432/${POSTGRES_DB:-trip_planner}?schema=public
+    ports:
+      - "${APP_PORT:-5173}:5173"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5173/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  postgres_data:

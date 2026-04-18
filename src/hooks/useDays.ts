@@ -1,198 +1,115 @@
-// ---------------------------------------------------------------------------
-// useDays – TanStack Query hooks for Day CRUD operations.
-//
-// Each mutation performs an optimistic cache update, persists to Google Sheets,
-// and invalidates the trip query on success (or rolls back on error).
-// ---------------------------------------------------------------------------
-
 import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTrip } from '@/hooks/useTrip';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
-import { saveDays, saveItems, saveLegs } from '@/services/sheets-repository';
+import { createDayRecord, deleteDayRecord, updateDayRecord } from '@/services/api-client';
 import {
-  updateDaysOptimistic,
-  invalidateTrip,
   getTripQueryKey,
+  updateDaysOptimistic,
 } from '@/stores/trip-store';
 import type { Day, TripData } from '@/types/trip';
+import type { TripSnapshotResponse } from '@/types/api';
 
-// ---------------------------------------------------------------------------
-// Read hook
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the `days` array for the given spreadsheet, derived from `useTrip`.
- */
-export function useDays(spreadsheetId: string | null | undefined) {
-  const { days, isLoading, error } = useTrip(spreadsheetId);
+export function useDays(tripId: string | null | undefined) {
+  const { days, isLoading, error } = useTrip(tripId);
   return { days, isLoading, error };
 }
 
-// ---------------------------------------------------------------------------
-// Mutation hooks
-// ---------------------------------------------------------------------------
-
-/**
- * Mutation that appends a new Day to the sheet.
- *
- * The caller must supply a fully-formed `Day` object (with a generated
- * `dayId`). The mutation optimistically prepends the day to the cache,
- * persists the full days array to Google Sheets, and then invalidates.
- */
-export function useAddDay(spreadsheetId: string) {
+export function useAddDay(tripId: string) {
   const queryClient = useQueryClient();
-  const { recordMutation } = useUndoRedo(spreadsheetId);
+  const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<void, Error, Day, TripData | undefined>({
-    mutationFn: async (newDay) => {
-      const queryKey = getTripQueryKey(spreadsheetId);
-      const current = queryClient.getQueryData<TripData>(queryKey);
-      // onMutate adds optimistically, so remove any prior copy first.
-      const existingDays = (current?.days ?? []).filter(
-        (day) => day.dayId !== newDay.dayId,
-      );
-      const updatedDays = [...existingDays, newDay];
-      await saveDays(spreadsheetId, updatedDays);
-    },
+  return useMutation<Day, Error, Day, TripData | undefined>({
+    mutationFn: async (newDay) => createDayRecord(tripId, newDay),
 
     onMutate: async (newDay) => {
-      // Cancel any in-flight refetches so they don't overwrite optimistic data.
-      await queryClient.cancelQueries({
-        queryKey: getTripQueryKey(spreadsheetId),
-      });
-
-      const previous = updateDaysOptimistic(queryClient, spreadsheetId, (days) => [
-        ...days,
-        newDay,
-      ]);
-
-      return previous;
+      await queryClient.cancelQueries({ queryKey: getTripQueryKey(tripId) });
+      return updateDaysOptimistic(queryClient, tripId, (days) => [...days, newDay]);
     },
 
-    onError: (_err, _newDay, previous) => {
-      // Rollback to the snapshot taken in onMutate.
+    onError: (_error, _payload, previous) => {
       if (previous) {
-        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+        queryClient.setQueryData(getTripQueryKey(tripId), previous);
       }
     },
 
-    onSuccess: (_data, _newDay, previous) => {
+    onSuccess: (savedDay, _payload, previous) => {
       recordMutation(previous);
-    },
-
-    onSettled: () => {
-      void invalidateTrip(queryClient, spreadsheetId);
+      queryClient.setQueryData<TripSnapshotResponse | undefined>(
+        getTripQueryKey(tripId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                days: [...current.days.filter((day) => day.dayId !== savedDay.dayId), savedDay].sort((a, b) =>
+                  a.date.localeCompare(b.date),
+                ),
+              }
+            : current,
+      );
     },
   });
 }
 
-/**
- * Mutation that updates an existing Day in-place.
- *
- * The caller supplies the full updated `Day` object.  The hook matches by
- * `dayId` and replaces it in the cache optimistically.
- */
-export function useUpdateDay(spreadsheetId: string) {
+export function useUpdateDay(tripId: string) {
   const queryClient = useQueryClient();
-  const { recordMutation } = useUndoRedo(spreadsheetId);
+  const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<void, Error, Day, TripData | undefined>({
-    mutationFn: async (updatedDay) => {
-      const queryKey = getTripQueryKey(spreadsheetId);
-      const current = queryClient.getQueryData<TripData>(queryKey);
-      const updatedDays = (current?.days ?? []).map((d) =>
-        d.dayId === updatedDay.dayId ? updatedDay : d,
-      );
-      await saveDays(spreadsheetId, updatedDays);
-    },
+  return useMutation<Day, Error, Day, TripData | undefined>({
+    mutationFn: async (updatedDay) => updateDayRecord(tripId, updatedDay),
 
     onMutate: async (updatedDay) => {
-      await queryClient.cancelQueries({
-        queryKey: getTripQueryKey(spreadsheetId),
-      });
-
-      const previous = updateDaysOptimistic(queryClient, spreadsheetId, (days) =>
-        days.map((d) => (d.dayId === updatedDay.dayId ? updatedDay : d)),
+      await queryClient.cancelQueries({ queryKey: getTripQueryKey(tripId) });
+      return updateDaysOptimistic(queryClient, tripId, (days) =>
+        days.map((day) => (day.dayId === updatedDay.dayId ? updatedDay : day)),
       );
-
-      return previous;
     },
 
-    onError: (_err, _updatedDay, previous) => {
+    onError: (_error, _payload, previous) => {
       if (previous) {
-        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+        queryClient.setQueryData(getTripQueryKey(tripId), previous);
       }
     },
 
-    onSuccess: (_data, _updatedDay, previous) => {
+    onSuccess: (savedDay, _payload, previous) => {
       recordMutation(previous);
-    },
-
-    onSettled: () => {
-      void invalidateTrip(queryClient, spreadsheetId);
+      queryClient.setQueryData<TripSnapshotResponse | undefined>(
+        getTripQueryKey(tripId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                days: current.days.map((day) => (day.dayId === savedDay.dayId ? savedDay : day)),
+              }
+            : current,
+      );
     },
   });
 }
 
-/**
- * Mutation that removes a Day by `dayId`, along with items/legs tied to it.
- */
-export function useDeleteDay(spreadsheetId: string) {
+export function useDeleteDay(tripId: string) {
   const queryClient = useQueryClient();
-  const { recordMutation } = useUndoRedo(spreadsheetId);
+  const { recordMutation } = useUndoRedo(tripId);
 
   return useMutation<void, Error, string, TripData | undefined>({
-    mutationFn: async (dayId) => {
-      const queryKey = getTripQueryKey(spreadsheetId);
-      const current = queryClient.getQueryData<TripData>(queryKey);
-      const days = current?.days ?? [];
-      const items = current?.items ?? [];
-      const legs = current?.legs ?? [];
-
-      const removedItemIds = new Set(
-        items
-          .filter((item) => item.dayId === dayId)
-          .map((item) => item.itemId),
-      );
-
-      const updatedDays = days.filter((d) => d.dayId !== dayId);
-      const updatedItems = items.filter((item) => item.dayId !== dayId);
-      const updatedLegs = legs.filter(
-        (leg) =>
-          !removedItemIds.has(leg.fromItemId) && !removedItemIds.has(leg.toItemId),
-      );
-
-      await Promise.all([
-        saveDays(spreadsheetId, updatedDays),
-        saveItems(spreadsheetId, updatedItems),
-        saveLegs(spreadsheetId, updatedLegs),
-      ]);
-    },
+    mutationFn: async (dayId) => deleteDayRecord(tripId, dayId),
 
     onMutate: async (dayId) => {
-      await queryClient.cancelQueries({
-        queryKey: getTripQueryKey(spreadsheetId),
-      });
-
-      const queryKey = getTripQueryKey(spreadsheetId);
+      await queryClient.cancelQueries({ queryKey: getTripQueryKey(tripId) });
+      const queryKey = getTripQueryKey(tripId);
       const previous = queryClient.getQueryData<TripData>(queryKey);
 
       if (previous) {
         const removedItemIds = new Set(
-          previous.items
-            .filter((item) => item.dayId === dayId)
-            .map((item) => item.itemId),
+          previous.items.filter((item) => item.dayId === dayId).map((item) => item.itemId),
         );
 
         queryClient.setQueryData<TripData>(queryKey, {
           ...previous,
-          days: previous.days.filter((d) => d.dayId !== dayId),
+          days: previous.days.filter((day) => day.dayId !== dayId),
           items: previous.items.filter((item) => item.dayId !== dayId),
           legs: previous.legs.filter(
-            (leg) =>
-              !removedItemIds.has(leg.fromItemId) &&
-              !removedItemIds.has(leg.toItemId),
+            (leg) => !removedItemIds.has(leg.fromItemId) && !removedItemIds.has(leg.toItemId),
           ),
         });
       }
@@ -200,31 +117,20 @@ export function useDeleteDay(spreadsheetId: string) {
       return previous;
     },
 
-    onError: (_err, _dayId, previous) => {
+    onError: (_error, _payload, previous) => {
       if (previous) {
-        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+        queryClient.setQueryData(getTripQueryKey(tripId), previous);
       }
     },
 
-    onSuccess: (_data, _dayId, previous) => {
+    onSuccess: (_data, _payload, previous) => {
       recordMutation(previous);
-    },
-
-    onSettled: () => {
-      void invalidateTrip(queryClient, spreadsheetId);
     },
   });
 }
 
-// ---------------------------------------------------------------------------
-// Convenience: sorted days
-// ---------------------------------------------------------------------------
-
-/**
- * Returns days sorted by date, useful for UI rendering.
- */
-export function useSortedDays(spreadsheetId: string | null | undefined) {
-  const { days, isLoading, error } = useDays(spreadsheetId);
+export function useSortedDays(tripId: string | null | undefined) {
+  const { days, isLoading, error } = useDays(tripId);
 
   const sorted = useMemo(
     () => [...days].sort((a, b) => a.date.localeCompare(b.date)),

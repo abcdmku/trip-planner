@@ -85,7 +85,7 @@ function encodeDirectionsLegPath(leg: google.maps.DirectionsLeg): string | null 
   if (path.length < 2) return null;
 
   const encoded = google.maps.geometry.encoding.encodePath(path);
-  // Google Sheets cells have a 50k character limit; keep headroom.
+  // Keep route payloads bounded so a single encoded path never becomes unwieldy.
   if (encoded.length > 40_000) return null;
   return encoded;
 }

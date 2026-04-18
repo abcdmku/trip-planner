@@ -152,7 +152,6 @@ function SectionCard({
 
   return (
     <div className="rounded-xl border border-theme bg-theme-elevated">
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events -- keyboard handled via onKeyDown */}
       <div
         onClick={() => setOpen(!open)}
         className="group/hdr flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors hover:bg-theme-subtle"
@@ -179,7 +178,6 @@ function SectionCard({
           }`}>{badge}</span>
         )}
         {headerExtra && (
-          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="flex items-center">
             {headerExtra}
           </span>

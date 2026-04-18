@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Day, Item } from '@/types/trip';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
+import { getDayDisplayLabel } from '@/lib/day-labels';
 import { DAY_VIEW_MAX_W, DAY_VIEW_MIN_W } from '../constants';
 import { SingleDayTimeline } from './SingleDayTimeline';
 import type { CommitExternalDrop, ExternalDragPreview, ResolveExternalDrop } from '../types';
@@ -62,6 +63,8 @@ export function DayViewPanel({
     return <div className="flex h-full items-center justify-center text-sm text-theme-tertiary">Select a day</div>;
   }
 
+  const displayLabel = getDayDisplayLabel(activeDay);
+
   return (
     <div
       className="mx-auto flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-theme bg-theme"
@@ -77,7 +80,7 @@ export function DayViewPanel({
       >
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: activeDay.colorHex }} />
-          <span className="truncate text-xs font-semibold text-theme">{activeDay.label}</span>
+          <span className="truncate text-xs font-semibold text-theme">{displayLabel}</span>
         </div>
         <span className="text-[11px] text-theme-tertiary">{activeDay.date}</span>
       </div>

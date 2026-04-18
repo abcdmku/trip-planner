@@ -2,7 +2,7 @@
 // undo-store - local (client-side) undo/redo history for Trip edits.
 //
 // We intentionally keep this history local (localStorage) and separate from the
-// Google Sheets "History" audit trail.
+// server-side collaborative audit trail.
 // ---------------------------------------------------------------------------
 
 import type { Day, Item, Leg, Trip, TripData } from '@/types/trip';
@@ -39,13 +39,13 @@ export function extractTripCoreSnapshot(data: TripData): TripCoreSnapshot {
   });
 }
 
-export function getUndoStorageKey(spreadsheetId: string): string {
-  return `${STORAGE_PREFIX}${spreadsheetId}`;
+export function getUndoStorageKey(tripId: string): string {
+  return `${STORAGE_PREFIX}${tripId}`;
 }
 
-export function readUndoHistory(spreadsheetId: string): UndoHistory {
+export function readUndoHistory(tripId: string): UndoHistory {
   const empty = createEmptyHistory(null, null);
-  const key = getUndoStorageKey(spreadsheetId);
+  const key = getUndoStorageKey(tripId);
   const cached = memoryHistoryByKey.get(key);
 
   if (!canUseLocalStorage()) return cached ?? empty;
@@ -63,8 +63,8 @@ export function readUndoHistory(spreadsheetId: string): UndoHistory {
   }
 }
 
-export function writeUndoHistory(spreadsheetId: string, history: UndoHistory): void {
-  const key = getUndoStorageKey(spreadsheetId);
+export function writeUndoHistory(tripId: string, history: UndoHistory): void {
+  const key = getUndoStorageKey(tripId);
   memoryHistoryByKey.set(key, history);
   if (!canUseLocalStorage()) return;
   try {
@@ -74,8 +74,8 @@ export function writeUndoHistory(spreadsheetId: string, history: UndoHistory): v
   }
 }
 
-export function clearUndoHistory(spreadsheetId: string): void {
-  const key = getUndoStorageKey(spreadsheetId);
+export function clearUndoHistory(tripId: string): void {
+  const key = getUndoStorageKey(tripId);
   memoryHistoryByKey.delete(key);
   if (!canUseLocalStorage()) return;
   try {
@@ -93,21 +93,21 @@ export function clearUndoHistory(spreadsheetId: string): void {
  * unrelated state.
  */
 export function ensureUndoHistoryCompatible(
-  spreadsheetId: string,
+  tripId: string,
   present: TripCoreSnapshot,
 ): UndoHistory {
   const presentSig = tripCoreSignature(present);
-  const current = readUndoHistory(spreadsheetId);
+  const current = readUndoHistory(tripId);
 
   if (current.presentSignature !== presentSig) {
     const reset = createEmptyHistory(presentSig, deepClone(present));
-    writeUndoHistory(spreadsheetId, reset);
+    writeUndoHistory(tripId, reset);
     return reset;
   }
 
   if (!current.present) {
     const updated: UndoHistory = { ...current, present: deepClone(present) };
-    writeUndoHistory(spreadsheetId, updated);
+    writeUndoHistory(tripId, updated);
     return updated;
   }
 
@@ -122,18 +122,18 @@ export function ensureUndoHistoryCompatible(
  * are discarded to avoid corrupt history.
  */
 export function recordUndoableChange(params: {
-  spreadsheetId: string;
+  tripId: string;
   before: TripCoreSnapshot;
   after: TripCoreSnapshot;
   maxHistory?: number;
 }): UndoHistory {
-  const { spreadsheetId, before, after } = params;
+  const { tripId, before, after } = params;
   const maxHistory = params.maxHistory ?? DEFAULT_MAX_HISTORY;
 
   const beforeSig = tripCoreSignature(before);
   const afterSig = tripCoreSignature(after);
 
-  let history = readUndoHistory(spreadsheetId);
+  let history = readUndoHistory(tripId);
 
   if (history.presentSignature !== beforeSig) {
     history = createEmptyHistory(beforeSig, deepClone(before));
@@ -145,7 +145,7 @@ export function recordUndoableChange(params: {
       presentSignature: afterSig,
       present: deepClone(after),
     };
-    writeUndoHistory(spreadsheetId, updated);
+    writeUndoHistory(tripId, updated);
     return updated;
   }
 
@@ -161,7 +161,7 @@ export function recordUndoableChange(params: {
     future: [],
   };
 
-  writeUndoHistory(spreadsheetId, updated);
+  writeUndoHistory(tripId, updated);
   return updated;
 }
 

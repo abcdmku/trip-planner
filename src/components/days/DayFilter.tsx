@@ -1,4 +1,5 @@
 import type { Day } from '../../types/trip';
+import { getDayDisplayLabel } from '@/lib/day-labels';
 
 interface DayFilterProps {
   days: Day[];
@@ -25,6 +26,7 @@ export function DayFilter({ days, selectedDayIds, onToggleDay, onSelectAll, onCl
       </button>
       {days.map((day) => {
         const isActive = selectedDayIds.length === 0 || selectedDayIds.includes(day.dayId);
+        const displayLabel = getDayDisplayLabel(day);
         return (
           <button
             key={day.dayId}
@@ -40,7 +42,7 @@ export function DayFilter({ days, selectedDayIds, onToggleDay, onSelectAll, onCl
               className="h-2 w-2 rounded-full"
               style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.5)' : day.colorHex }}
             />
-            {day.label || day.date}
+            {displayLabel}
           </button>
         );
       })}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import { useUI } from '../../hooks/useUI';
 import { Navbar } from './Navbar';
 import { MobileTabs } from './MobileTabs';
@@ -11,9 +11,14 @@ interface AppShellProps {
   timelineDayCount?: number;
   tripName?: string;
   onTripNameChange?: (name: string) => void;
-  syncStatus?: 'synced' | 'syncing' | 'error';
+  syncStatus?: 'synced' | 'syncing' | 'error' | 'offline';
   user?: { name: string; picture: string };
   onLogout?: () => void;
+  shareControl?: ReactNode;
+  activeCollaborators?: Array<{ userId: string; name: string; picture: string; color: string }>;
+  workspaceOverlay?: ReactNode;
+  topBanner?: ReactNode;
+  workspaceRef?: Ref<HTMLDivElement>;
 }
 
 const ITINERARY_WIDTH = 360;
@@ -41,6 +46,11 @@ export function AppShell({
   syncStatus,
   user,
   onLogout,
+  shareControl,
+  activeCollaborators,
+  workspaceOverlay,
+  topBanner,
+  workspaceRef,
 }: AppShellProps) {
   const { activeTab, setActiveTab } = useUI();
   const [leftPanelWidth, setLeftPanelWidth] = useState(LEFT_PANEL_MIN_WIDTH + 80);
@@ -181,16 +191,25 @@ export function AppShell({
       : 'timeline';
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-theme">
+    <div ref={workspaceRef} className="flex h-screen flex-col overflow-hidden bg-theme">
       <Navbar
         tripName={tripName}
         onTripNameChange={onTripNameChange}
         syncStatus={syncStatus}
         user={user}
         onLogout={onLogout}
+        shareControl={shareControl}
+        activeCollaborators={activeCollaborators}
       />
 
       <div className="relative flex flex-1 overflow-hidden">
+        {topBanner && (
+          <div className="pointer-events-none absolute inset-x-3 top-3 z-50">
+            <div className="pointer-events-auto">{topBanner}</div>
+          </div>
+        )}
+        {workspaceOverlay}
+
         {/* Desktop layout */}
         <div className="hidden h-full w-full md:flex">
           {desktopMapTabbed ? (

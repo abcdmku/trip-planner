@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TripMemberRole {
+  OWNER
+  EDITOR
+}
+
+model User {
+  id                String         @id
+  email             String         @unique
+  name              String
+  picture           String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  memberships       TripMember[]
+  ownedTrips        Trip[]         @relation("TripOwner")
+  updatedTrips      Trip[]         @relation("TripUpdatedBy")
+  updatedDays       Day[]          @relation("DayUpdatedBy")
+  updatedItems      Item[]         @relation("ItemUpdatedBy")
+  updatedLegs       Leg[]          @relation("LegUpdatedBy")
+  invitedTrips      TripInvite[]   @relation("TripInvitedBy")
+  historyEvents     HistoryEvent[] @relation("HistoryActor")
+}
+
+model Trip {
+  id              String         @id
+  name            String
+  baseTimezone    String
+  startDate       String
+  endDate         String
+  defaultMode     String
+  startLat        Float
+  startLng        Float
+  startName       String
+  startAddress    String
+  version         Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  ownerId         String
+  updatedByUserId String?
+  owner           User           @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  updatedBy       User?          @relation("TripUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  members         TripMember[]
+  invites         TripInvite[]
+  days            Day[]
+  items           Item[]
+  legs            Leg[]
+  history         HistoryEvent[]
+}
+
+model TripMember {
+  memberId   String         @id
+  tripId     String
+  userId     String
+  role       TripMemberRole
+  createdAt  DateTime       @default(now())
+  trip       Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+}
+
+model TripInvite {
+  inviteId         String         @id
+  tripId           String
+  email            String
+  role             TripMemberRole
+  invitedByUserId  String
+  createdAt        DateTime       @default(now())
+  trip             Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  invitedBy        User           @relation("TripInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([tripId, email])
+}
+
+model Day {
+  dayId            String   @id
+  tripId           String
+  date             String
+  label            String
+  colorHex         String
+  dayStart         String
+  dayEnd           String
+  version          Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  updatedByUserId  String?
+  trip             Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  updatedBy        User?    @relation("DayUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  items            Item[]
+
+  @@unique([tripId, date])
+}
+
+model Item {
+  itemId                    String   @id
+  tripId                    String
+  dayId                     String
+  placeId                   String
+  placeName                 String
+  lat                       Float
+  lng                       Float
+  address                   String
+  type                      String
+  scheduledStart            String
+  scheduledEnd              String
+  durationMinutes           Int
+  notesMd                   String
+  photoUrls                 Json
+  availabilityWindows       Json
+  isOptional                Boolean
+  priority                  Int
+  sortOrder                 Int
+  destLat                   Float
+  destLng                   Float
+  destName                  String
+  destAddress               String
+  transportMode             String
+  itemRouteType             String
+  itemRoutePathEncoded      String
+  itemRouteDistanceMeters   Int
+  itemRouteDurationMinutes  Int
+  timelineLocked            Boolean
+  travelFromItemId          String
+  travelToItemId            String
+  version                   Int      @default(1)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  updatedByUserId           String?
+  trip                      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  day                       Day      @relation(fields: [dayId], references: [dayId], onDelete: Cascade)
+  updatedBy                 User?    @relation("ItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, dayId])
+}
+
+model Leg {
+  legId                String   @id
+  tripId               String
+  fromItemId           String
+  toItemId             String
+  mode                 String
+  otherModeLabel       String?
+  departure            String
+  arrival              String
+  durationMinutes      Int
+  distanceMeters       Int
+  routePathEncoded     String
+  routeType            String
+  version              Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  updatedByUserId      String?
+  trip                 Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  updatedBy            User?    @relation("LegUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, fromItemId, toItemId])
+}
+
+model HistoryEvent {
+  eventId      String   @id
+  tripId       String
+  timestamp    DateTime @default(now())
+  userId       String
+  userName     String
+  entityType   String
+  entityId     String
+  field        String
+  oldValue     String
+  newValue     String
+  itemId       String
+  trip         Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user         User     @relation("HistoryActor", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([tripId, timestamp])
+}

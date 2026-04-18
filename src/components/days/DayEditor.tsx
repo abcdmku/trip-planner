@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { X, Palette } from 'lucide-react';
 import type { Day } from '../../types/trip';
 import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
+import { getAutoDayLabel, isDefaultNumberedDayLabel } from '@/lib/day-labels';
 
 interface DayEditorProps {
   day?: Day;
   isOpen: boolean;
   defaultLabel?: string;
+  defaultDate?: string;
   onClose: () => void;
   onSave: (day: Partial<Day> & { dayId: string }) => void;
 }
@@ -16,12 +18,20 @@ const DAY_COLORS = [
   '#EC4899', '#06B6D4', '#F97316', '#6366F1', '#14B8A6',
 ];
 
-export function DayEditor({ day, isOpen, defaultLabel = '', onClose, onSave }: DayEditorProps) {
+export function DayEditor({
+  day,
+  isOpen,
+  defaultLabel = '',
+  defaultDate = '',
+  onClose,
+  onSave,
+}: DayEditorProps) {
   const [label, setLabel] = useState('');
   const [date, setDate] = useState('');
   const [colorHex, setColorHex] = useState('#3B82F6');
   const [dayStart, setDayStart] = useState('08:00');
   const [dayEnd, setDayEnd] = useState('22:00');
+  const [labelIsAuto, setLabelIsAuto] = useState(true);
 
   useEffect(() => {
     if (day) {
@@ -30,24 +40,37 @@ export function DayEditor({ day, isOpen, defaultLabel = '', onClose, onSave }: D
       setColorHex(day.colorHex);
       setDayStart(day.dayStart);
       setDayEnd(day.dayEnd);
+      setLabelIsAuto(
+        !day.label.trim() ||
+        isDefaultNumberedDayLabel(day.label) ||
+        day.label.trim() === getAutoDayLabel(day.date, defaultLabel),
+      );
     } else {
-      setLabel(defaultLabel);
-      setDate('');
+      setLabel(getAutoDayLabel(defaultDate, defaultLabel));
+      setDate(defaultDate);
       setColorHex('#3B82F6');
       setDayStart('08:00');
       setDayEnd('22:00');
+      setLabelIsAuto(true);
     }
-  }, [day, isOpen, defaultLabel]);
+  }, [day, isOpen, defaultDate, defaultLabel]);
 
   useEscapeHotkey(isOpen, onClose);
 
   if (!isOpen) return null;
 
+  const handleDateChange = (nextDate: string) => {
+    setDate(nextDate);
+    if (!labelIsAuto) return;
+    setLabel(getAutoDayLabel(nextDate, defaultLabel));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const resolvedLabel = label.trim() || getAutoDayLabel(date, defaultLabel);
     onSave({
       dayId: day?.dayId ?? crypto.randomUUID(),
-      label,
+      label: resolvedLabel,
       date,
       colorHex,
       dayStart,
@@ -74,8 +97,11 @@ export function DayEditor({ day, isOpen, defaultLabel = '', onClose, onSave }: D
             <input
               id="day-label"
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Day 1 — Arrival"
+              onChange={(e) => {
+                setLabel(e.target.value);
+                setLabelIsAuto(false);
+              }}
+              placeholder="Monday - Arrival"
               className="input"
             />
           </div>
@@ -86,7 +112,7 @@ export function DayEditor({ day, isOpen, defaultLabel = '', onClose, onSave }: D
               id="day-date"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => handleDateChange(e.target.value)}
               className="input"
             />
           </div>

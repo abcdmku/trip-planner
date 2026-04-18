@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type React from 'react';
 import type { Day } from '@/types/trip';
+import { getDayDisplayLabel } from '@/lib/day-labels';
 import { MULTI_HEADER_H } from '../constants';
 
 interface MultiDayColumnHeaderProps {
@@ -21,6 +22,7 @@ export function MultiDayColumnHeader({
   onDragLeave,
 }: MultiDayColumnHeaderProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const displayLabel = getDayDisplayLabel(day);
 
   const handleDragOver = (e: React.DragEvent) => {
     setIsDragOver(true);
@@ -55,7 +57,7 @@ export function MultiDayColumnHeader({
     >
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: day.colorHex }} />
-        <span className="truncate text-[10px] font-semibold text-theme">{day.label}</span>
+        <span className="truncate text-[10px] font-semibold text-theme">{displayLabel}</span>
       </div>
       <span className="ml-1 flex-shrink-0 text-[9px] text-theme-tertiary">{day.date}</span>
     </button>

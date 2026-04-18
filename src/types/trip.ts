@@ -31,6 +31,10 @@ export interface Trip {
   startLng: number;
   startName: string;
   startAddress: string;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedByUserId?: string | null;
 }
 
 /** A single calendar day within the trip ("Days" tab). */
@@ -41,6 +45,10 @@ export interface Day {
   colorHex: string;  // e.g. "#3B82F6"
   dayStart: string;  // HH:mm  e.g. "08:00"
   dayEnd: string;    // HH:mm
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedByUserId?: string | null;
 }
 
 /** A stop / place on the itinerary ("Items" tab). */
@@ -83,6 +91,10 @@ export interface Item {
   travelFromItemId: string;
   /** Optional destination item for explicit transport events created from connectors. */
   travelToItemId: string;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedByUserId?: string | null;
 }
 
 /** Route type for a leg: routed directions or straight line. */
@@ -101,6 +113,10 @@ export interface Leg {
   distanceMeters: number;
   routePathEncoded: string; // encoded polyline
   routeType: RouteType;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedByUserId?: string | null;
 }
 
 /** An audit-trail entry for collaborative editing ("History" tab). */
@@ -109,6 +125,8 @@ export interface HistoryEvent {
   timestamp: string;  // ISO datetime
   userId: string;
   userName: string;
+  entityType?: 'trip' | 'day' | 'item' | 'leg' | 'member' | 'invite';
+  entityId?: string;
   field: string;
   oldValue: string;
   newValue: string;
@@ -116,7 +134,7 @@ export interface HistoryEvent {
 }
 
 // ---------------------------------------------------------------------------
-// Aggregate – the full dataset we materialise from Google Sheets
+// Aggregate - the full dataset we materialise for a trip snapshot
 // ---------------------------------------------------------------------------
 
 export interface TripData {

@@ -369,7 +369,6 @@ export function AddItemDialog({
         </div>
 
         <div className="mb-3 rounded-xl border border-theme bg-theme-subtle">
-          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events -- keyboard handled via onKeyDown */}
           <div
             onClick={() => {
               if (isRouteOpen) {

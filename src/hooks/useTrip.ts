@@ -1,115 +1,108 @@
-// ---------------------------------------------------------------------------
-// useTrip – TanStack React Query hook that loads a full TripData object from
-// a Google Sheet via the sheets-repository service.
-// ---------------------------------------------------------------------------
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { loadTrip, saveTrip } from '@/services/sheets-repository';
+import { useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { getTripSnapshot, updateTripRecord } from '@/services/api-client';
 import type { Trip, TripData } from '@/types/trip';
+import type { TripSnapshotResponse } from '@/types/api';
 import {
-  updateTripOptimistic,
-  invalidateTrip,
   getTripQueryKey,
+  updateTripOptimistic,
 } from '@/stores/trip-store';
 
-/**
- * Fetches and caches the full trip dataset for a given spreadsheet.
- *
- * The query is only **enabled** when:
- * 1. `spreadsheetId` is a non-empty string, AND
- * 2. the user is authenticated (valid access token present).
- *
- * @param spreadsheetId  Google Sheets ID, or `null` / `undefined` to disable.
- */
-export function useTrip(spreadsheetId: string | null | undefined) {
+export function useTrip(tripId: string | null | undefined) {
   const { isAuthenticated } = useAuth();
+  const { subscribeToTrip, unsubscribeFromTrip } = useRealtime();
 
-  const enabled = !!spreadsheetId && isAuthenticated;
+  const enabled = Boolean(tripId && isAuthenticated);
 
-  const query = useQuery<TripData, Error>({
-    queryKey: ['trip', spreadsheetId],
+  const query = useQuery<TripSnapshotResponse, Error>({
+    queryKey: tripId ? getTripQueryKey(tripId) : ['trip', 'disabled'],
     queryFn: () => {
-      if (!spreadsheetId) {
-        throw new Error('spreadsheetId is required');
-      }
-      return loadTrip(spreadsheetId);
+      if (!tripId) throw new Error('tripId is required');
+      return getTripSnapshot(tripId);
     },
     enabled,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 15,
     refetchOnWindowFocus: true,
   });
 
+  useEffect(() => {
+    if (!enabled || !tripId) return;
+    subscribeToTrip(tripId);
+    return () => unsubscribeFromTrip(tripId);
+  }, [enabled, subscribeToTrip, tripId, unsubscribeFromTrip]);
+
+  const snapshot = query.data;
+  const coreData: TripData | null = snapshot
+    ? {
+        trip: snapshot.trip,
+        days: snapshot.days,
+        items: snapshot.items,
+        legs: snapshot.legs,
+        history: snapshot.history,
+        meta: snapshot.meta,
+      }
+    : null;
+
   return {
-    /** The fully-parsed trip metadata. */
-    trip: query.data?.trip ?? null,
-    /** Calendar days in the trip. */
-    days: query.data?.days ?? [],
-    /** Itinerary items / stops. */
-    items: query.data?.items ?? [],
-    /** Travel legs connecting items. */
-    legs: query.data?.legs ?? [],
-    /** Audit history events. */
-    history: query.data?.history ?? [],
-    /** Arbitrary key-value metadata. */
-    meta: query.data?.meta ?? {},
-    /** Full TripData object (null while loading or disabled). */
-    data: query.data ?? null,
-    /** True while the initial fetch is in progress. */
+    trip: snapshot?.trip ?? null,
+    days: snapshot?.days ?? [],
+    items: snapshot?.items ?? [],
+    legs: snapshot?.legs ?? [],
+    history: snapshot?.history ?? [],
+    meta: snapshot?.meta ?? {},
+    members: snapshot?.members ?? [],
+    pendingInvites: snapshot?.pendingInvites ?? [],
+    data: coreData,
+    snapshot,
     isLoading: query.isLoading,
-    /** True while any fetch (initial or refetch) is in progress. */
     isFetching: query.isFetching,
-    /** Error from the most recent failed fetch, or null. */
     error: query.error,
-    /** Manually trigger a refetch. */
     refetch: query.refetch,
   };
 }
 
-// ---------------------------------------------------------------------------
-// Update trip mutation
-// ---------------------------------------------------------------------------
-
-/**
- * Mutation that updates the Trip metadata row (e.g. start location).
- * Uses optimistic updates and persists to the "Trip" tab.
- */
-export function useUpdateTrip(spreadsheetId: string) {
+export function useUpdateTrip(tripId: string) {
   const queryClient = useQueryClient();
-  const { recordMutation } = useUndoRedo(spreadsheetId);
+  const { recordMutation } = useUndoRedo(tripId);
 
-  return useMutation<void, Error, Trip, TripData | undefined>({
-    mutationFn: async (updatedTrip: Trip) => {
-      await saveTrip(spreadsheetId, updatedTrip);
-    },
+  return useMutation<Trip, Error, Trip, TripData | undefined>({
+    mutationFn: async (updatedTrip) => updateTripRecord(tripId, updatedTrip),
 
     onMutate: async (updatedTrip) => {
       await queryClient.cancelQueries({
-        queryKey: getTripQueryKey(spreadsheetId),
+        queryKey: getTripQueryKey(tripId),
       });
 
       const previous = updateTripOptimistic(
         queryClient,
-        spreadsheetId,
+        tripId,
         () => updatedTrip,
       );
 
       return previous;
     },
 
-    onError: (_err, _payload, previous) => {
+    onError: (_error, _payload, previous) => {
       if (previous) {
-        queryClient.setQueryData(getTripQueryKey(spreadsheetId), previous);
+        queryClient.setQueryData(getTripQueryKey(tripId), previous);
       }
     },
 
-    onSuccess: (_data, _updatedTrip, previous) => {
+    onSuccess: (savedTrip, _payload, previous) => {
       recordMutation(previous);
-    },
-
-    onSettled: () => {
-      void invalidateTrip(queryClient, spreadsheetId);
+      queryClient.setQueryData<TripSnapshotResponse | undefined>(
+        getTripQueryKey(tripId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                trip: savedTrip,
+              }
+            : current,
+      );
     },
   });
 }
