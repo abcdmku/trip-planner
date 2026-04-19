@@ -266,10 +266,12 @@ export class PresenceManager {
       zoom: number;
       activeTab?: PresenceViewport['activeTab'];
       workspaceLayout?: PresenceViewport['workspaceLayout'];
+      leftPanelWidth?: number;
       selectedDayId?: string | null;
       itineraryScrollTop?: number;
       mapEventFilter?: PresenceViewport['mapEventFilter'];
       mapCamera?: PresenceViewport['mapCamera'];
+      mapOpenLocation?: PresenceViewport['mapOpenLocation'];
     },
   ): void {
     const participant = this.touchParticipant(socket, tripId);
@@ -286,10 +288,12 @@ export class PresenceManager {
       zoom: payload.zoom,
       activeTab: payload.activeTab,
       workspaceLayout: payload.workspaceLayout,
+      leftPanelWidth: payload.leftPanelWidth,
       selectedDayId: payload.selectedDayId,
       itineraryScrollTop: payload.itineraryScrollTop,
       mapEventFilter: payload.mapEventFilter,
       mapCamera: payload.mapCamera,
+      mapOpenLocation: payload.mapOpenLocation,
       updatedAt: participant.lastSeenAt,
     };
     this.broadcastPresenceDiff(tripId, [participant], []);

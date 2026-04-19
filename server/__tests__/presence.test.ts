@@ -140,6 +140,7 @@ describe('PresenceManager', () => {
       zoom: 1.2,
       activeTab: 'timeline',
       workspaceLayout: 'tabbed',
+      leftPanelWidth: 720,
       selectedDayId: 'day-1',
       itineraryScrollTop: 320,
       mapEventFilter: 'committed',
@@ -150,14 +151,24 @@ describe('PresenceManager', () => {
         },
         zoom: 11,
       },
+      mapOpenLocation: {
+        placeId: 'place-1',
+        position: {
+          lat: 41.884,
+          lng: -87.632,
+        },
+        name: 'Cloud Gate',
+      },
     });
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"viewMode":"multi"');
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"zoom":1.2');
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"activeTab":"timeline"');
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"workspaceLayout":"tabbed"');
+    expect(viewer.send.mock.calls[0]?.[0]).toContain('"leftPanelWidth":720');
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"selectedDayId":"day-1"');
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"itineraryScrollTop":320');
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"mapEventFilter":"committed"');
     expect(viewer.send.mock.calls[0]?.[0]).toContain('"lat":41.881832');
+    expect(viewer.send.mock.calls[0]?.[0]).toContain('"placeId":"place-1"');
   });
 });

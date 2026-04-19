@@ -293,7 +293,6 @@ export function VerticalTimeline({
 
     const signature = [
       followViewport.connectionId,
-      followViewport.updatedAt,
       followViewport.viewMode,
       followViewport.focusedDayId ?? '',
       followViewport.scrollLeft,
@@ -311,7 +310,6 @@ export function VerticalTimeline({
     followViewport?.focusedDayId,
     followViewport?.scrollLeft,
     followViewport?.scrollTop,
-    followViewport?.updatedAt,
     followViewport?.viewMode,
     followViewport?.zoom,
   ]);

@@ -201,6 +201,7 @@ const viewportSchema = z.object({
   zoom: z.number().positive(),
   activeTab: z.enum(['map', 'itinerary', 'timeline']).optional(),
   workspaceLayout: z.enum(['split', 'tabbed']).optional(),
+  leftPanelWidth: z.number().positive().optional(),
   selectedDayId: z.string().nullable().optional(),
   itineraryScrollTop: z.number().optional(),
   mapEventFilter: z.enum(['all', 'committed']).optional(),
@@ -210,6 +211,15 @@ const viewportSchema = z.object({
       lng: z.number(),
     }),
     zoom: z.number().positive(),
+  }).nullable().optional(),
+  mapOpenLocation: z.object({
+    placeId: z.string().nullable(),
+    position: z.object({
+      lat: z.number(),
+      lng: z.number(),
+    }),
+    name: z.string().optional(),
+    address: z.string().optional(),
   }).nullable().optional(),
 });
 
@@ -2048,10 +2058,12 @@ export function buildApp() {
                   zoom: viewportPayload.data.zoom,
                   activeTab: viewportPayload.data.activeTab,
                   workspaceLayout: viewportPayload.data.workspaceLayout,
+                  leftPanelWidth: viewportPayload.data.leftPanelWidth,
                   selectedDayId: viewportPayload.data.selectedDayId,
                   itineraryScrollTop: viewportPayload.data.itineraryScrollTop,
                   mapEventFilter: viewportPayload.data.mapEventFilter,
                   mapCamera: viewportPayload.data.mapCamera,
+                  mapOpenLocation: viewportPayload.data.mapOpenLocation,
                 });
                 return;
               }

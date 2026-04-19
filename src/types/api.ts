@@ -4,6 +4,7 @@ import type {
   PresenceCursor,
   PresenceItemPreview,
   PresenceMapCamera,
+  PresenceMapOpenLocation,
   PresenceMapEventFilter,
   PresenceActiveTab,
   PresenceWorkspaceLayout,
@@ -17,6 +18,7 @@ export type {
   PresenceCursor,
   PresenceItemPreview,
   PresenceMapCamera,
+  PresenceMapOpenLocation,
   PresenceMapEventFilter,
   PresenceActiveTab,
   PresenceWorkspaceLayout,
@@ -164,10 +166,12 @@ export type RealtimeClientMessage =
       zoom: number;
       activeTab?: PresenceActiveTab;
       workspaceLayout?: PresenceWorkspaceLayout;
+      leftPanelWidth?: number;
       selectedDayId?: string | null;
       itineraryScrollTop?: number;
       mapEventFilter?: PresenceMapEventFilter;
       mapCamera?: PresenceMapCamera | null;
+      mapOpenLocation?: PresenceMapOpenLocation | null;
     }
   | {
       type: 'presence.viewport.clear';

@@ -15,6 +15,16 @@ export interface PresenceMapCamera {
   zoom: number;
 }
 
+export interface PresenceMapOpenLocation {
+  placeId: string | null;
+  position: {
+    lat: number;
+    lng: number;
+  };
+  name?: string;
+  address?: string;
+}
+
 export interface PresenceCursor {
   connectionId: string;
   tripId: string;
@@ -63,10 +73,12 @@ export interface PresenceViewport {
   zoom: number;
   activeTab?: PresenceActiveTab;
   workspaceLayout?: PresenceWorkspaceLayout;
+  leftPanelWidth?: number;
   selectedDayId?: string | null;
   itineraryScrollTop?: number;
   mapEventFilter?: PresenceMapEventFilter;
   mapCamera?: PresenceMapCamera | null;
+  mapOpenLocation?: PresenceMapOpenLocation | null;
   updatedAt: string;
 }
 

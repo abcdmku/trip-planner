@@ -67,10 +67,12 @@ interface ViewportPayload {
   zoom: number;
   activeTab?: PresenceViewport['activeTab'];
   workspaceLayout?: PresenceViewport['workspaceLayout'];
+  leftPanelWidth?: number;
   selectedDayId?: string | null;
   itineraryScrollTop?: number;
   mapEventFilter?: PresenceViewport['mapEventFilter'];
   mapCamera?: PresenceViewport['mapCamera'];
+  mapOpenLocation?: PresenceViewport['mapOpenLocation'];
 }
 
 interface RealtimeContextValue {
@@ -420,6 +422,24 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
             VIEWPORT_CENTER_EPSILON &&
           Math.abs((last?.payload.mapCamera?.zoom ?? 0) - (viewport.mapCamera?.zoom ?? 0)) <
             VIEWPORT_ZOOM_EPSILON);
+      const mapOpenLocationMatches =
+        (!last?.payload.mapOpenLocation && !viewport.mapOpenLocation) ||
+        (Boolean(last?.payload.mapOpenLocation) &&
+          Boolean(viewport.mapOpenLocation) &&
+          last?.payload.mapOpenLocation?.placeId === viewport.mapOpenLocation?.placeId &&
+          last?.payload.mapOpenLocation?.name === viewport.mapOpenLocation?.name &&
+          last?.payload.mapOpenLocation?.address === viewport.mapOpenLocation?.address &&
+          Math.abs(
+            (last?.payload.mapOpenLocation?.position.lat ?? 0) -
+              (viewport.mapOpenLocation?.position.lat ?? 0),
+          ) < VIEWPORT_CENTER_EPSILON &&
+          Math.abs(
+            (last?.payload.mapOpenLocation?.position.lng ?? 0) -
+              (viewport.mapOpenLocation?.position.lng ?? 0),
+          ) < VIEWPORT_CENTER_EPSILON);
+      const leftPanelWidthMatches =
+        (last?.payload.leftPanelWidth === undefined && viewport.leftPanelWidth === undefined) ||
+        Math.abs((last?.payload.leftPanelWidth ?? 0) - (viewport.leftPanelWidth ?? 0)) < 1;
       if (
         last &&
         Math.abs(last.payload.scrollLeft - viewport.scrollLeft) < VIEWPORT_SCROLL_EPSILON_PX &&
@@ -429,11 +449,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         last.payload.focusedDayId === viewport.focusedDayId &&
         last.payload.activeTab === viewport.activeTab &&
         last.payload.workspaceLayout === viewport.workspaceLayout &&
+        leftPanelWidthMatches &&
         last.payload.selectedDayId === viewport.selectedDayId &&
         Math.abs((last.payload.itineraryScrollTop ?? 0) - (viewport.itineraryScrollTop ?? 0)) <
           VIEWPORT_SCROLL_EPSILON_PX &&
         last.payload.mapEventFilter === viewport.mapEventFilter &&
-        mapCameraMatches
+        mapCameraMatches &&
+        mapOpenLocationMatches
       ) {
         return;
       }
@@ -448,10 +470,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         zoom: viewport.zoom,
         activeTab: viewport.activeTab,
         workspaceLayout: viewport.workspaceLayout,
+        leftPanelWidth: viewport.leftPanelWidth,
         selectedDayId: viewport.selectedDayId,
         itineraryScrollTop: viewport.itineraryScrollTop,
         mapEventFilter: viewport.mapEventFilter,
         mapCamera: viewport.mapCamera,
+        mapOpenLocation: viewport.mapOpenLocation,
       });
       lastViewportSentRef.current.set(tripId, {
         payload: viewport,

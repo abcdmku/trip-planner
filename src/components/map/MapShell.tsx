@@ -21,7 +21,7 @@ import type { Item, Leg, Day, Trip, TransportMode } from '../../types/trip';
 import { useTheme } from '../../hooks/useTheme';
 import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
 import { mapsRepository, type PlaceSearchResult } from '../../services/maps-repository';
-import type { PresenceMapCamera } from '@/types/collaboration';
+import type { PresenceMapCamera, PresenceMapOpenLocation } from '@/types/collaboration';
 import ItemMarker from './ItemMarker';
 import UnifiedInfoWindow from './UnifiedInfoWindow';
 import RouteOverlay from './RouteOverlay';
@@ -95,6 +95,10 @@ export interface MapShellProps {
   onDeleteItem?: (itemId: string) => void;
   /** Broadcasts map center/zoom for collaboration follow mode. */
   onCameraChange?: (camera: PresenceMapCamera) => void;
+  /** Controlled open Google POI/info-window state. */
+  openLocation?: PresenceMapOpenLocation | null;
+  /** Broadcasts open Google POI/info-window state for follow mode. */
+  onOpenLocationChange?: (location: PresenceMapOpenLocation | null) => void;
   /** When provided, keeps the local map aligned to the followed participant. */
   followCamera?: PresenceMapCamera | null;
   /** Optional initial center; defaults to (0, 0). */
@@ -118,6 +122,23 @@ const BOUNDS_PADDING = 60; // px padding when fitting bounds
 
 function formatCoordForSignature(value: number): string {
   return Number.isFinite(value) ? value.toFixed(6) : 'NaN';
+}
+
+function buildFallbackPlace(
+  openLocation: PresenceMapOpenLocation | null | undefined,
+): PlaceSearchResult | null {
+  if (!openLocation || (!openLocation.placeId && !openLocation.name && !openLocation.address)) {
+    return null;
+  }
+
+  return {
+    placeId: openLocation.placeId ?? '',
+    name: openLocation.name ?? 'Selected place',
+    address: openLocation.address ?? '',
+    lat: openLocation.position.lat,
+    lng: openLocation.position.lng,
+    types: [],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +165,8 @@ interface MapInnerProps {
   onEditItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
   onCameraChange?: (camera: PresenceMapCamera) => void;
+  openLocation?: PresenceMapOpenLocation | null;
+  onOpenLocationChange?: (location: PresenceMapOpenLocation | null) => void;
   followCamera?: PresenceMapCamera | null;
   defaultCenter: { lat: number; lng: number };
   defaultZoom: number;
@@ -184,6 +207,8 @@ const MapInner = memo(function MapInner({
   onEditItem,
   onDeleteItem,
   onCameraChange,
+  openLocation,
+  onOpenLocationChange,
   followCamera,
   defaultCenter,
   defaultZoom,
@@ -200,6 +225,10 @@ const MapInner = memo(function MapInner({
   const lastAutoFitSignatureRef = useRef<string | null>(null);
   const applyingFollowCameraRef = useRef(false);
   const lastAppliedFollowCameraSignatureRef = useRef<string | null>(null);
+  const followCameraAnimationFrameRef = useRef<number | null>(null);
+  const followCameraTargetRef = useRef<PresenceMapCamera | null>(null);
+  const followCameraTargetUpdatedAtRef = useRef(0);
+  const followCameraLastTickAtRef = useRef<number | null>(null);
 
   const map = useMap();
 
@@ -295,9 +324,31 @@ const MapInner = memo(function MapInner({
     map.fitBounds(bounds, BOUNDS_PADDING);
   }, [autoFitTargets, followCamera, map]);
 
+  const cancelFollowCameraAnimation = useCallback(() => {
+    if (followCameraAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(followCameraAnimationFrameRef.current);
+      followCameraAnimationFrameRef.current = null;
+    }
+    followCameraLastTickAtRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    cancelFollowCameraAnimation();
+    lastAppliedFollowCameraSignatureRef.current = null;
+  }, [cancelFollowCameraAnimation, map]);
+
+  useEffect(() => {
+    return () => {
+      cancelFollowCameraAnimation();
+    };
+  }, [cancelFollowCameraAnimation]);
+
   useEffect(() => {
     if (!followCamera) {
+      cancelFollowCameraAnimation();
+      followCameraTargetRef.current = null;
       lastAppliedFollowCameraSignatureRef.current = null;
+      applyingFollowCameraRef.current = false;
       return;
     }
     if (!map) return;
@@ -310,18 +361,135 @@ const MapInner = memo(function MapInner({
     if (lastAppliedFollowCameraSignatureRef.current === signature) return;
     lastAppliedFollowCameraSignatureRef.current = signature;
 
-    applyingFollowCameraRef.current = true;
-    map.setCenter(followCamera.center);
-    map.setZoom(followCamera.zoom);
-
-    const timer = window.setTimeout(() => {
-      applyingFollowCameraRef.current = false;
-    }, 120);
-
-    return () => {
-      window.clearTimeout(timer);
+    followCameraTargetRef.current = {
+      center: { ...followCamera.center },
+      zoom: followCamera.zoom,
     };
-  }, [followCamera, map]);
+    followCameraTargetUpdatedAtRef.current = performance.now();
+    applyingFollowCameraRef.current = true;
+    if (followCameraAnimationFrameRef.current !== null) {
+      return;
+    }
+
+    const animate = (now: number) => {
+      const target = followCameraTargetRef.current;
+      if (!map || !target) {
+        followCameraAnimationFrameRef.current = null;
+        followCameraLastTickAtRef.current = null;
+        return;
+      }
+
+      const currentCenter = map.getCenter()?.toJSON() ?? target.center;
+      const currentZoom = map.getZoom() ?? target.zoom;
+      const deltaMs =
+        followCameraLastTickAtRef.current === null
+          ? 16
+          : Math.min(48, Math.max(8, now - followCameraLastTickAtRef.current));
+      followCameraLastTickAtRef.current = now;
+
+      const latDelta = target.center.lat - currentCenter.lat;
+      const lngDelta = target.center.lng - currentCenter.lng;
+      const zoomDelta = target.zoom - currentZoom;
+      const centerDistance = Math.abs(latDelta) + Math.abs(lngDelta);
+      const targetWasUpdatedRecently = now - followCameraTargetUpdatedAtRef.current < 180;
+
+      if (centerDistance < 0.00002 && Math.abs(zoomDelta) < 0.01) {
+        map.moveCamera({
+          center: target.center,
+          zoom: target.zoom,
+        });
+        if (targetWasUpdatedRecently) {
+          followCameraAnimationFrameRef.current = window.requestAnimationFrame(animate);
+          return;
+        }
+
+        followCameraAnimationFrameRef.current = null;
+        followCameraLastTickAtRef.current = null;
+        return;
+      }
+
+      const centerBlend = 1 - Math.exp(-deltaMs / 85);
+      const zoomBlend = 1 - Math.exp(-deltaMs / 100);
+      map.moveCamera({
+        center: {
+          lat: currentCenter.lat + latDelta * centerBlend,
+          lng: currentCenter.lng + lngDelta * centerBlend,
+        },
+        zoom: currentZoom + zoomDelta * zoomBlend,
+      });
+
+      followCameraAnimationFrameRef.current = window.requestAnimationFrame(animate);
+    };
+
+    followCameraAnimationFrameRef.current = window.requestAnimationFrame(animate);
+  }, [cancelFollowCameraAnimation, followCamera, map]);
+
+  const resolveOpenLocation = useCallback((nextOpenLocation: PresenceMapOpenLocation | null) => {
+    placeLookupRequestIdRef.current += 1;
+    const requestId = placeLookupRequestIdRef.current;
+
+    if (!nextOpenLocation) {
+      setSelectedMapPlace(null);
+      return;
+    }
+
+    const fallbackPlace = buildFallbackPlace(nextOpenLocation);
+    const cached =
+      nextOpenLocation.placeId !== null
+        ? placeDetailsCacheRef.current.get(nextOpenLocation.placeId)
+        : undefined;
+
+    if (cached !== undefined || !nextOpenLocation.placeId) {
+      setSelectedMapPlace({
+        position: nextOpenLocation.position,
+        place: cached ?? fallbackPlace,
+        isLoading: false,
+        error: cached || fallbackPlace ? null : 'Place details are unavailable for this location.',
+      });
+      return;
+    }
+
+    setSelectedMapPlace({
+      position: nextOpenLocation.position,
+      place: fallbackPlace,
+      isLoading: true,
+      error: null,
+    });
+
+    void mapsRepository
+      .getPlaceDetails(nextOpenLocation.placeId)
+      .then((placeDetails) => {
+        if (placeLookupRequestIdRef.current !== requestId) return;
+        placeDetailsCacheRef.current.set(nextOpenLocation.placeId!, placeDetails);
+        setSelectedMapPlace({
+          position: nextOpenLocation.position,
+          place: placeDetails ?? fallbackPlace,
+          isLoading: false,
+          error:
+            placeDetails || fallbackPlace
+              ? null
+              : 'Place details are unavailable for this location.',
+        });
+      })
+      .catch((error: unknown) => {
+        if (placeLookupRequestIdRef.current !== requestId) return;
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to load place details.';
+        setSelectedMapPlace({
+          position: nextOpenLocation.position,
+          place: fallbackPlace,
+          isLoading: false,
+          error: message,
+        });
+      });
+  }, []);
+
+  useEffect(() => {
+    if (openLocation === undefined) return;
+    resolveOpenLocation(openLocation);
+  }, [openLocation, resolveOpenLocation]);
 
   // -----------------------------------------------------------------------
   // Marker click handler
@@ -332,9 +500,10 @@ const MapInner = memo(function MapInner({
       setSelectedMapPlace(null);
       setSelectedMarkerPlace(null);
       setSelectedItem(itemId);
+      onOpenLocationChange?.(null);
       onMarkerClick?.(itemId);
     },
-    [onMarkerClick, setSelectedItem],
+    [onMarkerClick, onOpenLocationChange, setSelectedItem],
   );
 
   const handleItemRouteClick = useCallback(
@@ -343,9 +512,10 @@ const MapInner = memo(function MapInner({
       setSelectedMapPlace(null);
       setSelectedMarkerPlace(null);
       setSelectedItem(null);
+      onOpenLocationChange?.(null);
       onItemRouteClick?.(item.itemId);
     },
-    [onItemRouteClick, setSelectedItem],
+    [onItemRouteClick, onOpenLocationChange, setSelectedItem],
   );
 
   const handleInfoWindowClose = useCallback(() => {
@@ -357,15 +527,17 @@ const MapInner = memo(function MapInner({
   const handleMapPlaceInfoClose = useCallback(() => {
     placeLookupRequestIdRef.current += 1;
     setSelectedMapPlace(null);
-  }, []);
+    onOpenLocationChange?.(null);
+  }, [onOpenLocationChange]);
 
   const handleAddSelectedPlace = useCallback(
     (place: PlaceSearchResult) => {
       onAddPlaceToItinerary?.(place);
       placeLookupRequestIdRef.current += 1;
       setSelectedMapPlace(null);
+      onOpenLocationChange?.(null);
     },
-    [onAddPlaceToItinerary],
+    [onAddPlaceToItinerary, onOpenLocationChange],
   );
 
   // -----------------------------------------------------------------------
@@ -490,63 +662,15 @@ const MapInner = memo(function MapInner({
         setSelectedItem(null);
         setSelectedMarkerPlace(null);
 
-        const position = { lat: latLng.lat, lng: latLng.lng };
-        if (placeDetailsCacheRef.current.has(placeId)) {
-          const cached = placeDetailsCacheRef.current.get(placeId) ?? null;
-          setSelectedMapPlace({
-            position,
-            place: cached,
-            isLoading: false,
-            error: cached ? null : 'Place details are unavailable for this location.',
-          });
-          return;
+        const nextOpenLocation = {
+          placeId,
+          position: { lat: latLng.lat, lng: latLng.lng },
+        } satisfies PresenceMapOpenLocation;
+        if (openLocation !== undefined) {
+          onOpenLocationChange?.(nextOpenLocation);
+        } else {
+          resolveOpenLocation(nextOpenLocation);
         }
-
-        const requestId = ++placeLookupRequestIdRef.current;
-        setSelectedMapPlace({
-          position,
-          place: null,
-          isLoading: true,
-          error: null,
-        });
-
-        void mapsRepository
-          .getPlaceDetails(placeId)
-          .then((placeDetails) => {
-            if (placeLookupRequestIdRef.current !== requestId) return;
-            placeDetailsCacheRef.current.set(placeId, placeDetails);
-
-            if (!placeDetails) {
-              setSelectedMapPlace({
-                position,
-                place: null,
-                isLoading: false,
-                error: 'Place details are unavailable for this location.',
-              });
-              return;
-            }
-
-            setSelectedMapPlace({
-              position,
-              place: placeDetails,
-              isLoading: false,
-              error: null,
-            });
-          })
-          .catch((error: unknown) => {
-            if (placeLookupRequestIdRef.current !== requestId) return;
-
-            const message =
-              error instanceof Error
-                ? error.message
-                : 'Failed to load place details.';
-            setSelectedMapPlace({
-              position,
-              place: null,
-              isLoading: false,
-              error: message,
-            });
-          });
         return;
       }
 
@@ -555,8 +679,9 @@ const MapInner = memo(function MapInner({
       setSelectedMapPlace(null);
       setSelectedMarkerPlace(null);
       setSelectedItem(null);
+      onOpenLocationChange?.(null);
     },
-    [setSelectedItem],
+    [onOpenLocationChange, openLocation, resolveOpenLocation, setSelectedItem],
   );
 
   const handleMapDblClick = useCallback(
@@ -568,9 +693,10 @@ const MapInner = memo(function MapInner({
       setSelectedMapPlace(null);
       setSelectedMarkerPlace(null);
       setSelectedItem(null);
+      onOpenLocationChange?.(null);
       onMapClick(latLng.lat, latLng.lng);
     },
-    [onMapClick, setSelectedItem],
+    [onMapClick, onOpenLocationChange, setSelectedItem],
   );
 
   return (
@@ -699,6 +825,8 @@ export default function MapShell({
   onEditItem,
   onDeleteItem,
   onCameraChange,
+  openLocation,
+  onOpenLocationChange,
   followCamera,
   defaultCenter = DEFAULT_CENTER,
   defaultZoom = DEFAULT_ZOOM,
@@ -729,6 +857,8 @@ export default function MapShell({
         onEditItem={onEditItem}
         onDeleteItem={onDeleteItem}
         onCameraChange={onCameraChange}
+        openLocation={openLocation}
+        onOpenLocationChange={onOpenLocationChange}
         followCamera={followCamera}
         defaultCenter={defaultCenter}
         defaultZoom={defaultZoom}

@@ -23,6 +23,8 @@ interface AppShellProps {
   topBanner?: ReactNode;
   desktopLayoutMode?: PresenceWorkspaceLayout;
   onDesktopLayoutModeChange?: (mode: PresenceWorkspaceLayout) => void;
+  desktopLeftPanelWidth?: number;
+  onDesktopLeftPanelWidthChange?: (width: number) => void;
   itineraryScrollTop?: number;
   onItineraryScroll?: (scrollTop: number) => void;
   workspaceRef?: Ref<HTMLDivElement>;
@@ -61,6 +63,8 @@ export function AppShell({
   topBanner,
   desktopLayoutMode,
   onDesktopLayoutModeChange,
+  desktopLeftPanelWidth,
+  onDesktopLeftPanelWidthChange,
   itineraryScrollTop,
   onItineraryScroll,
   workspaceRef,
@@ -96,6 +100,13 @@ export function AppShell({
     if (desktopLayoutMode === undefined) return;
     setDesktopMapTabbedState(desktopLayoutMode === 'tabbed');
   }, [desktopLayoutMode]);
+
+  useEffect(() => {
+    if (desktopLeftPanelWidth === undefined) return;
+    if (Math.abs(leftPanelWidthRef.current - desktopLeftPanelWidth) < 1) return;
+    leftPanelWidthRef.current = desktopLeftPanelWidth;
+    setLeftPanelWidth(desktopLeftPanelWidth);
+  }, [desktopLeftPanelWidth]);
 
   const timelineMaxWidth = useMemo(() => {
     const dayCount = Math.max(1, timelineDayCount);
@@ -207,6 +218,10 @@ export function AppShell({
     () => clamp(clampedLeftPanelWidth - ITINERARY_WIDTH, TIMELINE_MIN_WIDTH, timelineMaxWidth),
     [clampedLeftPanelWidth, timelineMaxWidth],
   );
+
+  useEffect(() => {
+    onDesktopLeftPanelWidthChange?.(clampedLeftPanelWidth);
+  }, [clampedLeftPanelWidth, onDesktopLeftPanelWidthChange]);
 
   const restoreSplitView = useCallback(() => {
     const splitTarget = clamp(

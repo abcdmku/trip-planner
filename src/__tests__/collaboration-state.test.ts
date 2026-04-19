@@ -99,6 +99,7 @@ describe('collaboration state helpers', () => {
         zoom: 1,
         activeTab: 'map',
         workspaceLayout: 'tabbed',
+        leftPanelWidth: 720,
         selectedDayId: 'day-1',
         itineraryScrollTop: 120,
         mapEventFilter: 'committed',
@@ -108,6 +109,14 @@ describe('collaboration state helpers', () => {
             lng: -87.623177,
           },
           zoom: 11,
+        },
+        mapOpenLocation: {
+          placeId: 'place-1',
+          position: {
+            lat: 41.884,
+            lng: -87.632,
+          },
+          name: 'Cloud Gate',
         },
         updatedAt: '2026-04-18T12:00:00.000Z',
       },
@@ -123,6 +132,16 @@ describe('collaboration state helpers', () => {
       zoom: 11,
     });
     expect(stored?.workspaceLayout).toBe('tabbed');
+    expect(stored?.leftPanelWidth).toBe(720);
     expect(stored?.mapCamera).not.toBe(source.viewport?.mapCamera);
+    expect(stored?.mapOpenLocation).toEqual({
+      placeId: 'place-1',
+      position: {
+        lat: 41.884,
+        lng: -87.632,
+      },
+      name: 'Cloud Gate',
+    });
+    expect(stored?.mapOpenLocation).not.toBe(source.viewport?.mapOpenLocation);
   });
 });

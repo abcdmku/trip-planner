@@ -56,12 +56,18 @@ export function cloneParticipant(participant: CollaborationParticipant): Collabo
     viewport: participant.viewport
       ? {
           ...participant.viewport,
-          mapCamera: participant.viewport.mapCamera
+        mapCamera: participant.viewport.mapCamera
             ? {
                 center: { ...participant.viewport.mapCamera.center },
                 zoom: participant.viewport.mapCamera.zoom,
               }
             : participant.viewport.mapCamera ?? null,
+          mapOpenLocation: participant.viewport.mapOpenLocation
+            ? {
+                ...participant.viewport.mapOpenLocation,
+                position: { ...participant.viewport.mapOpenLocation.position },
+              }
+            : participant.viewport.mapOpenLocation ?? null,
         }
       : null,
     manipulation: participant.manipulation ? { ...participant.manipulation } : null,
@@ -103,6 +109,12 @@ export function participantsToViewports(participants: CollaborationParticipant[]
                   zoom: participant.viewport.mapCamera.zoom,
                 }
               : participant.viewport.mapCamera ?? null,
+            mapOpenLocation: participant.viewport.mapOpenLocation
+              ? {
+                  ...participant.viewport.mapOpenLocation,
+                  position: { ...participant.viewport.mapOpenLocation.position },
+                }
+              : participant.viewport.mapOpenLocation ?? null,
           },
         ]
       : [],

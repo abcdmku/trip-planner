@@ -39,6 +39,7 @@ import type { PresenceItemPreview, TripListItem } from './types/api';
 import type {
   PresenceActiveTab,
   PresenceMapCamera,
+  PresenceMapOpenLocation,
   PresenceViewport,
   PresenceWorkspaceLayout,
 } from './types/collaboration';
@@ -78,6 +79,21 @@ function areMapCamerasEqual(
     left.center.lat === right.center.lat &&
     left.center.lng === right.center.lng &&
     left.zoom === right.zoom
+  );
+}
+
+function areMapOpenLocationsEqual(
+  left: PresenceMapOpenLocation | null | undefined,
+  right: PresenceMapOpenLocation | null | undefined,
+): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return (
+    left.placeId === right.placeId &&
+    left.name === right.name &&
+    left.address === right.address &&
+    left.position.lat === right.position.lat &&
+    left.position.lng === right.position.lng
   );
 }
 
@@ -269,8 +285,10 @@ function TripApp({ tripId }: { tripId: string }) {
     zoom: number;
   } | null>(null);
   const [workspaceLayout, setWorkspaceLayout] = useState<PresenceWorkspaceLayout>('split');
+  const [desktopLeftPanelWidth, setDesktopLeftPanelWidth] = useState<number | undefined>(undefined);
   const [itineraryScrollTop, setItineraryScrollTop] = useState(0);
   const [mapCamera, setMapCamera] = useState<PresenceMapCamera | null>(null);
+  const [mapOpenLocation, setMapOpenLocation] = useState<PresenceMapOpenLocation | null>(null);
   const {
     participants: tripParticipants,
     cursors: tripCursors,
@@ -369,6 +387,14 @@ function TripApp({ tripId }: { tripId: string }) {
         const next = viewport.workspaceLayout ?? 'split';
         return current === next ? current : next;
       });
+      if (viewport.leftPanelWidth !== undefined) {
+        const nextLeftPanelWidth = viewport.leftPanelWidth;
+        setDesktopLeftPanelWidth((current) =>
+          current !== undefined && Math.abs(current - nextLeftPanelWidth) < 1
+            ? current
+            : nextLeftPanelWidth,
+        );
+      }
 
       setSelectedDayId((current) => {
         const next = viewport.selectedDayId ?? null;
@@ -386,6 +412,13 @@ function TripApp({ tripId }: { tripId: string }) {
       if (viewport.mapCamera !== undefined) {
         setMapCamera((current) =>
           areMapCamerasEqual(current, viewport.mapCamera ?? null) ? current : viewport.mapCamera ?? null,
+        );
+      }
+      if (viewport.mapOpenLocation !== undefined) {
+        setMapOpenLocation((current) =>
+          areMapOpenLocationsEqual(current, viewport.mapOpenLocation ?? null)
+            ? current
+            : viewport.mapOpenLocation ?? null,
         );
       }
     },
@@ -414,6 +447,11 @@ function TripApp({ tripId }: { tripId: string }) {
     }
     sendSelection(tripId, null);
   }, [selectedItemId, sendSelection, tripId]);
+
+  useEffect(() => {
+    if (!selectedItemId) return;
+    setMapOpenLocation((current) => (current ? null : current));
+  }, [selectedItemId]);
 
   useEffect(() => {
     if (!workspaceRef.current) return;
@@ -486,12 +524,25 @@ function TripApp({ tripId }: { tripId: string }) {
       ...baseViewport,
       activeTab: normalizePresenceActiveTab(activeTab),
       workspaceLayout,
+      leftPanelWidth: desktopLeftPanelWidth,
       selectedDayId,
       itineraryScrollTop,
       mapEventFilter,
       mapCamera,
+      mapOpenLocation,
     };
-  }, [activeTab, days, itineraryScrollTop, mapCamera, mapEventFilter, selectedDayId, timelineViewport, workspaceLayout]);
+  }, [
+    activeTab,
+    days,
+    desktopLeftPanelWidth,
+    itineraryScrollTop,
+    mapCamera,
+    mapEventFilter,
+    mapOpenLocation,
+    selectedDayId,
+    timelineViewport,
+    workspaceLayout,
+  ]);
 
   useEffect(() => {
     if (applyingFollowStateRef.current) return;
@@ -1393,6 +1444,8 @@ function TripApp({ tripId }: { tripId: string }) {
         }
         desktopLayoutMode={workspaceLayout}
         onDesktopLayoutModeChange={setWorkspaceLayout}
+        desktopLeftPanelWidth={desktopLeftPanelWidth}
+        onDesktopLeftPanelWidthChange={setDesktopLeftPanelWidth}
         itineraryScrollTop={itineraryScrollTop}
         onItineraryScroll={setItineraryScrollTop}
         workspaceOverlay={
@@ -1533,6 +1586,8 @@ function TripApp({ tripId }: { tripId: string }) {
               onConnectorClick={handleConnectorClick}
               showLegacyLegs={ENABLE_LEGACY_LEGS}
               onCameraChange={setMapCamera}
+              openLocation={mapOpenLocation}
+              onOpenLocationChange={setMapOpenLocation}
               followCamera={followedParticipant?.viewport?.mapCamera ?? null}
             />
 
