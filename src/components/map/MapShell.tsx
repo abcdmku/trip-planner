@@ -223,12 +223,6 @@ const MapInner = memo(function MapInner({
   const markerLookupRequestIdRef = useRef(0);
   const placeDetailsCacheRef = useRef<globalThis.Map<string, PlaceSearchResult | null>>(new globalThis.Map());
   const lastAutoFitSignatureRef = useRef<string | null>(null);
-  const applyingFollowCameraRef = useRef(false);
-  const lastAppliedFollowCameraSignatureRef = useRef<string | null>(null);
-  const followCameraAnimationFrameRef = useRef<number | null>(null);
-  const followCameraTargetRef = useRef<PresenceMapCamera | null>(null);
-  const followCameraTargetUpdatedAtRef = useRef(0);
-  const followCameraLastTickAtRef = useRef<number | null>(null);
 
   const map = useMap();
 
@@ -323,106 +317,6 @@ const MapInner = memo(function MapInner({
     }
     map.fitBounds(bounds, BOUNDS_PADDING);
   }, [autoFitTargets, followCamera, map]);
-
-  const cancelFollowCameraAnimation = useCallback(() => {
-    if (followCameraAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(followCameraAnimationFrameRef.current);
-      followCameraAnimationFrameRef.current = null;
-    }
-    followCameraLastTickAtRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    cancelFollowCameraAnimation();
-    lastAppliedFollowCameraSignatureRef.current = null;
-  }, [cancelFollowCameraAnimation, map]);
-
-  useEffect(() => {
-    return () => {
-      cancelFollowCameraAnimation();
-    };
-  }, [cancelFollowCameraAnimation]);
-
-  useEffect(() => {
-    if (!followCamera) {
-      cancelFollowCameraAnimation();
-      followCameraTargetRef.current = null;
-      lastAppliedFollowCameraSignatureRef.current = null;
-      applyingFollowCameraRef.current = false;
-      return;
-    }
-    if (!map) return;
-
-    const signature = [
-      formatCoordForSignature(followCamera.center.lat),
-      formatCoordForSignature(followCamera.center.lng),
-      formatCoordForSignature(followCamera.zoom),
-    ].join('|');
-    if (lastAppliedFollowCameraSignatureRef.current === signature) return;
-    lastAppliedFollowCameraSignatureRef.current = signature;
-
-    followCameraTargetRef.current = {
-      center: { ...followCamera.center },
-      zoom: followCamera.zoom,
-    };
-    followCameraTargetUpdatedAtRef.current = performance.now();
-    applyingFollowCameraRef.current = true;
-    if (followCameraAnimationFrameRef.current !== null) {
-      return;
-    }
-
-    const animate = (now: number) => {
-      const target = followCameraTargetRef.current;
-      if (!map || !target) {
-        followCameraAnimationFrameRef.current = null;
-        followCameraLastTickAtRef.current = null;
-        return;
-      }
-
-      const currentCenter = map.getCenter()?.toJSON() ?? target.center;
-      const currentZoom = map.getZoom() ?? target.zoom;
-      const deltaMs =
-        followCameraLastTickAtRef.current === null
-          ? 16
-          : Math.min(48, Math.max(8, now - followCameraLastTickAtRef.current));
-      followCameraLastTickAtRef.current = now;
-
-      const latDelta = target.center.lat - currentCenter.lat;
-      const lngDelta = target.center.lng - currentCenter.lng;
-      const zoomDelta = target.zoom - currentZoom;
-      const centerDistance = Math.abs(latDelta) + Math.abs(lngDelta);
-      const targetWasUpdatedRecently = now - followCameraTargetUpdatedAtRef.current < 180;
-
-      if (centerDistance < 0.00002 && Math.abs(zoomDelta) < 0.01) {
-        map.moveCamera({
-          center: target.center,
-          zoom: target.zoom,
-        });
-        if (targetWasUpdatedRecently) {
-          followCameraAnimationFrameRef.current = window.requestAnimationFrame(animate);
-          return;
-        }
-
-        followCameraAnimationFrameRef.current = null;
-        followCameraLastTickAtRef.current = null;
-        return;
-      }
-
-      const centerBlend = 1 - Math.exp(-deltaMs / 85);
-      const zoomBlend = 1 - Math.exp(-deltaMs / 100);
-      map.moveCamera({
-        center: {
-          lat: currentCenter.lat + latDelta * centerBlend,
-          lng: currentCenter.lng + lngDelta * centerBlend,
-        },
-        zoom: currentZoom + zoomDelta * zoomBlend,
-      });
-
-      followCameraAnimationFrameRef.current = window.requestAnimationFrame(animate);
-    };
-
-    followCameraAnimationFrameRef.current = window.requestAnimationFrame(animate);
-  }, [cancelFollowCameraAnimation, followCamera, map]);
 
   const resolveOpenLocation = useCallback((nextOpenLocation: PresenceMapOpenLocation | null) => {
     placeLookupRequestIdRef.current += 1;
@@ -642,13 +536,13 @@ const MapInner = memo(function MapInner({
       if (!isMapReady) {
         setIsMapReady(true);
       }
-      if (applyingFollowCameraRef.current) return;
+      if (followCamera) return;
       onCameraChange?.({
         center: event.detail.center,
         zoom: event.detail.zoom,
       });
     },
-    [isMapReady, onCameraChange],
+    [followCamera, isMapReady, onCameraChange],
   );
 
   const handleMapClick = useCallback(
@@ -705,6 +599,9 @@ const MapInner = memo(function MapInner({
         <Map
           defaultCenter={defaultCenter}
           defaultZoom={defaultZoom}
+          center={followCamera?.center}
+          zoom={followCamera?.zoom}
+          controlled={Boolean(followCamera)}
           gestureHandling="greedy"
           disableDefaultUI={false}
           mapId="trip-planner-map"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { deriveTimelineConnectorsWithTiming } from '@/lib/connectors';
 import { resolvePointDropNearest } from '@/lib/timeline-drop';
@@ -189,6 +189,11 @@ export function VerticalTimeline({
     if (!hasFocusedDay) setFocusedDayId(orderedDays[0].dayId);
   }, [focusedDayId, orderedDays, selectedDayId]);
 
+  useLayoutEffect(() => {
+    if (!selectedDayId || viewMode === 'day') return;
+    setViewMode('day');
+  }, [selectedDayId, viewMode]);
+
   const scrollDayIntoView = useCallback((dayId: string, behavior: ScrollBehavior = 'smooth') => {
     const scroller = scrollerRef.current;
     const target = dayColumnRefs.current[dayId];
@@ -262,11 +267,17 @@ export function VerticalTimeline({
   const applyViewport = useCallback(
     (viewport: typeof followViewport, behavior: ScrollBehavior = 'auto') => {
       if (!viewport) return;
-      const targetMode = viewport.viewMode === 'day' || viewport.viewMode === 'multi' ? viewport.viewMode : 'multi';
+      const targetMode =
+        viewport.selectedDayId !== undefined && viewport.selectedDayId !== null
+          ? 'day'
+          : viewport.viewMode === 'day' || viewport.viewMode === 'multi'
+            ? viewport.viewMode
+            : 'multi';
+      const targetDayId = viewport.selectedDayId ?? viewport.focusedDayId;
       applyingRemoteViewportRef.current = true;
       setViewMode(targetMode);
-      if (viewport.focusedDayId) {
-        setFocusedDayId(viewport.focusedDayId);
+      if (targetDayId) {
+        setFocusedDayId(targetDayId);
       }
       updateZoom(viewport.zoom * PX_PER_MIN);
 
@@ -295,6 +306,7 @@ export function VerticalTimeline({
       followViewport.connectionId,
       followViewport.viewMode,
       followViewport.focusedDayId ?? '',
+      followViewport.selectedDayId ?? '',
       followViewport.scrollLeft,
       followViewport.scrollTop,
       followViewport.zoom,
@@ -308,6 +320,7 @@ export function VerticalTimeline({
     followViewport,
     followViewport?.connectionId,
     followViewport?.focusedDayId,
+    followViewport?.selectedDayId,
     followViewport?.scrollLeft,
     followViewport?.scrollTop,
     followViewport?.viewMode,
