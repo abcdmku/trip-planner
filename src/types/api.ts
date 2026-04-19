@@ -1,4 +1,28 @@
 import type { Day, HistoryEvent, Item, Leg, Trip } from './trip';
+import type {
+  CollaborationParticipant,
+  PresenceCursor,
+  PresenceItemPreview,
+  PresenceMapCamera,
+  PresenceMapEventFilter,
+  PresenceActiveTab,
+  PresenceWorkspaceLayout,
+  PresenceSelection,
+  PresenceViewport,
+  PresencePreviewMode,
+} from './collaboration';
+
+export type {
+  CollaborationParticipant,
+  PresenceCursor,
+  PresenceItemPreview,
+  PresenceMapCamera,
+  PresenceMapEventFilter,
+  PresenceActiveTab,
+  PresenceWorkspaceLayout,
+  PresenceSelection,
+  PresenceViewport,
+} from './collaboration';
 
 export interface SessionUser {
   id: string;
@@ -47,33 +71,6 @@ export interface TripSnapshotResponse {
   members: TripMember[];
   pendingInvites: TripInvite[];
   meta: Record<string, string>;
-}
-
-export interface PresenceCursor {
-  connectionId: string;
-  tripId: string;
-  userId: string;
-  name: string;
-  picture: string;
-  color: string;
-  x: number;
-  y: number;
-  updatedAt: string;
-}
-
-export interface PresenceItemPreview {
-  connectionId: string;
-  tripId: string;
-  userId: string;
-  name: string;
-  picture: string;
-  color: string;
-  itemId: string;
-  dayId: string;
-  scheduledStart: string;
-  scheduledEnd: string;
-  durationMinutes: number;
-  updatedAt: string;
 }
 
 export type TripEventType =
@@ -141,16 +138,51 @@ export type RealtimeClientMessage =
       scheduledStart: string;
       scheduledEnd: string;
       durationMinutes: number;
+      mode?: PresencePreviewMode;
     }
   | {
       type: 'presence.item-preview.clear';
       tripId: string;
+    }
+  | {
+      type: 'presence.selection';
+      tripId: string;
+      objectIds: string[];
+      primaryObjectId: string | null;
+    }
+  | {
+      type: 'presence.selection.clear';
+      tripId: string;
+    }
+  | {
+      type: 'presence.viewport';
+      tripId: string;
+      viewMode: 'day' | 'multi' | 'map' | 'canvas';
+      focusedDayId: string | null;
+      scrollLeft: number;
+      scrollTop: number;
+      zoom: number;
+      activeTab?: PresenceActiveTab;
+      workspaceLayout?: PresenceWorkspaceLayout;
+      selectedDayId?: string | null;
+      itineraryScrollTop?: number;
+      mapEventFilter?: PresenceMapEventFilter;
+      mapCamera?: PresenceMapCamera | null;
+    }
+  | {
+      type: 'presence.viewport.clear';
+      tripId: string;
+    }
+  | {
+      type: 'presence.heartbeat';
     };
 
 export type RealtimeServerMessage =
   | {
       type: 'presence.self';
       connectionId: string;
+      heartbeatIntervalMs?: number;
+      stalePresenceTtlMs?: number;
     }
   | {
       type: 'trip.event';
@@ -159,14 +191,26 @@ export type RealtimeServerMessage =
   | {
       type: 'presence.snapshot';
       tripId: string;
+      participants: CollaborationParticipant[];
       cursors: PresenceCursor[];
       itemPreviews: PresenceItemPreview[];
     }
   | {
       type: 'presence.diff';
       tripId: string;
+      participantsUpsert: CollaborationParticipant[];
       upsert: PresenceCursor[];
       removeConnectionIds: string[];
       previewUpsert: PresenceItemPreview[];
       previewRemoveConnectionIds: string[];
+    }
+  | {
+      type: 'presence.selection';
+      tripId: string;
+      selection: PresenceSelection;
+    }
+  | {
+      type: 'presence.viewport';
+      tripId: string;
+      viewport: PresenceViewport;
     };

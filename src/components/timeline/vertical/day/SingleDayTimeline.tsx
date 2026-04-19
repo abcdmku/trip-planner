@@ -29,6 +29,7 @@ export function SingleDayTimeline({
   onConnectorClick,
   onConnectorRemove,
   showConnectors = true,
+  remoteObjectPresenceById,
 }: SingleDayTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -196,6 +197,7 @@ export function SingleDayTimeline({
           onConnectorClick={onConnectorClick}
           onConnectorRemove={onConnectorRemove}
           showConnectors={showConnectors}
+          remoteObjectPresenceByItemId={remoteObjectPresenceById}
         />
       </div>
     </div>

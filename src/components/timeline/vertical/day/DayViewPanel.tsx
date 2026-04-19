@@ -8,6 +8,7 @@ import type {
   CommitExternalDrop,
   ExternalDragPreview,
   LiveItemPreview,
+  MultiDayColumnProps,
   ResolveExternalDrop,
 } from '../types';
 
@@ -40,6 +41,7 @@ interface DayViewPanelProps {
   onConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
   /** Whether to show auto-connect lines */
   showConnectors?: boolean;
+  remoteObjectPresenceById?: MultiDayColumnProps['remoteObjectPresenceById'];
 }
 
 export function DayViewPanel({
@@ -67,6 +69,7 @@ export function DayViewPanel({
   onConnectorClick,
   onConnectorRemove,
   showConnectors = true,
+  remoteObjectPresenceById,
 }: DayViewPanelProps) {
   if (!activeDay) {
     return <div className="flex h-full items-center justify-center text-sm text-theme-tertiary">Select a day</div>;
@@ -123,6 +126,7 @@ export function DayViewPanel({
           onConnectorClick={onConnectorClick}
           onConnectorRemove={onConnectorRemove}
           showConnectors={showConnectors}
+          remoteObjectPresenceById={remoteObjectPresenceById}
         />
       </div>
     </div>

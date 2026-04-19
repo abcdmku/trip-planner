@@ -401,16 +401,22 @@ describe.runIf(process.env.RUN_REALTIME_INTEGRATION === '1')('realtime integrati
       clientA.send({ type: 'presence.cursor.clear', tripId });
       const cursorClear = await clientB.waitFor(
         (message): message is PresenceDiffMessage =>
-          isPresenceDiff(message) && message.removeConnectionIds.length > 0,
+          isPresenceDiff(message) &&
+          message.participantsUpsert.some((participant) => participant.connectionId === selfA.connectionId && participant.cursor === null),
       );
-      expect(cursorClear.removeConnectionIds).toHaveLength(1);
+      expect(
+        cursorClear.participantsUpsert.find((participant) => participant.connectionId === selfA.connectionId)?.cursor,
+      ).toBeNull();
 
       clientA.send({ type: 'presence.item-preview.clear', tripId });
       const previewClear = await clientB.waitFor(
         (message): message is PresenceDiffMessage =>
-          isPresenceDiff(message) && message.previewRemoveConnectionIds.length > 0,
+          isPresenceDiff(message) &&
+          message.participantsUpsert.some((participant) => participant.connectionId === selfA.connectionId && participant.itemPreview === null),
       );
-      expect(previewClear.previewRemoveConnectionIds).toHaveLength(1);
+      expect(
+        previewClear.participantsUpsert.find((participant) => participant.connectionId === selfA.connectionId)?.itemPreview,
+      ).toBeNull();
     } finally {
       await clientA.close();
       await clientB.close();

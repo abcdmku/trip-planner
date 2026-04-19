@@ -2,6 +2,8 @@ import type React from 'react';
 import { Clock, Lock, Car, Footprints, Bike, Bus, Plane, Circle } from 'lucide-react';
 import type { MutableRefObject } from 'react';
 import type { Day, Item, TransportMode } from '@/types/trip';
+import { RemoteItemPresenceBadge } from '@/components/presence/RemoteItemPresenceBadge';
+import type { RemoteObjectPresence } from '@/types/collaboration';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
 import { getAvailabilityRangesForDate } from '@/lib/availability';
 import { toMinutesOfDay } from '@/lib/date-time';
@@ -74,6 +76,7 @@ interface MultiDayColumnBodyProps {
   onConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
   /** Whether to show auto-connect lines */
   showConnectors?: boolean;
+  remoteObjectPresenceByItemId?: Map<string, RemoteObjectPresence[]>;
 }
 
 export function MultiDayColumnBody({
@@ -103,6 +106,7 @@ export function MultiDayColumnBody({
   onConnectorClick,
   onConnectorRemove,
   showConnectors = true,
+  remoteObjectPresenceByItemId,
 }: MultiDayColumnBodyProps) {
   const previewTextColor = externalPreview?.valid ? day.colorHex : '#DC2626';
   const previewItem = externalPreview ? allItems?.find((i) => i.itemId === externalPreview.itemId) : null;
@@ -359,6 +363,8 @@ export function MultiDayColumnBody({
                 ...(position.active || isSelected ? { '--tw-ring-color': `${day.colorHex}99` } as React.CSSProperties : {}),
               }}
             >
+              <RemoteItemPresenceBadge presence={remoteObjectPresenceByItemId?.get(item.itemId) ?? []} />
+
               <div className="absolute inset-x-0 top-0 z-10 h-[7px] cursor-n-resize" />
 
               <div className={`flex h-full items-start px-1.5 py-0.5 ${item.timelineLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>

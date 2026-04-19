@@ -58,6 +58,7 @@ describe('realtime collaboration helpers', () => {
       scheduledStart: '09:15',
       scheduledEnd: '10:00',
       durationMinutes: 45,
+      mode: 'move',
     });
   });
 
@@ -88,6 +89,7 @@ describe('realtime collaboration helpers', () => {
       scheduledStart: '10:15',
       scheduledEnd: '11:00',
       durationMinutes: 45,
+      mode: 'move',
       updatedAt: '2026-04-18T12:00:00.000Z',
     };
 

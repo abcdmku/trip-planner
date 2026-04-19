@@ -186,6 +186,7 @@ export function useTimelinePointerInteraction(
             scheduledStart: toTime(snappedStart),
             scheduledEnd: toTime(snappedStart + duration),
             durationMinutes: duration,
+            mode: 'move',
           });
         }
         break;
@@ -217,6 +218,7 @@ export function useTimelinePointerInteraction(
             scheduledStart: toTime(pointer.curStartMin),
             scheduledEnd: toTime(endMin),
             durationMinutes: endMin - pointer.curStartMin,
+            mode: 'resize',
           });
         }
         setInteraction({
@@ -254,6 +256,7 @@ export function useTimelinePointerInteraction(
             scheduledStart: toTime(startMin),
             scheduledEnd: toTime(pointer.curEndMin),
             durationMinutes: pointer.curEndMin - startMin,
+            mode: 'resize',
           });
         }
         setInteraction({

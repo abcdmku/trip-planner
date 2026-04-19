@@ -171,11 +171,55 @@ const itemPreviewSchema = z.object({
   scheduledStart: z.string().min(1),
   scheduledEnd: z.string().min(1),
   durationMinutes: z.number().int().nonnegative(),
+  mode: z.enum(['move', 'resize', 'append', 'point', 'create', 'edit', 'transform']).optional(),
 });
 
 const clearItemPreviewSchema = z.object({
   type: z.literal('presence.item-preview.clear'),
   tripId: z.string(),
+});
+
+const selectionSchema = z.object({
+  type: z.literal('presence.selection'),
+  tripId: z.string(),
+  objectIds: z.array(z.string().min(1)),
+  primaryObjectId: z.string().nullable(),
+});
+
+const clearSelectionSchema = z.object({
+  type: z.literal('presence.selection.clear'),
+  tripId: z.string(),
+});
+
+const viewportSchema = z.object({
+  type: z.literal('presence.viewport'),
+  tripId: z.string(),
+  viewMode: z.enum(['day', 'multi', 'map', 'canvas']),
+  focusedDayId: z.string().nullable(),
+  scrollLeft: z.number(),
+  scrollTop: z.number(),
+  zoom: z.number().positive(),
+  activeTab: z.enum(['map', 'itinerary', 'timeline']).optional(),
+  workspaceLayout: z.enum(['split', 'tabbed']).optional(),
+  selectedDayId: z.string().nullable().optional(),
+  itineraryScrollTop: z.number().optional(),
+  mapEventFilter: z.enum(['all', 'committed']).optional(),
+  mapCamera: z.object({
+    center: z.object({
+      lat: z.number(),
+      lng: z.number(),
+    }),
+    zoom: z.number().positive(),
+  }).nullable().optional(),
+});
+
+const clearViewportSchema = z.object({
+  type: z.literal('presence.viewport.clear'),
+  tripId: z.string(),
+});
+
+const heartbeatSchema = z.object({
+  type: z.literal('presence.heartbeat'),
 });
 
 const subscribeSchema = z.object({
@@ -785,6 +829,10 @@ export function buildApp() {
   });
   const presence = new PresenceManager();
   const sharedUndo = new SharedUndoManager();
+
+  app.addHook('onClose', async () => {
+    presence.dispose();
+  });
 
   app.register(fastifyCookie, {
     secret: env.SESSION_SECRET,
@@ -1914,6 +1962,8 @@ export function buildApp() {
               JSON.stringify({
                 type: 'presence.self',
                 connectionId: connection.connectionId,
+                heartbeatIntervalMs: 10_000,
+                stalePresenceTtlMs: 25_000,
               }),
             );
             return user;
@@ -1931,6 +1981,12 @@ export function buildApp() {
               if (!user) return;
 
               const parsed = JSON.parse(raw.toString()) as RealtimeClientMessage;
+              const heartbeatPayload = heartbeatSchema.safeParse(parsed);
+              if (heartbeatPayload.success) {
+                presence.recordHeartbeat(socket);
+                return;
+              }
+
               const cursorPayload = cursorSchema.safeParse(parsed);
               if (cursorPayload.success) {
                 presence.updateCursor(
@@ -1956,6 +2012,7 @@ export function buildApp() {
                   scheduledStart: itemPreviewPayload.data.scheduledStart,
                   scheduledEnd: itemPreviewPayload.data.scheduledEnd,
                   durationMinutes: itemPreviewPayload.data.durationMinutes,
+                  mode: itemPreviewPayload.data.mode,
                 });
                 return;
               }
@@ -1963,6 +2020,45 @@ export function buildApp() {
               const clearItemPreviewPayload = clearItemPreviewSchema.safeParse(parsed);
               if (clearItemPreviewPayload.success) {
                 presence.clearItemPreview(socket, clearItemPreviewPayload.data.tripId);
+                return;
+              }
+
+              const selectionPayload = selectionSchema.safeParse(parsed);
+              if (selectionPayload.success) {
+                presence.updateSelection(socket, selectionPayload.data.tripId, {
+                  objectIds: selectionPayload.data.objectIds,
+                  primaryObjectId: selectionPayload.data.primaryObjectId,
+                });
+                return;
+              }
+
+              const clearSelectionPayload = clearSelectionSchema.safeParse(parsed);
+              if (clearSelectionPayload.success) {
+                presence.clearSelection(socket, clearSelectionPayload.data.tripId);
+                return;
+              }
+
+              const viewportPayload = viewportSchema.safeParse(parsed);
+              if (viewportPayload.success) {
+                presence.updateViewport(socket, viewportPayload.data.tripId, {
+                  viewMode: viewportPayload.data.viewMode,
+                  focusedDayId: viewportPayload.data.focusedDayId,
+                  scrollLeft: viewportPayload.data.scrollLeft,
+                  scrollTop: viewportPayload.data.scrollTop,
+                  zoom: viewportPayload.data.zoom,
+                  activeTab: viewportPayload.data.activeTab,
+                  workspaceLayout: viewportPayload.data.workspaceLayout,
+                  selectedDayId: viewportPayload.data.selectedDayId,
+                  itineraryScrollTop: viewportPayload.data.itineraryScrollTop,
+                  mapEventFilter: viewportPayload.data.mapEventFilter,
+                  mapCamera: viewportPayload.data.mapCamera,
+                });
+                return;
+              }
+
+              const clearViewportPayload = clearViewportSchema.safeParse(parsed);
+              if (clearViewportPayload.success) {
+                presence.clearViewport(socket, clearViewportPayload.data.tripId);
                 return;
               }
 

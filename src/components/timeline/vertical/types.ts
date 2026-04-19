@@ -1,5 +1,6 @@
 import type { MutableRefObject, RefObject } from 'react';
 import type { Day, Item } from '@/types/trip';
+import type { PresenceViewport, RemoteObjectPresence } from '@/types/collaboration';
 import type { ExternalDropMode } from '@/lib/timeline-drop';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
 
@@ -39,6 +40,7 @@ export interface LiveItemPreview {
   scheduledStart: string;
   scheduledEnd: string;
   durationMinutes: number;
+  mode?: 'move' | 'resize' | 'append' | 'point' | 'create' | 'edit' | 'transform';
 }
 
 export interface ExternalDragPreview {
@@ -85,6 +87,12 @@ export interface VerticalTimelineProps {
   showTimelineConnectors?: boolean;
   /** Callback to toggle the showTimelineConnectors setting */
   onToggleTimelineConnectors?: () => void;
+  remoteObjectPresenceById?: Map<string, RemoteObjectPresence[]>;
+  onViewportChange?: (viewport: Omit<PresenceViewport, 'connectionId' | 'tripId' | 'userId' | 'updatedAt'>) => void;
+  followViewport?: PresenceViewport | null;
+  jumpToViewport?: { key: string; viewport: PresenceViewport } | null;
+  onJumpApplied?: (key: string) => void;
+  onFollowExit?: () => void;
 }
 
 export interface SingleDayTimelineProps {
@@ -112,6 +120,7 @@ export interface SingleDayTimelineProps {
   onConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
   /** Whether to show auto-connect lines */
   showConnectors?: boolean;
+  remoteObjectPresenceById?: Map<string, RemoteObjectPresence[]>;
 }
 
 export interface MultiDayColumnProps {
@@ -150,6 +159,7 @@ export interface MultiDayColumnProps {
   onConnectorRemove?: (connector: TimelineConnectorWithTiming) => void;
   /** Whether to show auto-connect lines */
   showConnectors?: boolean;
+  remoteObjectPresenceById?: Map<string, RemoteObjectPresence[]>;
 }
 
 export interface CrossDayMoveInfo {

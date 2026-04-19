@@ -40,6 +40,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
     onConnectorClick,
     onConnectorRemove,
     showConnectors = true,
+    remoteObjectPresenceById,
   },
   ref,
 ) {
@@ -216,6 +217,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
         onConnectorClick={onConnectorClick}
         onConnectorRemove={onConnectorRemove}
         showConnectors={showConnectors}
+        remoteObjectPresenceByItemId={remoteObjectPresenceById}
       />
     </div>
   );

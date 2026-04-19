@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type
 import { useUI } from '../../hooks/useUI';
 import { Navbar } from './Navbar';
 import { MobileTabs } from './MobileTabs';
+import type { PresenceWorkspaceLayout } from '@/types/collaboration';
 
 interface AppShellProps {
   dayTabs?: ReactNode;
@@ -14,10 +15,16 @@ interface AppShellProps {
   syncStatus?: 'synced' | 'syncing' | 'error' | 'offline';
   user?: { name: string; picture: string };
   onLogout?: () => void;
+  participantStrip?: ReactNode;
   shareControl?: ReactNode;
   activeCollaborators?: Array<{ userId: string; name: string; picture: string; color: string }>;
+  followStatus?: ReactNode;
   workspaceOverlay?: ReactNode;
   topBanner?: ReactNode;
+  desktopLayoutMode?: PresenceWorkspaceLayout;
+  onDesktopLayoutModeChange?: (mode: PresenceWorkspaceLayout) => void;
+  itineraryScrollTop?: number;
+  onItineraryScroll?: (scrollTop: number) => void;
   workspaceRef?: Ref<HTMLDivElement>;
 }
 
@@ -46,23 +53,49 @@ export function AppShell({
   syncStatus,
   user,
   onLogout,
+  participantStrip,
   shareControl,
   activeCollaborators,
+  followStatus,
   workspaceOverlay,
   topBanner,
+  desktopLayoutMode,
+  onDesktopLayoutModeChange,
+  itineraryScrollTop,
+  onItineraryScroll,
   workspaceRef,
 }: AppShellProps) {
   const { activeTab, setActiveTab } = useUI();
   const [leftPanelWidth, setLeftPanelWidth] = useState(LEFT_PANEL_MIN_WIDTH + 80);
   const [isResizing, setIsResizing] = useState(false);
-  const [desktopMapTabbed, setDesktopMapTabbed] = useState(false);
+  const [desktopMapTabbedState, setDesktopMapTabbedState] = useState(false);
   const [willTabMapOnRelease, setWillTabMapOnRelease] = useState(false);
   const resizeStateRef = useRef({ startX: 0, startWidth: leftPanelWidth });
   const leftPanelWidthRef = useRef(leftPanelWidth);
+  const splitItineraryRef = useRef<HTMLDivElement | null>(null);
+  const tabbedItineraryRef = useRef<HTMLDivElement | null>(null);
+  const mobileItineraryRef = useRef<HTMLDivElement | null>(null);
+  const desktopMapTabbed =
+    desktopLayoutMode !== undefined
+      ? desktopLayoutMode === 'tabbed'
+      : desktopMapTabbedState;
+
+  const setDesktopMapTabbed = useCallback(
+    (next: boolean) => {
+      setDesktopMapTabbedState(next);
+      onDesktopLayoutModeChange?.(next ? 'tabbed' : 'split');
+    },
+    [onDesktopLayoutModeChange],
+  );
 
   useEffect(() => {
     leftPanelWidthRef.current = leftPanelWidth;
   }, [leftPanelWidth]);
+
+  useEffect(() => {
+    if (desktopLayoutMode === undefined) return;
+    setDesktopMapTabbedState(desktopLayoutMode === 'tabbed');
+  }, [desktopLayoutMode]);
 
   const timelineMaxWidth = useMemo(() => {
     const dayCount = Math.max(1, timelineDayCount);
@@ -162,6 +195,7 @@ export function AppShell({
     getSplitRestoreWidth,
     isResizing,
     setActiveTab,
+    setDesktopMapTabbed,
     shouldTabMapAtWidth,
   ]);
 
@@ -183,26 +217,41 @@ export function AppShell({
     setLeftPanelWidth(splitTarget);
     leftPanelWidthRef.current = splitTarget;
     setDesktopMapTabbed(false);
-  }, [getDesktopResizeMaxWidth, getSplitRestoreWidth]);
+  }, [getDesktopResizeMaxWidth, getSplitRestoreWidth, setDesktopMapTabbed]);
 
   const desktopTabbedActiveTab =
     activeTab === 'map' || activeTab === 'itinerary' || activeTab === 'timeline'
       ? activeTab
       : 'timeline';
 
+  const syncItineraryScroll = useCallback((nextScrollTop: number) => {
+    for (const ref of [splitItineraryRef, tabbedItineraryRef, mobileItineraryRef]) {
+      const container = ref.current;
+      if (!container || Math.abs(container.scrollTop - nextScrollTop) < 1) continue;
+      container.scrollTop = nextScrollTop;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (itineraryScrollTop === undefined) return;
+    syncItineraryScroll(itineraryScrollTop);
+  }, [itineraryScrollTop, syncItineraryScroll]);
+
   return (
-    <div ref={workspaceRef} className="flex h-screen flex-col overflow-hidden bg-theme">
+    <div className="flex h-screen flex-col overflow-hidden bg-theme">
       <Navbar
         tripName={tripName}
         onTripNameChange={onTripNameChange}
         syncStatus={syncStatus}
         user={user}
         onLogout={onLogout}
+        participantStrip={participantStrip}
         shareControl={shareControl}
         activeCollaborators={activeCollaborators}
+        followStatus={followStatus}
       />
 
-      <div className="relative flex flex-1 overflow-hidden">
+      <div ref={workspaceRef} className="relative flex flex-1 overflow-hidden">
         {topBanner && (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-50">
             <div className="pointer-events-auto">{topBanner}</div>
@@ -251,11 +300,13 @@ export function AppShell({
                   {map}
                 </div>
                 <div
+                  ref={tabbedItineraryRef}
                   className={`absolute inset-0 overflow-y-auto bg-theme-elevated transition-opacity duration-150 ${
                     desktopTabbedActiveTab === 'itinerary'
                       ? 'z-10 opacity-100'
                       : 'pointer-events-none z-0 opacity-0'
                   }`}
+                  onScroll={(event) => onItineraryScroll?.(event.currentTarget.scrollTop)}
                 >
                   {itinerary}
                 </div>
@@ -280,7 +331,9 @@ export function AppShell({
                 {dayTabs}
                 <div className="flex flex-1 overflow-hidden">
                   <div
+                    ref={splitItineraryRef}
                     className="flex-shrink-0 overflow-y-auto overflow-x-hidden border-r border-theme-subtle"
+                    onScroll={(event) => onItineraryScroll?.(event.currentTarget.scrollTop)}
                     style={{ width: ITINERARY_WIDTH }}
                   >
                     {itinerary}
@@ -349,9 +402,11 @@ export function AppShell({
               {map}
             </div>
             <div
+              ref={mobileItineraryRef}
               className={`absolute inset-0 overflow-y-auto bg-theme-elevated transition-opacity duration-150 ${
                 activeTab === 'itinerary' ? 'z-10 opacity-100' : 'pointer-events-none z-0 opacity-0'
               }`}
+              onScroll={(event) => onItineraryScroll?.(event.currentTarget.scrollTop)}
             >
               {itinerary}
             </div>

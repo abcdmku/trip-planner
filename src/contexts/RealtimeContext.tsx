@@ -11,17 +11,33 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  getCommittedPreviewConnectionIds,
-  isRemoteTripEvent,
-  mergeTripItemPreviewDiff,
-  removeTripItemPreviewConnections,
-  shouldRefetchTripForEvent,
-} from '@/lib/realtime';
+  CURSOR_EPSILON_NORMALIZED,
+  CURSOR_SEND_INTERVAL_MS,
+  HEARTBEAT_INTERVAL_MS,
+  ITEM_PREVIEW_SEND_INTERVAL_MS,
+  VIEWPORT_CENTER_EPSILON,
+  VIEWPORT_SCROLL_EPSILON_PX,
+  VIEWPORT_SEND_INTERVAL_MS,
+  VIEWPORT_ZOOM_EPSILON,
+} from '@/lib/collaboration/perf';
+import {
+  participantsToCursors,
+  participantsToItemPreviews,
+  participantsToSelections,
+  participantsToViewports,
+} from '@/lib/collaboration/state';
+import { isRemoteTripEvent, shouldRefetchTripForEvent } from '@/lib/realtime';
 import { buildRealtimeUrl, setRealtimeConnectionId } from '@/services/api-client';
+import { collaborationStore } from '@/stores/collaboration-store';
 import { getTripQueryKey } from '@/stores/trip-store';
 import type {
+  CollaborationParticipant,
   PresenceCursor,
   PresenceItemPreview,
+  PresenceSelection,
+  PresenceViewport,
+} from '@/types/collaboration';
+import type {
   RealtimeServerMessage,
   TripEventEnvelope,
   TripSnapshotResponse,
@@ -35,6 +51,26 @@ interface LiveItemPreviewPayload {
   scheduledStart: string;
   scheduledEnd: string;
   durationMinutes: number;
+  mode?: PresenceItemPreview['mode'];
+}
+
+interface SelectionPayload {
+  objectIds: string[];
+  primaryObjectId: string | null;
+}
+
+interface ViewportPayload {
+  viewMode: PresenceViewport['viewMode'];
+  focusedDayId: string | null;
+  scrollLeft: number;
+  scrollTop: number;
+  zoom: number;
+  activeTab?: PresenceViewport['activeTab'];
+  workspaceLayout?: PresenceViewport['workspaceLayout'];
+  selectedDayId?: string | null;
+  itineraryScrollTop?: number;
+  mapEventFilter?: PresenceViewport['mapEventFilter'];
+  mapCamera?: PresenceViewport['mapCamera'];
 }
 
 interface RealtimeContextValue {
@@ -45,8 +81,13 @@ interface RealtimeContextValue {
   sendCursor: (tripId: string, x: number, y: number) => void;
   clearCursor: (tripId: string) => void;
   sendItemPreview: (tripId: string, preview: LiveItemPreviewPayload | null) => void;
+  sendSelection: (tripId: string, selection: SelectionPayload | null) => void;
+  sendViewport: (tripId: string, viewport: ViewportPayload | null) => void;
+  getTripParticipants: (tripId: string) => CollaborationParticipant[];
   getTripCursors: (tripId: string) => PresenceCursor[];
   getTripItemPreviews: (tripId: string) => PresenceItemPreview[];
+  getTripSelections: (tripId: string) => PresenceSelection[];
+  getTripViewports: (tripId: string) => PresenceViewport[];
   getRemoteEditNotice: (tripId: string) => string | null;
   dismissRemoteEditNotice: (tripId: string) => void;
 }
@@ -189,37 +230,62 @@ function applyTripEvent(
   }
 }
 
+function getTripParticipants(tripId: string): CollaborationParticipant[] {
+  return collaborationStore.getRoomSnapshot(tripId).participants;
+}
+
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { user, isAuthenticated, refreshSession } = useAuth();
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [localConnectionId, setLocalConnectionId] = useState<string | null>(null);
-  const [cursorsByTrip, setCursorsByTrip] = useState<Record<string, PresenceCursor[]>>({});
-  const [itemPreviewsByTrip, setItemPreviewsByTrip] = useState<Record<string, PresenceItemPreview[]>>({});
   const [noticesByTrip, setNoticesByTrip] = useState<Record<string, string>>({});
   const socketRef = useRef<WebSocket | null>(null);
   const localConnectionIdRef = useRef<string | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
+  const heartbeatTimerRef = useRef<number | null>(null);
+  const heartbeatIntervalMsRef = useRef(HEARTBEAT_INTERVAL_MS);
   const tripRefCountsRef = useRef(new Map<string, number>());
   const tripSubscribeRetryTimersRef = useRef(new Map<string, number>());
-  const previewClearTimersRef = useRef(new Map<string, number>());
   const subscribedTripsRef = useRef(new Set<string>());
-  const lastCursorPayloadRef = useRef(new Map<string, string>());
-  const lastItemPreviewPayloadRef = useRef(new Map<string, string | null>());
+  const lastCursorSentRef = useRef(new Map<string, { x: number; y: number; at: number }>());
+  const cursorPendingRef = useRef(new Map<string, { x: number; y: number }>());
+  const cursorTimersRef = useRef(new Map<string, number>());
+  const previewPendingRef = useRef(new Map<string, LiveItemPreviewPayload | null>());
+  const previewTimersRef = useRef(new Map<string, number>());
+  const lastPreviewPayloadRef = useRef(new Map<string, string | null>());
+  const lastSelectionPayloadRef = useRef(new Map<string, string | null>());
+  const lastSelectionStateRef = useRef(new Map<string, SelectionPayload | null>());
+  const lastViewportSentRef = useRef(new Map<string, { payload: ViewportPayload; at: number }>());
+  const lastViewportStateRef = useRef(new Map<string, ViewportPayload | null>());
+  const viewportPendingRef = useRef(new Map<string, ViewportPayload | null>());
+  const viewportTimersRef = useRef(new Map<string, number>());
 
   const cleanupSocket = useCallback(() => {
     if (reconnectTimerRef.current !== null) {
       window.clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
+    if (heartbeatTimerRef.current !== null) {
+      window.clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
+    }
     for (const timerId of tripSubscribeRetryTimersRef.current.values()) {
       window.clearTimeout(timerId);
     }
     tripSubscribeRetryTimersRef.current.clear();
-    for (const timerId of previewClearTimersRef.current.values()) {
+    for (const timerId of cursorTimersRef.current.values()) {
       window.clearTimeout(timerId);
     }
-    previewClearTimersRef.current.clear();
+    cursorTimersRef.current.clear();
+    for (const timerId of previewTimersRef.current.values()) {
+      window.clearTimeout(timerId);
+    }
+    previewTimersRef.current.clear();
+    for (const timerId of viewportTimersRef.current.values()) {
+      window.clearTimeout(timerId);
+    }
+    viewportTimersRef.current.clear();
     if (socketRef.current) {
       socketRef.current.close();
       socketRef.current = null;
@@ -240,65 +306,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-
-  const getPreviewTimerKey = useCallback((tripId: string, connectionId: string) => `${tripId}:${connectionId}`, []);
-
-  const removeTripItemPreviews = useCallback((tripId: string, connectionIds: string[]) => {
-    if (connectionIds.length === 0) return;
-
-    setItemPreviewsByTrip((current) => {
-      const existing = current[tripId] ?? [];
-      if (existing.length === 0) return current;
-
-      const next = removeTripItemPreviewConnections(existing, connectionIds);
-      if (next.length === existing.length) return current;
-
-      return {
-        ...current,
-        [tripId]: next,
-      };
-    });
-  }, []);
-
-  const cancelPreviewClear = useCallback(
-    (tripId: string, connectionId: string) => {
-      const key = getPreviewTimerKey(tripId, connectionId);
-      const timerId = previewClearTimersRef.current.get(key);
-      if (timerId !== undefined) {
-        window.clearTimeout(timerId);
-        previewClearTimersRef.current.delete(key);
-      }
-    },
-    [getPreviewTimerKey],
-  );
-
-  const schedulePreviewClear = useCallback(
-    (tripId: string, connectionId: string) => {
-      cancelPreviewClear(tripId, connectionId);
-
-      const key = getPreviewTimerKey(tripId, connectionId);
-      const timerId = window.setTimeout(() => {
-        previewClearTimersRef.current.delete(key);
-        removeTripItemPreviews(tripId, [connectionId]);
-      }, 1500);
-
-      previewClearTimersRef.current.set(key, timerId);
-    },
-    [cancelPreviewClear, getPreviewTimerKey, removeTripItemPreviews],
-  );
-
-  const finalizePreviewForTripEvent = useCallback(
-    (event: TripEventEnvelope) => {
-      const connectionIds = getCommittedPreviewConnectionIds(event);
-      if (connectionIds.length === 0) return;
-
-      for (const connectionId of connectionIds) {
-        cancelPreviewClear(event.tripId, connectionId);
-      }
-      removeTripItemPreviews(event.tripId, connectionIds);
-    },
-    [cancelPreviewClear, removeTripItemPreviews],
-  );
 
   const clearSubscribeRetry = useCallback((tripId: string) => {
     const timerId = tripSubscribeRetryTimersRef.current.get(tripId);
@@ -328,6 +335,132 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     [clearSubscribeRetry, sendMessage],
   );
 
+  const flushCursor = useCallback(
+    (tripId: string) => {
+      const pending = cursorPendingRef.current.get(tripId);
+      if (!pending || !subscribedTripsRef.current.has(tripId)) return;
+
+      const last = lastCursorSentRef.current.get(tripId);
+      if (
+        last &&
+        Math.abs(last.x - pending.x) < CURSOR_EPSILON_NORMALIZED &&
+        Math.abs(last.y - pending.y) < CURSOR_EPSILON_NORMALIZED
+      ) {
+        return;
+      }
+
+      sendMessage({
+        type: 'presence.cursor',
+        tripId,
+        x: pending.x,
+        y: pending.y,
+      });
+      lastCursorSentRef.current.set(tripId, {
+        x: pending.x,
+        y: pending.y,
+        at: Date.now(),
+      });
+    },
+    [sendMessage],
+  );
+
+  const flushPreview = useCallback(
+    (tripId: string) => {
+      const preview = previewPendingRef.current.get(tripId);
+      const serialized = preview ? JSON.stringify(preview) : null;
+      if (lastPreviewPayloadRef.current.get(tripId) === serialized) return;
+      lastPreviewPayloadRef.current.set(tripId, serialized);
+
+      if (!subscribedTripsRef.current.has(tripId)) return;
+
+      if (!preview) {
+        sendMessage({
+          type: 'presence.item-preview.clear',
+          tripId,
+        });
+        return;
+      }
+
+      sendMessage({
+        type: 'presence.item-preview',
+        tripId,
+        itemId: preview.itemId,
+        dayId: preview.dayId,
+        scheduledStart: preview.scheduledStart,
+        scheduledEnd: preview.scheduledEnd,
+        durationMinutes: preview.durationMinutes,
+        mode: preview.mode,
+      });
+    },
+    [sendMessage],
+  );
+
+  const flushViewport = useCallback(
+    (tripId: string) => {
+      const viewport = viewportPendingRef.current.get(tripId);
+      if (!subscribedTripsRef.current.has(tripId)) return;
+
+      if (!viewport) {
+        sendMessage({
+          type: 'presence.viewport.clear',
+          tripId,
+        });
+        lastViewportSentRef.current.delete(tripId);
+        return;
+      }
+
+      const last = lastViewportSentRef.current.get(tripId);
+      const mapCameraMatches =
+        (!last?.payload.mapCamera && !viewport.mapCamera) ||
+        (Boolean(last?.payload.mapCamera) &&
+          Boolean(viewport.mapCamera) &&
+          Math.abs((last?.payload.mapCamera?.center.lat ?? 0) - (viewport.mapCamera?.center.lat ?? 0)) <
+            VIEWPORT_CENTER_EPSILON &&
+          Math.abs((last?.payload.mapCamera?.center.lng ?? 0) - (viewport.mapCamera?.center.lng ?? 0)) <
+            VIEWPORT_CENTER_EPSILON &&
+          Math.abs((last?.payload.mapCamera?.zoom ?? 0) - (viewport.mapCamera?.zoom ?? 0)) <
+            VIEWPORT_ZOOM_EPSILON);
+      if (
+        last &&
+        Math.abs(last.payload.scrollLeft - viewport.scrollLeft) < VIEWPORT_SCROLL_EPSILON_PX &&
+        Math.abs(last.payload.scrollTop - viewport.scrollTop) < VIEWPORT_SCROLL_EPSILON_PX &&
+        Math.abs(last.payload.zoom - viewport.zoom) < VIEWPORT_ZOOM_EPSILON &&
+        last.payload.viewMode === viewport.viewMode &&
+        last.payload.focusedDayId === viewport.focusedDayId &&
+        last.payload.activeTab === viewport.activeTab &&
+        last.payload.workspaceLayout === viewport.workspaceLayout &&
+        last.payload.selectedDayId === viewport.selectedDayId &&
+        Math.abs((last.payload.itineraryScrollTop ?? 0) - (viewport.itineraryScrollTop ?? 0)) <
+          VIEWPORT_SCROLL_EPSILON_PX &&
+        last.payload.mapEventFilter === viewport.mapEventFilter &&
+        mapCameraMatches
+      ) {
+        return;
+      }
+
+      sendMessage({
+        type: 'presence.viewport',
+        tripId,
+        viewMode: viewport.viewMode,
+        focusedDayId: viewport.focusedDayId,
+        scrollLeft: viewport.scrollLeft,
+        scrollTop: viewport.scrollTop,
+        zoom: viewport.zoom,
+        activeTab: viewport.activeTab,
+        workspaceLayout: viewport.workspaceLayout,
+        selectedDayId: viewport.selectedDayId,
+        itineraryScrollTop: viewport.itineraryScrollTop,
+        mapEventFilter: viewport.mapEventFilter,
+        mapCamera: viewport.mapCamera,
+      });
+      lastViewportSentRef.current.set(tripId, {
+        payload: viewport,
+        at: Date.now(),
+      });
+    },
+    [sendMessage],
+  );
+
   useEffect(() => {
     if (!isAuthenticated || !user) {
       cleanupSocket();
@@ -335,13 +468,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       setLocalConnectionId(null);
       localConnectionIdRef.current = null;
       setRealtimeConnectionId(null);
-        subscribedTripsRef.current.clear();
-        setCursorsByTrip({});
-        setItemPreviewsByTrip({});
-        setNoticesByTrip({});
-        lastCursorPayloadRef.current.clear();
-        lastItemPreviewPayloadRef.current.clear();
-        return;
+      subscribedTripsRef.current.clear();
+      collaborationStore.clearAll();
+      setNoticesByTrip({});
+      return;
     }
 
     let cancelled = false;
@@ -356,13 +486,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       socket.addEventListener('open', () => {
         if (cancelled) return;
         setConnectionState('connected');
-        setLocalConnectionId(null);
-        localConnectionIdRef.current = null;
-        setRealtimeConnectionId(null);
-        subscribedTripsRef.current.clear();
-        lastCursorPayloadRef.current.clear();
-        lastItemPreviewPayloadRef.current.clear();
         for (const tripId of tripRefCountsRef.current.keys()) {
+          collaborationStore.markTripReconnecting(tripId, true);
           sendMessage({ type: 'trip.subscribe', tripId });
           scheduleSubscribeRetry(tripId);
         }
@@ -375,61 +500,55 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
             setLocalConnectionId(payload.connectionId);
             localConnectionIdRef.current = payload.connectionId;
             setRealtimeConnectionId(payload.connectionId);
+            heartbeatIntervalMsRef.current = payload.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS;
+            if (heartbeatTimerRef.current !== null) {
+              window.clearInterval(heartbeatTimerRef.current);
+            }
+            heartbeatTimerRef.current = window.setInterval(() => {
+              sendMessage({ type: 'presence.heartbeat' });
+            }, heartbeatIntervalMsRef.current);
             return;
           }
 
           if (payload.type === 'presence.snapshot') {
             subscribedTripsRef.current.add(payload.tripId);
             clearSubscribeRetry(payload.tripId);
-            for (const preview of payload.itemPreviews) {
-              cancelPreviewClear(payload.tripId, preview.connectionId);
+            collaborationStore.applySnapshot(payload.tripId, payload.participants);
+
+            const selection = lastSelectionStateRef.current.get(payload.tripId);
+            if (selection) {
+              sendMessage({
+                type: 'presence.selection',
+                tripId: payload.tripId,
+                objectIds: selection.objectIds,
+                primaryObjectId: selection.primaryObjectId,
+              });
             }
-            setCursorsByTrip((current) => ({
-              ...current,
-              [payload.tripId]: payload.cursors,
-            }));
-            setItemPreviewsByTrip((current) => ({
-              ...current,
-              [payload.tripId]: payload.itemPreviews,
-            }));
+
+            const viewport = lastViewportStateRef.current.get(payload.tripId);
+            if (viewport) {
+              viewportPendingRef.current.set(payload.tripId, viewport);
+              flushViewport(payload.tripId);
+            }
+
+            const preview = previewPendingRef.current.get(payload.tripId);
+            if (preview !== undefined) {
+              flushPreview(payload.tripId);
+            }
             return;
           }
 
           if (payload.type === 'presence.diff') {
-            setCursorsByTrip((current) => {
-              const existing = current[payload.tripId] ?? [];
-              const next = new Map(existing.map((cursor) => [cursor.connectionId, cursor]));
-              for (const connectionId of payload.removeConnectionIds) {
-                next.delete(connectionId);
-              }
-              for (const cursor of payload.upsert) {
-                next.set(cursor.connectionId, cursor);
-              }
-              return {
-                ...current,
-                [payload.tripId]: [...next.values()],
-              };
-            });
-            for (const connectionId of payload.previewRemoveConnectionIds) {
-              schedulePreviewClear(payload.tripId, connectionId);
-            }
-            for (const preview of payload.previewUpsert) {
-              cancelPreviewClear(payload.tripId, preview.connectionId);
-            }
-            setItemPreviewsByTrip((current) => {
-              const existing = current[payload.tripId] ?? [];
-              const next = mergeTripItemPreviewDiff(existing, payload.previewUpsert);
-              return {
-                ...current,
-                [payload.tripId]: next,
-              };
-            });
+            collaborationStore.applyDiff(
+              payload.tripId,
+              payload.participantsUpsert,
+              payload.removeConnectionIds,
+            );
             return;
           }
 
           if (payload.type === 'trip.event') {
             const { event } = payload;
-            finalizePreviewForTripEvent(event);
             const queryKey = getTripQueryKey(event.tripId);
             const current = queryClient.getQueryData<TripSnapshotResponse>(queryKey);
             const isRemoteChange = isRemoteTripEvent(event, user.id, localConnectionIdRef.current);
@@ -461,10 +580,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         localConnectionIdRef.current = null;
         setRealtimeConnectionId(null);
         subscribedTripsRef.current.clear();
-        setCursorsByTrip({});
-        setItemPreviewsByTrip({});
-        lastCursorPayloadRef.current.clear();
-        lastItemPreviewPayloadRef.current.clear();
+        lastCursorSentRef.current.clear();
+        if (heartbeatTimerRef.current !== null) {
+          window.clearInterval(heartbeatTimerRef.current);
+          heartbeatTimerRef.current = null;
+        }
+        for (const tripId of tripRefCountsRef.current.keys()) {
+          collaborationStore.markTripReconnecting(tripId, true);
+        }
         if (event.code === 4401 || event.code === 4403) {
           void refreshSession();
           return;
@@ -482,12 +605,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       cleanupSocket();
       setConnectionState('disconnected');
-        setLocalConnectionId(null);
-        localConnectionIdRef.current = null;
-        setRealtimeConnectionId(null);
-        setNoticesByTrip({});
-      };
-  }, [cancelPreviewClear, cleanupSocket, clearSubscribeRetry, finalizePreviewForTripEvent, isAuthenticated, queryClient, refreshSession, schedulePreviewClear, scheduleSubscribeRetry, sendMessage, user]);
+      setLocalConnectionId(null);
+      localConnectionIdRef.current = null;
+      setRealtimeConnectionId(null);
+      setNoticesByTrip({});
+      collaborationStore.clearAll();
+    };
+  }, [cleanupSocket, clearSubscribeRetry, flushPreview, flushViewport, isAuthenticated, queryClient, refreshSession, scheduleSubscribeRetry, sendMessage, user]);
 
   const subscribeToTrip = useCallback(
     (tripId: string) => {
@@ -511,20 +635,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         subscribedTripsRef.current.delete(tripId);
         clearSubscribeRetry(tripId);
         sendMessage({ type: 'trip.unsubscribe', tripId });
-        setCursorsByTrip((current) => {
-          if (!current[tripId]) return current;
-          const next = { ...current };
-          delete next[tripId];
-          return next;
-        });
-        setItemPreviewsByTrip((current) => {
-          if (!current[tripId]) return current;
-          const next = { ...current };
-          delete next[tripId];
-          return next;
-        });
-        lastCursorPayloadRef.current.delete(tripId);
-        lastItemPreviewPayloadRef.current.delete(tripId);
+        collaborationStore.clearTrip(tripId);
+        lastCursorSentRef.current.delete(tripId);
+        cursorPendingRef.current.delete(tripId);
+        previewPendingRef.current.delete(tripId);
+        lastPreviewPayloadRef.current.delete(tripId);
+        lastSelectionPayloadRef.current.delete(tripId);
+        lastSelectionStateRef.current.delete(tripId);
+        lastViewportSentRef.current.delete(tripId);
+        lastViewportStateRef.current.delete(tripId);
+        viewportPendingRef.current.delete(tripId);
         return;
       }
       tripRefCountsRef.current.set(tripId, currentCount - 1);
@@ -541,25 +661,32 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
-      const normalized = `${x.toFixed(4)}:${y.toFixed(4)}`;
-      if (lastCursorPayloadRef.current.get(tripId) === normalized) {
+
+      cursorPendingRef.current.set(tripId, { x, y });
+      const last = lastCursorSentRef.current.get(tripId);
+      const now = Date.now();
+
+      if (!last || now - last.at >= CURSOR_SEND_INTERVAL_MS) {
+        flushCursor(tripId);
         return;
       }
-      lastCursorPayloadRef.current.set(tripId, normalized);
-      sendMessage({
-        type: 'presence.cursor',
-        tripId,
-        x,
-        y,
-      });
+
+      if (cursorTimersRef.current.has(tripId)) return;
+
+      const timerId = window.setTimeout(() => {
+        cursorTimersRef.current.delete(tripId);
+        flushCursor(tripId);
+      }, CURSOR_SEND_INTERVAL_MS - (now - last.at));
+      cursorTimersRef.current.set(tripId, timerId);
     },
-    [scheduleSubscribeRetry, sendMessage],
+    [flushCursor, scheduleSubscribeRetry, sendMessage],
   );
 
   const clearCursor = useCallback(
     (tripId: string) => {
       if (!subscribedTripsRef.current.has(tripId)) return;
-      lastCursorPayloadRef.current.delete(tripId);
+      cursorPendingRef.current.delete(tripId);
+      lastCursorSentRef.current.delete(tripId);
       sendMessage({
         type: 'presence.cursor.clear',
         tripId,
@@ -570,6 +697,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   const sendItemPreview = useCallback(
     (tripId: string, preview: LiveItemPreviewPayload | null) => {
+      previewPendingRef.current.set(tripId, preview);
+
       if (!subscribedTripsRef.current.has(tripId)) {
         if (socketRef.current?.readyState === WebSocket.OPEN) {
           sendMessage({ type: 'trip.subscribe', tripId });
@@ -577,43 +706,98 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
-      const serialized = preview ? JSON.stringify(preview) : null;
-      if (lastItemPreviewPayloadRef.current.get(tripId) === serialized) {
-        return;
-      }
-      lastItemPreviewPayloadRef.current.set(tripId, serialized);
 
       if (!preview) {
+        flushPreview(tripId);
+        return;
+      }
+
+      const existingTimer = previewTimersRef.current.get(tripId);
+      if (existingTimer !== undefined) return;
+
+      const timerId = window.setTimeout(() => {
+        previewTimersRef.current.delete(tripId);
+        flushPreview(tripId);
+      }, ITEM_PREVIEW_SEND_INTERVAL_MS);
+      previewTimersRef.current.set(tripId, timerId);
+    },
+    [flushPreview, scheduleSubscribeRetry, sendMessage],
+  );
+
+  const sendSelection = useCallback(
+    (tripId: string, selection: SelectionPayload | null) => {
+      const serialized = selection ? JSON.stringify(selection) : null;
+      if (lastSelectionPayloadRef.current.get(tripId) === serialized) return;
+      lastSelectionPayloadRef.current.set(tripId, serialized);
+      lastSelectionStateRef.current.set(tripId, selection);
+
+      if (!subscribedTripsRef.current.has(tripId)) return;
+
+      if (!selection || selection.objectIds.length === 0) {
         sendMessage({
-          type: 'presence.item-preview.clear',
+          type: 'presence.selection.clear',
           tripId,
         });
         return;
       }
 
       sendMessage({
-        type: 'presence.item-preview',
+        type: 'presence.selection',
         tripId,
-        itemId: preview.itemId,
-        dayId: preview.dayId,
-        scheduledStart: preview.scheduledStart,
-        scheduledEnd: preview.scheduledEnd,
-        durationMinutes: preview.durationMinutes,
+        objectIds: selection.objectIds,
+        primaryObjectId: selection.primaryObjectId,
       });
     },
-    [scheduleSubscribeRetry, sendMessage],
+    [sendMessage],
   );
 
+  const sendViewport = useCallback(
+    (tripId: string, viewport: ViewportPayload | null) => {
+      lastViewportStateRef.current.set(tripId, viewport);
+      viewportPendingRef.current.set(tripId, viewport);
+
+      if (!subscribedTripsRef.current.has(tripId)) return;
+
+      if (!viewport) {
+        flushViewport(tripId);
+        return;
+      }
+
+      const last = lastViewportSentRef.current.get(tripId);
+      const now = Date.now();
+      if (!last || now - last.at >= VIEWPORT_SEND_INTERVAL_MS) {
+        flushViewport(tripId);
+        return;
+      }
+
+      if (viewportTimersRef.current.has(tripId)) return;
+
+      const timerId = window.setTimeout(() => {
+        viewportTimersRef.current.delete(tripId);
+        flushViewport(tripId);
+      }, VIEWPORT_SEND_INTERVAL_MS - (now - last.at));
+      viewportTimersRef.current.set(tripId, timerId);
+    },
+    [flushViewport],
+  );
+
+  const getTripParticipantsValue = useCallback((tripId: string) => getTripParticipants(tripId), []);
   const getTripCursors = useCallback(
-    (tripId: string) => cursorsByTrip[tripId] ?? [],
-    [cursorsByTrip],
+    (tripId: string) => participantsToCursors(getTripParticipants(tripId)),
+    [],
   );
-
   const getTripItemPreviews = useCallback(
-    (tripId: string) => itemPreviewsByTrip[tripId] ?? [],
-    [itemPreviewsByTrip],
+    (tripId: string) => participantsToItemPreviews(getTripParticipants(tripId)),
+    [],
   );
-
+  const getTripSelections = useCallback(
+    (tripId: string) => participantsToSelections(getTripParticipants(tripId)),
+    [],
+  );
+  const getTripViewports = useCallback(
+    (tripId: string) => participantsToViewports(getTripParticipants(tripId)),
+    [],
+  );
   const getRemoteEditNotice = useCallback(
     (tripId: string) => noticesByTrip[tripId] ?? null,
     [noticesByTrip],
@@ -628,21 +812,31 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       sendCursor,
       clearCursor,
       sendItemPreview,
+      sendSelection,
+      sendViewport,
+      getTripParticipants: getTripParticipantsValue,
       getTripCursors,
       getTripItemPreviews,
+      getTripSelections,
+      getTripViewports,
       getRemoteEditNotice,
       dismissRemoteEditNotice,
     }),
     [
+      clearCursor,
       connectionState,
-      localConnectionId,
       dismissRemoteEditNotice,
       getRemoteEditNotice,
       getTripCursors,
       getTripItemPreviews,
-      clearCursor,
-      sendItemPreview,
+      getTripParticipantsValue,
+      getTripSelections,
+      getTripViewports,
+      localConnectionId,
       sendCursor,
+      sendItemPreview,
+      sendSelection,
+      sendViewport,
       subscribeToTrip,
       unsubscribeFromTrip,
     ],

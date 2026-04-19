@@ -10,5 +10,6 @@ export function toLiveItemPreview(preview: ExternalDragPreview | null): LiveItem
     scheduledStart: toTime(preview.startMin),
     scheduledEnd: toTime(preview.endMin),
     durationMinutes: preview.durationMinutes,
+    mode: preview.mode === 'append' || preview.mode === 'point' ? 'move' : preview.mode,
   };
 }

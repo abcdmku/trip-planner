@@ -8,8 +8,10 @@ interface NavbarProps {
   syncStatus?: 'synced' | 'syncing' | 'error' | 'offline';
   user?: { name: string; picture: string };
   onLogout?: () => void | Promise<void>;
+  participantStrip?: ReactNode;
   shareControl?: ReactNode;
   activeCollaborators?: Array<{ userId: string; name: string; picture: string; color: string }>;
+  followStatus?: ReactNode;
 }
 
 function SyncBadge({ status }: { status: 'synced' | 'syncing' | 'error' | 'offline' }) {
@@ -112,8 +114,10 @@ export function Navbar({
   syncStatus = 'synced',
   user,
   onLogout,
+  participantStrip,
   shareControl,
   activeCollaborators = [],
+  followStatus,
 }: NavbarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(tripName ?? '');
@@ -196,6 +200,9 @@ export function Navbar({
 
       {/* Right */}
       <div className="flex items-center gap-1">
+        {followStatus}
+        {participantStrip}
+
         {activeCollaborators.length > 0 && (
           <div className="flex items-center gap-1 md:hidden">
             {activeCollaborators.slice(0, 3).map((collaborator) => (

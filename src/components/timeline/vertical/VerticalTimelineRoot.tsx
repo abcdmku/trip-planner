@@ -45,10 +45,18 @@ export function VerticalTimeline({
   suppressedConnectorIds,
   showTimelineConnectors = true,
   onToggleTimelineConnectors,
+  remoteObjectPresenceById,
+  onViewportChange,
+  followViewport,
+  jumpToViewport,
+  onJumpApplied,
 }: VerticalTimelineProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const dayModeContainerRef = useRef<HTMLDivElement>(null);
   const dayColumnRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const applyingRemoteViewportRef = useRef(false);
+  const lastAppliedFollowViewportSignatureRef = useRef<string | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('multi');
   const [focusedDayId, setFocusedDayId] = useState<string | null>(selectedDayIds[0] ?? days[0]?.dayId ?? null);
@@ -224,6 +232,96 @@ export function VerticalTimeline({
     setPxPerMin(Math.round(clamped * 10) / 10);
   }, []);
 
+  const publishViewport = useCallback(() => {
+    if (!onViewportChange || applyingRemoteViewportRef.current) return;
+    const container = viewMode === 'multi' ? scrollerRef.current : dayModeContainerRef.current;
+    onViewportChange({
+      viewMode,
+      focusedDayId: effectiveDayId,
+      scrollLeft: container?.scrollLeft ?? 0,
+      scrollTop: container?.scrollTop ?? 0,
+      zoom: pxPerMin / PX_PER_MIN,
+    });
+  }, [effectiveDayId, onViewportChange, pxPerMin, viewMode]);
+
+  useEffect(() => {
+    publishViewport();
+  }, [publishViewport]);
+
+  useEffect(() => {
+    const container = viewMode === 'multi' ? scrollerRef.current : dayModeContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      publishViewport();
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [publishViewport, viewMode]);
+
+  const applyViewport = useCallback(
+    (viewport: typeof followViewport, behavior: ScrollBehavior = 'auto') => {
+      if (!viewport) return;
+      const targetMode = viewport.viewMode === 'day' || viewport.viewMode === 'multi' ? viewport.viewMode : 'multi';
+      applyingRemoteViewportRef.current = true;
+      setViewMode(targetMode);
+      if (viewport.focusedDayId) {
+        setFocusedDayId(viewport.focusedDayId);
+      }
+      updateZoom(viewport.zoom * PX_PER_MIN);
+
+      requestAnimationFrame(() => {
+        const container = targetMode === 'multi' ? scrollerRef.current : dayModeContainerRef.current;
+        container?.scrollTo({
+          left: viewport.scrollLeft,
+          top: viewport.scrollTop,
+          behavior,
+        });
+        window.setTimeout(() => {
+          applyingRemoteViewportRef.current = false;
+        }, 220);
+      });
+    },
+    [updateZoom],
+  );
+
+  useEffect(() => {
+    if (!followViewport) {
+      lastAppliedFollowViewportSignatureRef.current = null;
+      return;
+    }
+
+    const signature = [
+      followViewport.connectionId,
+      followViewport.updatedAt,
+      followViewport.viewMode,
+      followViewport.focusedDayId ?? '',
+      followViewport.scrollLeft,
+      followViewport.scrollTop,
+      followViewport.zoom,
+    ].join('|');
+    if (lastAppliedFollowViewportSignatureRef.current === signature) return;
+
+    lastAppliedFollowViewportSignatureRef.current = signature;
+    applyViewport(followViewport, 'auto');
+  }, [
+    applyViewport,
+    followViewport,
+    followViewport?.connectionId,
+    followViewport?.focusedDayId,
+    followViewport?.scrollLeft,
+    followViewport?.scrollTop,
+    followViewport?.updatedAt,
+    followViewport?.viewMode,
+    followViewport?.zoom,
+  ]);
+
+  useEffect(() => {
+    if (!jumpToViewport) return;
+    applyViewport(jumpToViewport.viewport, 'smooth');
+    onJumpApplied?.(jumpToViewport.key);
+  }, [applyViewport, jumpToViewport, onJumpApplied]);
+
   const handleTimelineDragOver = useCallback(
     (_e: React.DragEvent) => {
       if (activeDragItemId) onDragOverTimeline?.(true);
@@ -309,6 +407,7 @@ export function VerticalTimeline({
           scheduledStart: toTime(initial.startMin),
           scheduledEnd: toTime(initial.endMin),
           durationMinutes: initial.endMin - initial.startMin,
+          mode: 'move',
         });
       } else {
         emitLiveItemPreview(null);
@@ -328,6 +427,7 @@ export function VerticalTimeline({
             scheduledStart: toTime(target.startMin),
             scheduledEnd: toTime(target.endMin),
             durationMinutes: target.endMin - target.startMin,
+            mode: 'move',
           });
         } else {
           emitLiveItemPreview(null);
@@ -403,7 +503,7 @@ export function VerticalTimeline({
       />
 
       {viewMode === 'day' ? (
-        <div className="min-h-0 flex-1 overflow-auto bg-theme p-2">
+        <div ref={dayModeContainerRef} className="min-h-0 flex-1 overflow-auto bg-theme p-2">
           <DayViewPanel
             activeDay={activeDay}
             items={items}
@@ -429,6 +529,7 @@ export function VerticalTimeline({
             pxPerMin={pxPerMin}
             pxPerHr={pxPerHr}
             snapMinutes={effectiveSnapMinutes}
+            remoteObjectPresenceById={remoteObjectPresenceById}
           />
         </div>
       ) : (
@@ -486,6 +587,7 @@ export function VerticalTimeline({
                     onConnectorClick={onTimelineConnectorClick}
                     onConnectorRemove={onTimelineConnectorRemove}
                     showConnectors={showTimelineConnectors}
+                    remoteObjectPresenceById={remoteObjectPresenceById}
                   />
                 );
               })}

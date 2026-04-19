@@ -21,6 +21,7 @@ import type { Item, Leg, Day, Trip, TransportMode } from '../../types/trip';
 import { useTheme } from '../../hooks/useTheme';
 import { useEscapeHotkey } from '../../hooks/useEscapeHotkey';
 import { mapsRepository, type PlaceSearchResult } from '../../services/maps-repository';
+import type { PresenceMapCamera } from '@/types/collaboration';
 import ItemMarker from './ItemMarker';
 import UnifiedInfoWindow from './UnifiedInfoWindow';
 import RouteOverlay from './RouteOverlay';
@@ -92,6 +93,10 @@ export interface MapShellProps {
   onEditItem?: (itemId: string) => void;
   /** Callback when the user clicks "Remove" on an existing item's info window. */
   onDeleteItem?: (itemId: string) => void;
+  /** Broadcasts map center/zoom for collaboration follow mode. */
+  onCameraChange?: (camera: PresenceMapCamera) => void;
+  /** When provided, keeps the local map aligned to the followed participant. */
+  followCamera?: PresenceMapCamera | null;
   /** Optional initial center; defaults to (0, 0). */
   defaultCenter?: { lat: number; lng: number };
   /** Optional initial zoom level; defaults to 2. */
@@ -138,6 +143,8 @@ interface MapInnerProps {
   onAddPlaceToItinerary?: (place: PlaceSearchResult) => void;
   onEditItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  onCameraChange?: (camera: PresenceMapCamera) => void;
+  followCamera?: PresenceMapCamera | null;
   defaultCenter: { lat: number; lng: number };
   defaultZoom: number;
   colorScheme: ColorScheme;
@@ -176,6 +183,8 @@ const MapInner = memo(function MapInner({
   onAddPlaceToItinerary,
   onEditItem,
   onDeleteItem,
+  onCameraChange,
+  followCamera,
   defaultCenter,
   defaultZoom,
   colorScheme,
@@ -189,6 +198,8 @@ const MapInner = memo(function MapInner({
   const markerLookupRequestIdRef = useRef(0);
   const placeDetailsCacheRef = useRef<globalThis.Map<string, PlaceSearchResult | null>>(new globalThis.Map());
   const lastAutoFitSignatureRef = useRef<string | null>(null);
+  const applyingFollowCameraRef = useRef(false);
+  const lastAppliedFollowCameraSignatureRef = useRef<string | null>(null);
 
   const map = useMap();
 
@@ -259,7 +270,7 @@ const MapInner = memo(function MapInner({
   }, [map]);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || followCamera) return;
     const { points, signature } = autoFitTargets;
 
     if (points.length === 0) {
@@ -282,7 +293,35 @@ const MapInner = memo(function MapInner({
       bounds.extend(point);
     }
     map.fitBounds(bounds, BOUNDS_PADDING);
-  }, [autoFitTargets, map]);
+  }, [autoFitTargets, followCamera, map]);
+
+  useEffect(() => {
+    if (!followCamera) {
+      lastAppliedFollowCameraSignatureRef.current = null;
+      return;
+    }
+    if (!map) return;
+
+    const signature = [
+      formatCoordForSignature(followCamera.center.lat),
+      formatCoordForSignature(followCamera.center.lng),
+      formatCoordForSignature(followCamera.zoom),
+    ].join('|');
+    if (lastAppliedFollowCameraSignatureRef.current === signature) return;
+    lastAppliedFollowCameraSignatureRef.current = signature;
+
+    applyingFollowCameraRef.current = true;
+    map.setCenter(followCamera.center);
+    map.setZoom(followCamera.zoom);
+
+    const timer = window.setTimeout(() => {
+      applyingFollowCameraRef.current = false;
+    }, 120);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [followCamera, map]);
 
   // -----------------------------------------------------------------------
   // Marker click handler
@@ -427,12 +466,17 @@ const MapInner = memo(function MapInner({
   );
 
   const handleCameraChanged = useCallback(
-    (_event: MapCameraChangedEvent) => {
+    (event: MapCameraChangedEvent) => {
       if (!isMapReady) {
         setIsMapReady(true);
       }
+      if (applyingFollowCameraRef.current) return;
+      onCameraChange?.({
+        center: event.detail.center,
+        zoom: event.detail.zoom,
+      });
     },
-    [isMapReady],
+    [isMapReady, onCameraChange],
   );
 
   const handleMapClick = useCallback(
@@ -654,6 +698,8 @@ export default function MapShell({
   onAddPlaceToItinerary,
   onEditItem,
   onDeleteItem,
+  onCameraChange,
+  followCamera,
   defaultCenter = DEFAULT_CENTER,
   defaultZoom = DEFAULT_ZOOM,
   children,
@@ -682,6 +728,8 @@ export default function MapShell({
         onAddPlaceToItinerary={onAddPlaceToItinerary}
         onEditItem={onEditItem}
         onDeleteItem={onDeleteItem}
+        onCameraChange={onCameraChange}
+        followCamera={followCamera}
         defaultCenter={defaultCenter}
         defaultZoom={defaultZoom}
         colorScheme={colorScheme}

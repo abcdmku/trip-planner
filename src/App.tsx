@@ -6,6 +6,7 @@ import { AppShell } from './components/layout/AppShell';
 import { useAuth } from './hooks/useAuth';
 import { useTrip } from './hooks/useTrip';
 import { useRealtime } from './contexts/RealtimeContext';
+import { useTripCollaboration } from './hooks/useCollaboration';
 import { useUI } from './hooks/useUI';
 import { CreateTripDialog } from './components/trips/CreateTripDialog';
 import { DayTabs } from './components/days/DayTabs';
@@ -35,9 +36,17 @@ import { DEFAULT_TIMELINE_SNAP_MINUTES, normalizeTimelineSnapMinutes } from './l
 import { Plane, Loader2 } from 'lucide-react';
 import type { Day, Item, Leg, Trip, TransportMode, RouteType } from './types/trip';
 import type { PresenceItemPreview, TripListItem } from './types/api';
+import type {
+  PresenceActiveTab,
+  PresenceMapCamera,
+  PresenceViewport,
+  PresenceWorkspaceLayout,
+} from './types/collaboration';
 import LegInfoPopup from './components/map/LegInfoPopup';
 import { DragOverlay } from './components/items/DragOverlay';
 import { CursorPresenceOverlay } from './components/presence/CursorPresenceOverlay';
+import { FollowModeBanner } from './components/presence/FollowModeBanner';
+import { ParticipantStrip } from './components/presence/ParticipantStrip';
 import { ConflictBanner } from './components/sync/ConflictBanner';
 import { TripShareMenu } from './components/trips/TripShareMenu';
 
@@ -52,6 +61,24 @@ function loadTimelineSnapMinutes(): number {
   } catch {
     return DEFAULT_TIMELINE_SNAP_MINUTES;
   }
+}
+
+function normalizePresenceActiveTab(value: string): PresenceActiveTab {
+  if (value === 'itinerary' || value === 'timeline') return value;
+  return 'map';
+}
+
+function areMapCamerasEqual(
+  left: PresenceMapCamera | null | undefined,
+  right: PresenceMapCamera | null | undefined,
+): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return (
+    left.center.lat === right.center.lat &&
+    left.center.lng === right.center.lng &&
+    left.zoom === right.zoom
+  );
 }
 
 function TripSetup({
@@ -146,15 +173,15 @@ function TripApp({ tripId }: { tripId: string }) {
   const {
     connectionState,
     localConnectionId,
-    getTripCursors,
-    getTripItemPreviews,
     sendCursor,
     clearCursor,
     sendItemPreview,
+    sendSelection,
+    sendViewport,
     getRemoteEditNotice,
     dismissRemoteEditNotice,
   } = useRealtime();
-  const { setActiveTab, selectedItemId, setSelectedItemId } = useUI();
+  const { activeTab, setActiveTab, selectedItemId, setSelectedItemId } = useUI();
   const {
     trip,
     days,
@@ -225,14 +252,31 @@ function TripApp({ tripId }: { tripId: string }) {
   const [timelineSnapMinutes, setTimelineSnapMinutes] = useState(loadTimelineSnapMinutes);
   const [suppressedConnectorIds, setSuppressedConnectorIds] = useState<Set<string>>(new Set());
   const [showTimelineConnectors, setShowTimelineConnectors] = useState(true);
+  const [followedConnectionId, setFollowedConnectionId] = useState<string | null>(null);
+  const [jumpToViewportRequest, setJumpToViewportRequest] = useState<{
+    key: string;
+    viewport: PresenceViewport;
+  } | null>(null);
   const dragClearTimerRef = useRef<number | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
-  const isDesktopPresenceEnabled = useMemo(
-    () => window.matchMedia('(pointer:fine) and (hover:hover)').matches,
-    [],
-  );
-  const tripCursors = getTripCursors(tripId);
-  const tripItemPreviews = getTripItemPreviews(tripId);
+  const followSyncTimerRef = useRef<number | null>(null);
+  const applyingFollowStateRef = useRef(false);
+  const [timelineViewport, setTimelineViewport] = useState<{
+    viewMode: PresenceViewport['viewMode'];
+    focusedDayId: string | null;
+    scrollLeft: number;
+    scrollTop: number;
+    zoom: number;
+  } | null>(null);
+  const [workspaceLayout, setWorkspaceLayout] = useState<PresenceWorkspaceLayout>('split');
+  const [itineraryScrollTop, setItineraryScrollTop] = useState(0);
+  const [mapCamera, setMapCamera] = useState<PresenceMapCamera | null>(null);
+  const {
+    participants: tripParticipants,
+    cursors: tripCursors,
+    itemPreviews: tripItemPreviews,
+    remoteObjectPresenceById,
+  } = useTripCollaboration(tripId, localConnectionId);
   const remoteEditNotice = getRemoteEditNotice(tripId);
 
   const previewByItemId = useMemo(() => {
@@ -263,8 +307,116 @@ function TripApp({ tripId }: { tripId: string }) {
     [committedItems, previewByItemId],
   );
 
+  const followedParticipant = useMemo(
+    () =>
+      followedConnectionId
+        ? tripParticipants.find((participant) => participant.connectionId === followedConnectionId) ?? null
+        : null,
+    [followedConnectionId, tripParticipants],
+  );
+  const followedParticipantRef = useRef<typeof followedParticipant>(null);
+
   useEffect(() => {
-    if (!workspaceRef.current || !isDesktopPresenceEnabled) return;
+    followedParticipantRef.current = followedParticipant;
+  }, [followedParticipant]);
+
+  useEffect(() => {
+    if (followedConnectionId && !followedParticipant) {
+      setFollowedConnectionId(null);
+    }
+  }, [followedConnectionId, followedParticipant]);
+
+  useEffect(() => {
+    if (followedConnectionId) return;
+    applyingFollowStateRef.current = false;
+    if (followSyncTimerRef.current !== null) {
+      window.clearTimeout(followSyncTimerRef.current);
+      followSyncTimerRef.current = null;
+    }
+  }, [followedConnectionId]);
+
+  useEffect(() => {
+    return () => {
+      if (followSyncTimerRef.current !== null) {
+        window.clearTimeout(followSyncTimerRef.current);
+      }
+    };
+  }, []);
+
+  const armFollowSyncGuard = useCallback(() => {
+    applyingFollowStateRef.current = true;
+    if (followSyncTimerRef.current !== null) {
+      window.clearTimeout(followSyncTimerRef.current);
+    }
+    followSyncTimerRef.current = window.setTimeout(() => {
+      applyingFollowStateRef.current = false;
+      followSyncTimerRef.current = null;
+    }, 240);
+  }, []);
+
+  const applyParticipantWorkspaceState = useCallback(
+    (participant: (typeof tripParticipants)[number] | null | undefined) => {
+      if (!participant) return;
+
+      const { viewport } = participant;
+      if (!viewport) return;
+      armFollowSyncGuard();
+
+      if (viewport.activeTab) {
+        setActiveTab(viewport.activeTab);
+      }
+      setWorkspaceLayout((current) => {
+        const next = viewport.workspaceLayout ?? 'split';
+        return current === next ? current : next;
+      });
+
+      setSelectedDayId((current) => {
+        const next = viewport.selectedDayId ?? null;
+        return current === next ? current : next;
+      });
+      setMapEventFilter((current) => {
+        const next = viewport.mapEventFilter ?? 'all';
+        return current === next ? current : next;
+      });
+      setItineraryScrollTop((current) => {
+        const next = viewport.itineraryScrollTop ?? 0;
+        return Math.abs(current - next) < 1 ? current : next;
+      });
+      setSelectedItemId(participant.selection?.primaryObjectId ?? null);
+      if (viewport.mapCamera !== undefined) {
+        setMapCamera((current) =>
+          areMapCamerasEqual(current, viewport.mapCamera ?? null) ? current : viewport.mapCamera ?? null,
+        );
+      }
+    },
+    [armFollowSyncGuard, setActiveTab, setSelectedItemId],
+  );
+
+  useEffect(() => {
+    const participant = followedParticipantRef.current;
+    if (!participant?.viewport) return;
+    applyParticipantWorkspaceState(participant);
+  }, [
+    applyParticipantWorkspaceState,
+    followedConnectionId,
+    followedParticipant?.selection?.primaryObjectId,
+    followedParticipant?.selection?.updatedAt,
+    followedParticipant?.viewport?.updatedAt,
+  ]);
+
+  useEffect(() => {
+    if (selectedItemId) {
+      sendSelection(tripId, {
+        objectIds: [selectedItemId],
+        primaryObjectId: selectedItemId,
+      });
+      return;
+    }
+    sendSelection(tripId, null);
+  }, [selectedItemId, sendSelection, tripId]);
+
+  useEffect(() => {
+    if (!workspaceRef.current) return;
 
     let frame = 0;
     const workspace = workspaceRef.current;
@@ -273,11 +425,15 @@ function TripApp({ tripId }: { tripId: string }) {
     };
 
     const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') {
+        clearLocalCursor();
+        return;
+      }
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
         const rect = workspaceRef.current?.getBoundingClientRect();
-        if (!rect) return;
+        if (!rect || rect.width <= 0 || rect.height <= 0) return;
         if (
           event.clientX < rect.left ||
           event.clientX > rect.right ||
@@ -315,7 +471,32 @@ function TripApp({ tripId }: { tripId: string }) {
         window.cancelAnimationFrame(frame);
       }
     };
-  }, [clearCursor, isDesktopPresenceEnabled, sendCursor, tripId]);
+  }, [clearCursor, sendCursor, tripId]);
+
+  const sharedViewport = useMemo(() => {
+    const baseViewport = timelineViewport ?? {
+      viewMode: 'multi' as PresenceViewport['viewMode'],
+      focusedDayId: selectedDayId ?? days[0]?.dayId ?? null,
+      scrollLeft: 0,
+      scrollTop: 0,
+      zoom: 1,
+    };
+
+    return {
+      ...baseViewport,
+      activeTab: normalizePresenceActiveTab(activeTab),
+      workspaceLayout,
+      selectedDayId,
+      itineraryScrollTop,
+      mapEventFilter,
+      mapCamera,
+    };
+  }, [activeTab, days, itineraryScrollTop, mapCamera, mapEventFilter, selectedDayId, timelineViewport, workspaceLayout]);
+
+  useEffect(() => {
+    if (applyingFollowStateRef.current) return;
+    sendViewport(tripId, sharedViewport);
+  }, [sendViewport, sharedViewport, tripId]);
 
   const resetAddItemDraft = useCallback(() => {
     setMapSelectedPlace(null);
@@ -1022,16 +1203,16 @@ function TripApp({ tripId }: { tripId: string }) {
 
   const activeCollaborators = useMemo(
     () =>
-      tripCursors
-        .filter((cursor) => cursor.connectionId !== localConnectionId)
-        .map((cursor) => ({
-          connectionId: cursor.connectionId,
-          userId: cursor.userId,
-          name: cursor.name,
-          picture: cursor.picture,
-          color: cursor.color,
+      tripParticipants
+        .filter((participant) => participant.connectionId !== localConnectionId)
+        .map((participant) => ({
+          connectionId: participant.connectionId,
+          userId: participant.userId,
+          name: participant.name,
+          picture: participant.picture,
+          color: participant.color,
         })),
-    [localConnectionId, tripCursors],
+    [localConnectionId, tripParticipants],
   );
   const handleLiveItemPreviewChange = useCallback(
     (
@@ -1042,6 +1223,7 @@ function TripApp({ tripId }: { tripId: string }) {
             scheduledStart: string;
             scheduledEnd: string;
             durationMinutes: number;
+            mode?: PresenceItemPreview['mode'];
           }
         | null,
     ) => {
@@ -1092,9 +1274,35 @@ function TripApp({ tripId }: { tripId: string }) {
         scheduledStart: minutesToTime(resolution.startMin),
         scheduledEnd: minutesToTime(resolution.endMin),
         durationMinutes: resolution.durationMinutes,
+        mode: 'append',
       });
     },
     [clearLiveItemPreview, committedItems, days, getScheduledItemsForDay, sendItemPreview, timelineSnapMinutes, tripId],
+  );
+  const handleJumpToParticipant = useCallback(
+    (connectionId: string) => {
+      const participant = tripParticipants.find((entry) => entry.connectionId === connectionId);
+      const targetViewport = participant?.viewport;
+      if (!targetViewport) return;
+      applyParticipantWorkspaceState(participant);
+      setJumpToViewportRequest({
+        key: `${connectionId}:${targetViewport.updatedAt}`,
+        viewport: targetViewport,
+      });
+    },
+    [applyParticipantWorkspaceState, tripParticipants],
+  );
+  const handleTimelineViewportChange = useCallback(
+    (viewport: {
+      viewMode: PresenceViewport['viewMode'];
+      focusedDayId: string | null;
+      scrollLeft: number;
+      scrollTop: number;
+      zoom: number;
+    }) => {
+      setTimelineViewport(viewport);
+    },
+    [],
   );
   const canManageSharing = useMemo(
     () => members.some((member) => member.userId === user?.id && member.role === 'owner'),
@@ -1144,6 +1352,16 @@ function TripApp({ tripId }: { tripId: string }) {
         syncStatus={syncStatus}
         user={user ? { name: user.name, picture: user.picture } : undefined}
         onLogout={() => void logout()}
+        participantStrip={
+          <ParticipantStrip
+            participants={tripParticipants}
+            localConnectionId={localConnectionId}
+            followedConnectionId={followedConnectionId}
+            onFollow={setFollowedConnectionId}
+            onJumpTo={handleJumpToParticipant}
+            onStopFollowing={() => setFollowedConnectionId(null)}
+          />
+        }
         shareControl={
           trip && user ? (
             <TripShareMenu
@@ -1165,13 +1383,23 @@ function TripApp({ tripId }: { tripId: string }) {
           ) : null
         }
         activeCollaborators={activeCollaborators}
-        workspaceOverlay={
-          isDesktopPresenceEnabled ? (
-            <CursorPresenceOverlay
-              cursors={tripCursors}
-              currentConnectionId={localConnectionId}
+        followStatus={
+          followedParticipant ? (
+            <FollowModeBanner
+              name={followedParticipant.name}
+              onExit={() => setFollowedConnectionId(null)}
             />
           ) : null
+        }
+        desktopLayoutMode={workspaceLayout}
+        onDesktopLayoutModeChange={setWorkspaceLayout}
+        itineraryScrollTop={itineraryScrollTop}
+        onItineraryScroll={setItineraryScrollTop}
+        workspaceOverlay={
+          <CursorPresenceOverlay
+            cursors={tripCursors}
+            currentConnectionId={localConnectionId}
+          />
         }
         topBanner={
           remoteEditNotice ? (
@@ -1271,6 +1499,13 @@ function TripApp({ tripId }: { tripId: string }) {
             suppressedConnectorIds={suppressedConnectorIds}
             showTimelineConnectors={showTimelineConnectors}
             onToggleTimelineConnectors={() => setShowTimelineConnectors((prev) => !prev)}
+            remoteObjectPresenceById={remoteObjectPresenceById}
+            onViewportChange={handleTimelineViewportChange}
+            followViewport={followedParticipant?.viewport ?? null}
+            jumpToViewport={jumpToViewportRequest}
+            onJumpApplied={(key) =>
+              setJumpToViewportRequest((current) => (current?.key === key ? null : current))
+            }
           />
         }
         map={
@@ -1297,6 +1532,8 @@ function TripApp({ tripId }: { tripId: string }) {
               connectors={mapConnectors}
               onConnectorClick={handleConnectorClick}
               showLegacyLegs={ENABLE_LEGACY_LEGS}
+              onCameraChange={setMapCamera}
+              followCamera={followedParticipant?.viewport?.mapCamera ?? null}
             />
 
             <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2">
