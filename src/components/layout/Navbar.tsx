@@ -130,8 +130,9 @@ export function Navbar({
   }, [isEditing]);
 
   useEffect(() => {
+    if (isEditing) return;
     setEditValue(tripName ?? '');
-  }, [tripName]);
+  }, [isEditing, tripName]);
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {

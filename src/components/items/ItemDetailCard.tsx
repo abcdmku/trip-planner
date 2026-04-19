@@ -32,6 +32,20 @@ function itemToEditorValue(item: Item): EventEditorValue {
   };
 }
 
+function areEditorValuesEqual(left: EventEditorValue, right: EventEditorValue): boolean {
+  return (
+    left.type === right.type &&
+    left.transportMode === right.transportMode &&
+    left.itemRouteType === right.itemRouteType &&
+    left.scheduledStart === right.scheduledStart &&
+    left.scheduledEnd === right.scheduledEnd &&
+    left.durationMinutes === right.durationMinutes &&
+    left.notesMd === right.notesMd &&
+    left.availabilityWindows === right.availabilityWindows &&
+    left.timelineLocked === right.timelineLocked
+  );
+}
+
 export function ItemDetailCard({
   item,
   dayColor,
@@ -50,6 +64,8 @@ export function ItemDetailCard({
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const [pendingRouteDurationMinutes, setPendingRouteDurationMinutes] = useState(0);
   const routeCalculationRef = useRef(0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const previousItemIdRef = useRef(item.itemId);
 
   const hasDest = item.destLat !== 0 || item.destLng !== 0;
   const hasOrigin = item.lat !== 0 || item.lng !== 0;
@@ -83,7 +99,25 @@ export function ItemDetailCard({
   }, [displayedRouteDurationMinutes, item.itemRouteDistanceMeters, item.itemRoutePathEncoded]);
 
   useEffect(() => {
-    setEditorValue(itemToEditorValue(item));
+    const nextEditorValue = itemToEditorValue(item);
+    const didSwitchItems = previousItemIdRef.current !== item.itemId;
+    previousItemIdRef.current = item.itemId;
+
+    setEditorValue((current) => {
+      if (areEditorValuesEqual(current, nextEditorValue)) {
+        return current;
+      }
+
+      const activeElement =
+        typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (!didSwitchItems && activeElement && rootRef.current?.contains(activeElement)) {
+        return current;
+      }
+
+      return nextEditorValue;
+    });
   }, [
     item.itemId,
     item.type,
@@ -304,7 +338,7 @@ export function ItemDetailCard({
     'group/stop relative block w-full rounded-xl border border-theme bg-theme px-3 py-2.5 text-left transition-colors hover:bg-theme-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--color-accent),0.25)]';
 
   return (
-    <div className={outerClassName} style={outerStyle}>
+    <div ref={rootRef} className={outerClassName} style={outerStyle}>
       <div className={isCompact ? 'p-2.5' : 'p-4'}>
         <div className="space-y-3">
           <div className="relative">

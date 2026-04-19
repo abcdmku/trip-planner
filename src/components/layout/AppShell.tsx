@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import { useUI } from '../../hooks/useUI';
 import { Navbar } from './Navbar';
 import { MobileTabs } from './MobileTabs';
@@ -76,6 +76,8 @@ export function AppShell({
   const [willTabMapOnRelease, setWillTabMapOnRelease] = useState(false);
   const resizeStateRef = useRef({ startX: 0, startWidth: leftPanelWidth });
   const leftPanelWidthRef = useRef(leftPanelWidth);
+  const reportedLeftPanelWidthRef = useRef<number | null>(null);
+  const suppressNextLeftPanelWidthReportRef = useRef(false);
   const splitItineraryRef = useRef<HTMLDivElement | null>(null);
   const tabbedItineraryRef = useRef<HTMLDivElement | null>(null);
   const mobileItineraryRef = useRef<HTMLDivElement | null>(null);
@@ -100,13 +102,6 @@ export function AppShell({
     if (desktopLayoutMode === undefined) return;
     setDesktopMapTabbedState(desktopLayoutMode === 'tabbed');
   }, [desktopLayoutMode]);
-
-  useEffect(() => {
-    if (desktopLeftPanelWidth === undefined) return;
-    if (Math.abs(leftPanelWidthRef.current - desktopLeftPanelWidth) < 1) return;
-    leftPanelWidthRef.current = desktopLeftPanelWidth;
-    setLeftPanelWidth(desktopLeftPanelWidth);
-  }, [desktopLeftPanelWidth]);
 
   const timelineMaxWidth = useMemo(() => {
     const dayCount = Math.max(1, timelineDayCount);
@@ -147,10 +142,33 @@ export function AppShell({
     [getMapTabTriggerWidth],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (isResizing) return;
+    if (desktopLeftPanelWidth === undefined) return;
+    const nextWidth = clamp(
+      desktopLeftPanelWidth,
+      LEFT_PANEL_MIN_WIDTH,
+      getDesktopResizeMaxWidth(),
+    );
+    if (Math.abs(leftPanelWidthRef.current - nextWidth) < 1) {
+      reportedLeftPanelWidthRef.current = nextWidth;
+      return;
+    }
+    suppressNextLeftPanelWidthReportRef.current = true;
+    reportedLeftPanelWidthRef.current = nextWidth;
+    leftPanelWidthRef.current = nextWidth;
+    setLeftPanelWidth(nextWidth);
+  }, [desktopLeftPanelWidth, getDesktopResizeMaxWidth, isResizing]);
+
+  useLayoutEffect(() => {
     const handleResize = () => {
       const maxWidth = getDesktopResizeMaxWidth();
-      setLeftPanelWidth((current) => clamp(current, LEFT_PANEL_MIN_WIDTH, maxWidth));
+      setLeftPanelWidth((current) => {
+        const nextWidth = clamp(current, LEFT_PANEL_MIN_WIDTH, maxWidth);
+        if (Math.abs(current - nextWidth) < 1) return current;
+        leftPanelWidthRef.current = nextWidth;
+        return nextWidth;
+      });
     };
 
     handleResize();
@@ -220,7 +238,19 @@ export function AppShell({
   );
 
   useEffect(() => {
-    onDesktopLeftPanelWidthChange?.(clampedLeftPanelWidth);
+    if (!onDesktopLeftPanelWidthChange) return;
+    if (suppressNextLeftPanelWidthReportRef.current) {
+      suppressNextLeftPanelWidthReportRef.current = false;
+      return;
+    }
+    if (
+      reportedLeftPanelWidthRef.current !== null &&
+      Math.abs(reportedLeftPanelWidthRef.current - clampedLeftPanelWidth) < 1
+    ) {
+      return;
+    }
+    reportedLeftPanelWidthRef.current = clampedLeftPanelWidth;
+    onDesktopLeftPanelWidthChange(clampedLeftPanelWidth);
   }, [clampedLeftPanelWidth, onDesktopLeftPanelWidthChange]);
 
   const restoreSplitView = useCallback(() => {
