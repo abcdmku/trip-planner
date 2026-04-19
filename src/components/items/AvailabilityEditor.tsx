@@ -30,9 +30,9 @@ function createDefaultDateEntry(seedDate: string): AvailabilityEntry {
 }
 
 function normalizeDays(days: number[]): number[] {
-  return Array.from(new Set(days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))).sort(
-    (a, b) => a - b,
-  );
+  return Array.from(
+    new Set(days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)),
+  ).sort((a, b) => a - b);
 }
 
 function groupMapsWindowsToEntries(windows: AvailabilityWindow[]): AvailabilityEntry[] {
@@ -73,7 +73,7 @@ function RecurrenceToggle({
   onChange: (next: AvailabilityEntry['kind']) => void;
 }) {
   return (
-    <div className="flex rounded-md bg-theme-subtle p-0.5">
+    <div className="inline-flex rounded-lg bg-theme-subtle p-0.5">
       {(['weekly', 'date'] as const).map((option) => {
         const active = kind === option;
         return (
@@ -81,7 +81,7 @@ function RecurrenceToggle({
             key={option}
             type="button"
             onClick={() => onChange(option)}
-            className={`rounded-[6px] px-2 py-1 text-[10px] font-semibold transition-colors ${
+            className={`inline-flex h-8 items-center rounded-[7px] px-2.5 text-[10px] font-semibold transition-colors ${
               active
                 ? 'bg-theme-elevated text-theme shadow-sm'
                 : 'text-theme-tertiary hover:text-theme-secondary'
@@ -117,7 +117,9 @@ export function AvailabilityEditor({
   };
 
   const updateEntry = (index: number, updater: (entry: AvailabilityEntry) => AvailabilityEntry) => {
-    const nextEntries = entries.map((entry, entryIndex) => (entryIndex === index ? updater(entry) : entry));
+    const nextEntries = entries.map((entry, entryIndex) =>
+      entryIndex === index ? updater(entry) : entry,
+    );
     commit(nextEntries);
   };
 
@@ -130,10 +132,16 @@ export function AvailabilityEditor({
   };
 
   return (
-    <div className={flat ? 'space-y-2' : 'space-y-2 rounded-lg border border-theme bg-theme-subtle p-2'}>
+    <div
+      className={
+        flat ? 'space-y-2' : 'space-y-2 rounded-lg border border-theme bg-theme-subtle p-2'
+      }
+    >
       {mapsEntries.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-theme bg-theme px-3 py-2">
-          <span className="text-[11px] text-theme-secondary">{formatMapsHoursSummary(mapsEntries)}</span>
+          <span className="text-[11px] text-theme-secondary">
+            {formatMapsHoursSummary(mapsEntries)}
+          </span>
           <span className="flex-1" />
           {currentValue === mapsValue ? (
             <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-theme-tertiary">
@@ -154,8 +162,11 @@ export function AvailabilityEditor({
       {entries.length > 0 ? (
         <div className="space-y-2">
           {entries.map((entry, index) => (
-            <div key={`${entry.kind}-${index}`} className="rounded-xl border border-theme bg-theme px-2.5 py-2">
-              <div className="flex flex-wrap items-center gap-1.5">
+            <div
+              key={`${entry.kind}-${index}`}
+              className="rounded-xl border border-theme bg-theme px-3 py-2.5"
+            >
+              <div className="grid gap-2.5 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
                 <RecurrenceToggle
                   kind={entry.kind}
                   onChange={(nextKind) => {
@@ -181,7 +192,7 @@ export function AvailabilityEditor({
                 />
 
                 {entry.kind === 'weekly' ? (
-                  <div className="flex flex-wrap items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1 sm:flex-nowrap sm:gap-1.5">
                     {DAY_SHORT_LABELS.map((label, dayOfWeek) => {
                       const active = entry.days.includes(dayOfWeek);
                       return (
@@ -200,7 +211,7 @@ export function AvailabilityEditor({
                               };
                             })
                           }
-                          className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors ${
+                          className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold transition-colors ${
                             active
                               ? 'bg-accent/15 text-accent'
                               : 'text-theme-tertiary hover:bg-theme-subtle hover:text-theme-secondary'
@@ -228,7 +239,7 @@ export function AvailabilityEditor({
                   />
                 )}
 
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5 sm:justify-self-end">
                   <input
                     type="time"
                     value={entry.startTime}

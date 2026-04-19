@@ -64,34 +64,23 @@ export function ItemDetailCard({
       destination: { lat: item.destLat, lng: item.destLng },
       mode: editorValue.transportMode,
     });
-  }, [editorValue.transportMode, hasDest, hasOrigin, item.destLat, item.destLng, item.lat, item.lng]);
-
-  const travelBadge = useMemo(() => {
-    const modeLabel =
-      editorValue.transportMode === 'driving'
-        ? 'Drive'
-        : editorValue.transportMode === 'walking'
-          ? 'Walk'
-          : editorValue.transportMode === 'bicycling'
-            ? 'Bike'
-            : editorValue.transportMode === 'transit'
-              ? 'Transit'
-              : editorValue.transportMode === 'flight'
-                ? 'Flight'
-                : 'Other';
-    const routeLabel = editorValue.itemRouteType === 'directions' ? 'Routed' : 'Straight';
-    const duration = displayedRouteDurationMinutes > 0 ? `${displayedRouteDurationMinutes}m` : '';
-    return `${modeLabel} / ${routeLabel}${duration ? ` / ${duration}` : ''}`;
-  }, [displayedRouteDurationMinutes, editorValue.itemRouteType, editorValue.transportMode]);
+  }, [
+    editorValue.transportMode,
+    hasDest,
+    hasOrigin,
+    item.destLat,
+    item.destLng,
+    item.lat,
+    item.lng,
+  ]);
 
   const hasCalculatedRoute = useMemo(() => {
-    return Boolean(item.itemRoutePathEncoded) || item.itemRouteDistanceMeters > 0 || displayedRouteDurationMinutes > 0;
+    return (
+      Boolean(item.itemRoutePathEncoded) ||
+      item.itemRouteDistanceMeters > 0 ||
+      displayedRouteDurationMinutes > 0
+    );
   }, [displayedRouteDurationMinutes, item.itemRouteDistanceMeters, item.itemRoutePathEncoded]);
-
-  const routeSummary = useMemo(() => {
-    const destinationLabel = hasDest ? item.destName || 'Destination set' : 'No destination';
-    return showTravelControls ? `${destinationLabel} / ${travelBadge}` : destinationLabel;
-  }, [hasDest, item.destName, showTravelControls, travelBadge]);
 
   useEffect(() => {
     setEditorValue(itemToEditorValue(item));
@@ -115,7 +104,10 @@ export function ItemDetailCard({
   }, [item.itemId]);
 
   useEffect(() => {
-    if (pendingRouteDurationMinutes > 0 && item.itemRouteDurationMinutes === pendingRouteDurationMinutes) {
+    if (
+      pendingRouteDurationMinutes > 0 &&
+      item.itemRouteDurationMinutes === pendingRouteDurationMinutes
+    ) {
       setPendingRouteDurationMinutes(0);
     }
   }, [item.itemRouteDurationMinutes, pendingRouteDurationMinutes]);
@@ -225,18 +217,26 @@ export function ItemDetailCard({
     setEditorValue(next);
     const updates: Partial<Item> = {};
     if (next.type !== editorValue.type) updates.type = next.type;
-    if (next.transportMode !== editorValue.transportMode) updates.transportMode = next.transportMode;
-    if (next.itemRouteType !== editorValue.itemRouteType) updates.itemRouteType = next.itemRouteType;
-    if (next.scheduledStart !== editorValue.scheduledStart) updates.scheduledStart = next.scheduledStart;
+    if (next.transportMode !== editorValue.transportMode)
+      updates.transportMode = next.transportMode;
+    if (next.itemRouteType !== editorValue.itemRouteType)
+      updates.itemRouteType = next.itemRouteType;
+    if (next.scheduledStart !== editorValue.scheduledStart)
+      updates.scheduledStart = next.scheduledStart;
     if (next.scheduledEnd !== editorValue.scheduledEnd) updates.scheduledEnd = next.scheduledEnd;
-    if (next.durationMinutes !== editorValue.durationMinutes) updates.durationMinutes = next.durationMinutes;
+    if (next.durationMinutes !== editorValue.durationMinutes)
+      updates.durationMinutes = next.durationMinutes;
     if (next.notesMd !== editorValue.notesMd) updates.notesMd = next.notesMd;
     if (next.availabilityWindows !== editorValue.availabilityWindows) {
       updates.availabilityWindows = next.availabilityWindows;
     }
-    if (next.timelineLocked !== editorValue.timelineLocked) updates.timelineLocked = next.timelineLocked;
+    if (next.timelineLocked !== editorValue.timelineLocked)
+      updates.timelineLocked = next.timelineLocked;
 
-    if (next.transportMode !== editorValue.transportMode || next.itemRouteType !== editorValue.itemRouteType) {
+    if (
+      next.transportMode !== editorValue.transportMode ||
+      next.itemRouteType !== editorValue.itemRouteType
+    ) {
       updates.itemRoutePathEncoded = '';
       updates.itemRouteDistanceMeters = 0;
       updates.itemRouteDurationMinutes = 0;
@@ -297,174 +297,168 @@ export function ItemDetailCard({
         dayColor ? 'border-t-2' : ''
       }`;
   const outerStyle = !embedded && dayColor ? { borderTopColor: dayColor } : undefined;
-  const stopRowClass = 'grid gap-2 md:grid-cols-[72px_minmax(0,1fr)] md:items-start';
-  const stopLabelClass =
-    'flex items-center gap-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-theme-tertiary';
+  const routeRailClass = `relative flex w-4 shrink-0 items-center justify-center self-stretch ${
+    dayColor ? '' : 'text-theme-tertiary'
+  }`;
   const stopSurfaceClass =
-    'group/stop relative block w-full rounded-xl border border-transparent bg-theme px-3 py-2 text-left transition-colors hover:border-theme hover:bg-theme-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--color-accent),0.25)]';
+    'group/stop relative block w-full rounded-xl border border-theme bg-theme px-3 py-2.5 text-left transition-colors hover:bg-theme-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--color-accent),0.25)]';
 
   return (
     <div className={outerClassName} style={outerStyle}>
       <div className={isCompact ? 'p-2.5' : 'p-4'}>
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <h4 className="truncate text-[15px] font-semibold text-theme">{item.placeName}</h4>
-            {item.address ? (
-              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-theme-tertiary">
-                <MapPin className="h-3 w-3 shrink-0" />
-                <span className="truncate">{item.address}</span>
-              </p>
-            ) : null}
-          </div>
-
-          {(onDelete || onClose) ? (
-            <div className="flex items-center gap-1">
-              {onDelete ? (
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  className="rounded-md p-1 text-theme-tertiary hover:bg-red-500/10 hover:text-red-500"
-                  aria-label="Delete item"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              ) : null}
-              {onClose ? (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-theme"
-                  aria-label="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        <section className="mt-2.5 border-t border-theme-subtle pt-2.5">
-          <div>
-            <div className="text-[13px] font-medium text-theme-secondary">Route</div>
-            <p className="mt-1 truncate text-[11px] text-theme-tertiary">
-              {isCalculatingRoute ? 'Updating travel time...' : routeSummary}
-            </p>
-          </div>
-
-          <div className="mt-3 space-y-3">
-            <div className={stopRowClass}>
-              <div className={stopLabelClass}>
-                <span
-                  className="h-2.5 w-2.5 rounded-full bg-theme-tertiary/40"
-                  style={dayColor ? { backgroundColor: dayColor } : undefined}
-                />
-                <span>Origin</span>
+        <div className="space-y-3">
+          <div className="relative">
+            <div className="flex items-center gap-2.5">
+              <div className={routeRailClass} style={dayColor ? { color: dayColor } : undefined}>
+                <span className="h-2.5 w-2.5 rounded-full bg-current" />
+                <span className="pointer-events-none absolute left-1/2 top-[calc(50%+0.375rem)] bottom-[-0.75rem] -translate-x-1/2 border-l border-dashed border-current" />
               </div>
 
-              {isEditingOrigin ? (
-                <div className="space-y-2">
-                  <PlaceSearch autoFocus onSelect={handleOriginSelect} placeholder="Search origin..." />
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingOrigin(false)}
-                    className="text-[11px] font-medium text-theme-tertiary hover:text-theme-secondary"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingOrigin(true)}
-                  className={stopSurfaceClass}
-                  aria-label="Edit origin"
-                >
-                  <p className="truncate text-[13px] font-semibold text-theme">{item.placeName}</p>
-                  {item.address ? (
-                    <p className="mt-0.5 truncate text-[11px] text-theme-tertiary">{item.address}</p>
-                  ) : null}
-                </button>
-              )}
-            </div>
-
-            <div className="border-t border-theme-subtle pt-3">
-              <div className={stopRowClass}>
-                <div className={stopLabelClass}>
-                  <Navigation className="h-3.5 w-3.5" style={dayColor ? { color: dayColor } : undefined} />
-                  <span>Destination</span>
-                </div>
-
-                {isEditingDestination ? (
+              <div className="min-w-0 flex-1">
+                {isEditingOrigin ? (
                   <div className="space-y-2">
-                    <PlaceSearch autoFocus onSelect={handleDestSelect} placeholder="Search destination..." />
+                    <PlaceSearch
+                      autoFocus
+                      onSelect={handleOriginSelect}
+                      placeholder="Search location..."
+                    />
                     <button
                       type="button"
-                      onClick={() => setIsEditingDestination(false)}
+                      onClick={() => setIsEditingOrigin(false)}
                       className="text-[11px] font-medium text-theme-tertiary hover:text-theme-secondary"
                     >
                       Cancel
                     </button>
                   </div>
                 ) : (
-                  <div className="group/stop relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingDestination(true)}
-                      className={`${stopSurfaceClass} ${hasDest ? 'pr-12' : ''}`}
-                      aria-label={hasDest ? 'Edit destination' : 'Add destination'}
-                    >
-                      <p className="truncate text-[13px] font-semibold text-theme">
-                        {hasDest ? item.destName || 'Destination' : 'Add destination'}
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingOrigin(true)}
+                    className={stopSurfaceClass}
+                    aria-label="Edit origin"
+                  >
+                    <p className="truncate text-[13px] font-semibold text-theme">
+                      {item.placeName}
+                    </p>
+                    {item.address ? (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-theme-tertiary">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{item.address}</span>
                       </p>
-                      {hasDest && item.destAddress ? (
-                        <p className="mt-0.5 truncate text-[11px] text-theme-tertiary">{item.destAddress}</p>
-                      ) : (
-                        <p className="mt-0.5 text-[11px] text-theme-tertiary">
-                          Add one to estimate travel time and open the route in Maps.
-                        </p>
-                      )}
-                    </button>
-
-                    {hasDest ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          clearDestination();
-                        }}
-                        className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-theme-tertiary opacity-0 transition-all hover:bg-theme hover:text-theme group-hover/stop:opacity-100 group-focus-within/stop:opacity-100"
-                        aria-label="Clear destination"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
                     ) : null}
-                  </div>
+                  </button>
                 )}
               </div>
             </div>
 
-            {showTravelControls ? (
-              <div className="border-t border-theme-subtle pt-3">
-                <RouteTravelControls
-                  transportMode={editorValue.transportMode}
-                  itemRouteType={editorValue.itemRouteType}
-                  onChange={(next) => handleEditorChange({ ...editorValue, ...next })}
-                  compact={isCompact}
-                  hasOrigin={hasOrigin}
-                  hasDestination={hasDest}
-                  openInGoogleMapsUrl={openInGoogleMapsUrl}
-                  onCalculateRoute={doCalculateRoute}
-                  isCalculatingRoute={isCalculatingRoute}
-                  canCalculateRoute={hasOrigin && hasDest && editorValue.itemRouteType === 'directions'}
-                  hasCalculatedRoute={hasCalculatedRoute}
-                  travelDurationMinutes={displayedRouteDurationMinutes}
-                />
+            {!isEditingOrigin && (onDelete || onClose) ? (
+              <div className="absolute right-0 top-2 z-10 flex items-center gap-1">
+                {onDelete ? (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    className="rounded-md p-1 text-theme-tertiary hover:bg-red-500/10 hover:text-red-500"
+                    aria-label="Delete item"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                ) : null}
+                {onClose ? (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-theme"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
-        </section>
 
-        <section className="mt-2.5 border-t border-theme-subtle pt-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className={routeRailClass} style={dayColor ? { color: dayColor } : undefined}>
+              <Navigation className="h-4 w-4 shrink-0" />
+            </div>
+
+            {isEditingDestination ? (
+              <div className="min-w-0 flex-1 space-y-2">
+                <PlaceSearch
+                  autoFocus
+                  onSelect={handleDestSelect}
+                  placeholder="Search destination..."
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDestination(false)}
+                  className="text-[11px] font-medium text-theme-tertiary hover:text-theme-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="group/stop relative min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDestination(true)}
+                  className={`${stopSurfaceClass} ${hasDest ? 'pr-12' : ''}`}
+                  aria-label={hasDest ? 'Edit destination' : 'Add destination'}
+                >
+                  <p className="truncate text-[13px] font-semibold text-theme">
+                    {hasDest ? item.destName || 'Destination' : 'Add destination'}
+                  </p>
+                  {hasDest && item.destAddress ? (
+                    <p className="mt-0.5 truncate text-[11px] text-theme-tertiary">
+                      {item.destAddress}
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-[11px] text-theme-tertiary">
+                      Add one to estimate travel time and open the route in Maps.
+                    </p>
+                  )}
+                </button>
+
+                {hasDest ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      clearDestination();
+                    }}
+                    className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-theme-tertiary opacity-0 transition-all hover:bg-theme hover:text-theme group-hover/stop:opacity-100 group-focus-within/stop:opacity-100"
+                    aria-label="Clear destination"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {showTravelControls ? (
+            <div className="border-t border-theme-subtle pt-3">
+              <RouteTravelControls
+                transportMode={editorValue.transportMode}
+                itemRouteType={editorValue.itemRouteType}
+                onChange={(next) => handleEditorChange({ ...editorValue, ...next })}
+                compact={isCompact}
+                hasOrigin={hasOrigin}
+                hasDestination={hasDest}
+                openInGoogleMapsUrl={openInGoogleMapsUrl}
+                onCalculateRoute={doCalculateRoute}
+                isCalculatingRoute={isCalculatingRoute}
+                canCalculateRoute={
+                  hasOrigin && hasDest && editorValue.itemRouteType === 'directions'
+                }
+                hasCalculatedRoute={hasCalculatedRoute}
+                travelDurationMinutes={displayedRouteDurationMinutes}
+              />
+            </div>
+          ) : null}
+        </div>
+
+        <section className="mt-4 border-t border-theme-subtle pt-4">
           <EventEditorForm
             key={item.itemId}
             value={editorValue}

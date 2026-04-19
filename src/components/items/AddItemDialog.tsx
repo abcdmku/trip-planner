@@ -57,9 +57,17 @@ function inferItemType(googleTypes: string[]): ItemType {
   const s = new Set(googleTypes);
   if (s.has('lodging') || s.has('hotel') || s.has('motel') || s.has('resort_hotel')) return 'hotel';
   if (s.has('restaurant') || s.has('food') || s.has('cafe') || s.has('bar')) return 'restaurant';
-  if (s.has('airport') || s.has('train_station') || s.has('transit_station') || s.has('bus_station')) return 'transport';
-  if (s.has('museum') || s.has('art_gallery') || s.has('tourist_attraction') || s.has('park')) return 'attraction';
-  if (s.has('gym') || s.has('spa') || s.has('stadium') || s.has('amusement_park')) return 'activity';
+  if (
+    s.has('airport') ||
+    s.has('train_station') ||
+    s.has('transit_station') ||
+    s.has('bus_station')
+  )
+    return 'transport';
+  if (s.has('museum') || s.has('art_gallery') || s.has('tourist_attraction') || s.has('park'))
+    return 'attraction';
+  if (s.has('gym') || s.has('spa') || s.has('stadium') || s.has('amusement_park'))
+    return 'activity';
   return 'other';
 }
 
@@ -264,6 +272,9 @@ export function AddItemDialog({
   const clearCalculatedRoute = useCallback(() => {
     setCalculatedRoute(null);
   }, []);
+  const routeRailClass =
+    'relative flex w-4 shrink-0 items-center justify-center self-stretch text-accent';
+  const routeSurfaceClass = 'rounded-xl border border-theme bg-theme px-3 py-2.5';
 
   const handleCalculateRoute = useCallback(async () => {
     if (!selectedPlace || !destPlace || editor.itemRouteType !== 'directions') return;
@@ -352,7 +363,11 @@ export function AddItemDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative max-h-[88vh] w-full max-w-[620px] overflow-y-auto rounded-2xl border border-theme bg-theme-elevated p-5 shadow-theme-lg">
         <button
@@ -412,19 +427,15 @@ export function AddItemDialog({
 
           <div className="border-t border-theme-subtle p-3">
             {isRouteOpen ? (
-              <div className="space-y-3">
-                <div>
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="flex h-4 w-4 items-center justify-center">
-                      <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-                    </span>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-theme-tertiary">
-                      Origin
-                    </label>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className={routeRailClass}>
+                    <span className="h-2.5 w-2.5 rounded-full bg-current" />
+                    <span className="pointer-events-none absolute left-1/2 top-[calc(50%+0.375rem)] bottom-[-0.75rem] -translate-x-1/2 border-l border-dashed border-current" />
                   </div>
 
                   {isEditingOrigin ? (
-                    <div className="space-y-1.5">
+                    <div className="min-w-0 flex-1 space-y-1.5">
                       <PlaceSearch
                         autoFocus
                         onSelect={(place) => {
@@ -460,11 +471,13 @@ export function AddItemDialog({
                       ) : null}
                     </div>
                   ) : isCustomLocation ? (
-                    <div className="space-y-2">
-                      <div className="flex items-start gap-2 rounded-lg border border-theme bg-theme-elevated px-2.5 py-2">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className={`flex items-start gap-2 ${routeSurfaceClass}`}>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold text-theme">Map pin</p>
-                          <p className="truncate text-[10px] text-theme-tertiary">{selectedPlace?.address}</p>
+                          <p className="truncate text-[10px] text-theme-tertiary">
+                            {selectedPlace?.address}
+                          </p>
                         </div>
                         <div className="flex items-center gap-1">
                           <button
@@ -499,16 +512,22 @@ export function AddItemDialog({
                           className="input w-full py-1.5 text-xs"
                         />
                         {!customName.trim() ? (
-                          <p className="mt-1 text-[10px] text-red-600">A name is required for map pins.</p>
+                          <p className="mt-1 text-[10px] text-red-600">
+                            A name is required for map pins.
+                          </p>
                         ) : null}
                       </div>
                     </div>
                   ) : selectedPlace ? (
-                    <div className="flex items-start gap-2 rounded-lg border border-theme bg-theme-elevated px-2.5 py-2">
+                    <div className={`min-w-0 flex-1 flex items-start gap-2 ${routeSurfaceClass}`}>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-theme">{selectedPlace.name}</p>
+                        <p className="truncate text-xs font-semibold text-theme">
+                          {selectedPlace.name}
+                        </p>
                         {selectedPlace.address ? (
-                          <p className="truncate text-[10px] text-theme-tertiary">{selectedPlace.address}</p>
+                          <p className="truncate text-[10px] text-theme-tertiary">
+                            {selectedPlace.address}
+                          </p>
                         ) : null}
                       </div>
                       <div className="flex items-center gap-1">
@@ -557,130 +576,97 @@ export function AddItemDialog({
                   )}
                 </div>
 
-                <div>
-                  <div className="mb-1 flex items-center gap-2">
-                    <Navigation className="h-4 w-4 text-accent" />
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-theme-tertiary">
-                      Destination (optional)
-                    </label>
+                <div className="flex items-center gap-2.5">
+                  <div className={routeRailClass}>
+                    <Navigation className="h-4 w-4 shrink-0" />
                   </div>
 
                   {isEditingDestination || !destPlace ? (
-                    <div className="space-y-2.5">
-                      <div className="space-y-1.5">
-                        <PlaceSearch
-                          autoFocus
-                          onSelect={(place) => {
-                            setDestPlace(place);
-                            setIsEditingDestination(false);
-                            clearCalculatedRoute();
-                          }}
-                          placeholder="Search destination..."
-                        />
-                        {isEditingDestination && destPlace ? (
-                          <button
-                            type="button"
-                            onClick={() => setIsEditingDestination(false)}
-                            className="text-[11px] font-medium text-theme-tertiary hover:text-theme-secondary"
-                          >
-                            Cancel
-                          </button>
-                        ) : null}
-                      </div>
-
-                      {showTravelControls ? (
-                        <div className="rounded-lg border border-theme bg-theme-elevated px-2.5 py-2">
-                          <RouteTravelControls
-                            transportMode={editor.transportMode}
-                            itemRouteType={editor.itemRouteType}
-                            onChange={(next) => {
-                              setEditor((prev) => {
-                                if (
-                                  prev.transportMode !== next.transportMode ||
-                                  prev.itemRouteType !== next.itemRouteType
-                                ) {
-                                  clearCalculatedRoute();
-                                }
-                                return { ...prev, ...next };
-                              });
-                            }}
-                            hasOrigin={Boolean(selectedPlace)}
-                            hasDestination={Boolean(destPlace)}
-                            openInGoogleMapsUrl={openInGoogleMapsUrl}
-                            onCalculateRoute={handleCalculateRoute}
-                            isCalculatingRoute={isCalculatingRoute}
-                            canCalculateRoute={Boolean(
-                              selectedPlace && destPlace && editor.itemRouteType === 'directions',
-                            )}
-                            hasCalculatedRoute={Boolean(calculatedRoute)}
-                            travelDurationMinutes={calculatedRoute?.itemRouteDurationMinutes ?? 0}
-                          />
-                        </div>
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <PlaceSearch
+                        autoFocus
+                        onSelect={(place) => {
+                          setDestPlace(place);
+                          setIsEditingDestination(false);
+                          clearCalculatedRoute();
+                        }}
+                        placeholder="Search destination..."
+                      />
+                      {isEditingDestination && destPlace ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDestination(false)}
+                          className="text-[11px] font-medium text-theme-tertiary hover:text-theme-secondary"
+                        >
+                          Cancel
+                        </button>
                       ) : null}
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-theme bg-theme-elevated">
-                      <div className="flex items-start gap-2 px-2.5 py-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold text-theme">{destPlace.name}</p>
-                          {destPlace.address ? (
-                            <p className="truncate text-[10px] text-theme-tertiary">{destPlace.address}</p>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setIsEditingDestination(true)}
-                            className="rounded-md px-2 py-1 text-[11px] font-semibold text-theme-secondary hover:bg-theme-subtle"
-                          >
-                            Change
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDestPlace(null);
-                              clearCalculatedRoute();
-                            }}
-                            className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-theme-secondary"
-                            aria-label="Clear destination"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
+                    <div className={`min-w-0 flex-1 flex items-start gap-2 ${routeSurfaceClass}`}>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-theme">
+                          {destPlace.name}
+                        </p>
+                        {destPlace.address ? (
+                          <p className="truncate text-[10px] text-theme-tertiary">
+                            {destPlace.address}
+                          </p>
+                        ) : null}
                       </div>
-
-                      {showTravelControls ? (
-                        <div className="border-t border-theme-subtle px-2.5 py-2">
-                          <RouteTravelControls
-                            transportMode={editor.transportMode}
-                            itemRouteType={editor.itemRouteType}
-                            onChange={(next) => {
-                              setEditor((prev) => {
-                                if (
-                                  prev.transportMode !== next.transportMode ||
-                                  prev.itemRouteType !== next.itemRouteType
-                                ) {
-                                  clearCalculatedRoute();
-                                }
-                                return { ...prev, ...next };
-                              });
-                            }}
-                            hasOrigin={Boolean(selectedPlace)}
-                            hasDestination={Boolean(destPlace)}
-                            openInGoogleMapsUrl={openInGoogleMapsUrl}
-                            onCalculateRoute={handleCalculateRoute}
-                            isCalculatingRoute={isCalculatingRoute}
-                            canCalculateRoute={Boolean(
-                              selectedPlace && destPlace && editor.itemRouteType === 'directions',
-                            )}
-                            hasCalculatedRoute={Boolean(calculatedRoute)}
-                            travelDurationMinutes={calculatedRoute?.itemRouteDurationMinutes ?? 0}
-                          />
-                        </div>
-                      ) : null}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDestination(true)}
+                          className="rounded-md px-2 py-1 text-[11px] font-semibold text-theme-secondary hover:bg-theme-subtle"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDestPlace(null);
+                            clearCalculatedRoute();
+                          }}
+                          className="rounded-md p-1 text-theme-tertiary hover:bg-theme-subtle hover:text-theme-secondary"
+                          aria-label="Clear destination"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
+
+                {showTravelControls ? (
+                  <div className="border-t border-theme-subtle pt-2.5">
+                    <RouteTravelControls
+                      transportMode={editor.transportMode}
+                      itemRouteType={editor.itemRouteType}
+                      onChange={(next) => {
+                        setEditor((prev) => {
+                          if (
+                            prev.transportMode !== next.transportMode ||
+                            prev.itemRouteType !== next.itemRouteType
+                          ) {
+                            clearCalculatedRoute();
+                          }
+                          return { ...prev, ...next };
+                        });
+                      }}
+                      hasOrigin={Boolean(selectedPlace)}
+                      hasDestination={Boolean(destPlace)}
+                      openInGoogleMapsUrl={openInGoogleMapsUrl}
+                      onCalculateRoute={handleCalculateRoute}
+                      isCalculatingRoute={isCalculatingRoute}
+                      canCalculateRoute={Boolean(
+                        selectedPlace && destPlace && editor.itemRouteType === 'directions',
+                      )}
+                      hasCalculatedRoute={Boolean(calculatedRoute)}
+                      travelDurationMinutes={calculatedRoute?.itemRouteDurationMinutes ?? 0}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="space-y-2">
@@ -697,7 +683,9 @@ export function AddItemDialog({
                         : 'Choose starting point'}
                     </p>
                     {selectedPlace?.address ? (
-                      <p className="truncate text-[10px] text-theme-tertiary">{selectedPlace.address}</p>
+                      <p className="truncate text-[10px] text-theme-tertiary">
+                        {selectedPlace.address}
+                      </p>
                     ) : null}
                   </div>
                 </div>
@@ -709,7 +697,9 @@ export function AddItemDialog({
                       {destPlace ? destPlace.name : 'No destination'}
                     </p>
                     {destPlace?.address ? (
-                      <p className="truncate text-[10px] text-theme-tertiary">{destPlace.address}</p>
+                      <p className="truncate text-[10px] text-theme-tertiary">
+                        {destPlace.address}
+                      </p>
                     ) : !destPlace ? (
                       <p className="truncate text-[10px] text-theme-tertiary">Optional</p>
                     ) : null}

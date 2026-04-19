@@ -182,10 +182,10 @@ export function EventEditorForm({
     }`;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3.5">
       <div>
-        <div className="mb-2 text-[13px] font-medium text-theme-secondary">Type</div>
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="group" aria-label="Event type">
+        <div className="mb-2.5 text-[13px] font-medium text-theme-secondary">Type</div>
+        <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Event type">
           {ITEM_TYPES.map((option) => {
             const active = value.type === option.value;
             const Icon = option.icon;
@@ -211,7 +211,7 @@ export function EventEditorForm({
         </div>
       </div>
 
-      <div className="border-t border-theme-subtle pt-2.5">
+      <div className="border-t border-theme-subtle pt-3.5">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-[13px] font-medium text-theme-secondary">
             <Clock3 className="h-4 w-4 text-theme-tertiary" />
@@ -233,7 +233,9 @@ export function EventEditorForm({
           </button>
         </div>
 
-        <div className={`grid gap-1.5 ${compact ? 'grid-cols-2' : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_104px]'}`}>
+        <div
+          className={`grid gap-1.5 ${compact ? 'grid-cols-2' : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_104px]'}`}
+        >
           <div>
             <label className="mb-0.5 block text-[10px] text-theme-tertiary">Start</label>
             <input
@@ -257,22 +259,25 @@ export function EventEditorForm({
 
           <div className={`relative ${compact ? 'col-span-2' : ''}`}>
             <label className="mb-0.5 block text-[10px] text-theme-tertiary">Duration</label>
-            <input
-              type="number"
-              min={0}
-              step={5}
-              value={value.durationMinutes}
-              onChange={(e) => handleDurationChange(e.target.value)}
-              className="input w-full py-1.5 pr-12 text-xs"
-            />
-            <span className="pointer-events-none absolute right-2.5 top-[26px] -translate-y-1/2 text-[10px] text-theme-tertiary">
-              <Timer className="inline h-3 w-3" /> min
-            </span>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                step={5}
+                value={value.durationMinutes}
+                onChange={(e) => handleDurationChange(e.target.value)}
+                className="input w-full py-1.5 pr-12 text-xs"
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center gap-1 text-[10px] text-theme-tertiary">
+                <Timer className="h-3 w-3" />
+                <span>min</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="border-t border-theme-subtle pt-2.5">
+      <div className="border-t border-theme-subtle pt-3.5">
         <button
           type="button"
           onClick={() => setIsAvailabilityOpen((open) => !open)}
@@ -305,7 +310,7 @@ export function EventEditorForm({
         ) : null}
       </div>
 
-      <div className="border-t border-theme-subtle pt-2.5">
+      <div className="border-t border-theme-subtle pt-3.5">
         <div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-theme-secondary">
           <StickyNote className="h-4 w-4 text-theme-tertiary" />
           <span>Notes</span>
@@ -320,7 +325,7 @@ export function EventEditorForm({
       </div>
 
       {onSubmit ? (
-        <div className="border-t border-theme-subtle pt-2.5">
+        <div className="border-t border-theme-subtle pt-3.5">
           <button
             type="button"
             onClick={onSubmit}
