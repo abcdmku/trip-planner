@@ -1,5 +1,5 @@
 import { render, waitFor } from '@testing-library/react';
-import { VerticalTimeline } from '@/components/timeline/VerticalTimeline';
+import { VerticalTimeline } from '@route-lib/trip-workspace/ui/timeline/VerticalTimeline';
 import type { Day } from '@/types/trip';
 
 function createDay(dayId: string, date: string, label: string, colorHex: string): Day {

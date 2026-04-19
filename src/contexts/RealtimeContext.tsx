@@ -43,9 +43,9 @@ import type {
   TripSnapshotResponse,
 } from '@/types/api';
 
-type ConnectionState = 'connecting' | 'connected' | 'disconnected';
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 
-interface LiveItemPreviewPayload {
+export interface LiveItemPreviewPayload {
   itemId: string;
   dayId: string;
   scheduledStart: string;
@@ -54,12 +54,12 @@ interface LiveItemPreviewPayload {
   mode?: PresenceItemPreview['mode'];
 }
 
-interface SelectionPayload {
+export interface SelectionPayload {
   objectIds: string[];
   primaryObjectId: string | null;
 }
 
-interface ViewportPayload {
+export interface ViewportPayload {
   viewMode: PresenceViewport['viewMode'];
   focusedDayId: string | null;
   scrollLeft: number;
@@ -75,7 +75,7 @@ interface ViewportPayload {
   mapOpenLocation?: PresenceViewport['mapOpenLocation'];
 }
 
-interface RealtimeContextValue {
+export interface RealtimeContextValue {
   connectionState: ConnectionState;
   localConnectionId: string | null;
   subscribeToTrip: (tripId: string) => void;
@@ -94,7 +94,7 @@ interface RealtimeContextValue {
   dismissRemoteEditNotice: (tripId: string) => void;
 }
 
-const RealtimeContext = createContext<RealtimeContextValue | null>(null);
+export const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 function sortSnapshot(snapshot: TripSnapshotResponse): TripSnapshotResponse {
   return {

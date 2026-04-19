@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ItemDetailCard } from '@/components/items/ItemDetailCard';
+import { ItemDetailCard } from '@route-lib/trip-workspace/ui/items/ItemDetailCard';
 import type { Item } from '@/types/trip';
 
 function createItem(overrides?: Partial<Item>): Item {

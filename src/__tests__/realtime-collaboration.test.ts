@@ -5,8 +5,8 @@ import {
   removeTripItemPreviewConnections,
   shouldRefetchTripForEvent,
 } from '@/lib/realtime';
-import { toLiveItemPreview } from '@/components/timeline/vertical/live-preview';
-import type { ExternalDragPreview } from '@/components/timeline/vertical/types';
+import { toLiveItemPreview } from '@route-lib/trip-workspace/ui/timeline/vertical/live-preview';
+import type { ExternalDragPreview } from '@route-lib/trip-workspace/ui/timeline/vertical/types';
 import type { PresenceItemPreview, TripEventEnvelope } from '@/types/api';
 
 function makeEvent(overrides: Partial<TripEventEnvelope> = {}): TripEventEnvelope {

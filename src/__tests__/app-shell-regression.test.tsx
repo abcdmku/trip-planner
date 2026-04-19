@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { act, render, waitFor } from '@testing-library/react';
-import { AppShell } from '@/components/layout/AppShell';
+import { AppShell } from '@component-lib/layout/AppShell';
 import { UIContext, type UIContextValue } from '@/contexts/UIContext';
 import { ThemeProvider } from '@/hooks/useTheme';
 
