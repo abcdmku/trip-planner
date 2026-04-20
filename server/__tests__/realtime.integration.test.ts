@@ -269,6 +269,7 @@ describe.runIf(process.env.RUN_REALTIME_INTEGRATION === '1')('realtime integrati
         colorHex: '#2563EB',
         dayStart: '08:00',
         dayEnd: '22:00',
+        timezone: 'America/Chicago',
         updatedByUserId: userAId,
       },
     });
@@ -493,6 +494,7 @@ describe.runIf(process.env.RUN_REALTIME_INTEGRATION === '1')('realtime integrati
         colorHex: '#2563EB',
         dayStart: '08:00',
         dayEnd: '22:00',
+        timezone: 'America/Chicago',
         updatedByUserId: userAId,
       },
     });

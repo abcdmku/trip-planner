@@ -77,6 +77,7 @@ const daySchema = z.object({
   colorHex: z.string().min(1),
   dayStart: z.string().min(1),
   dayEnd: z.string().min(1),
+  timezone: z.string().min(1),
   version: z.number().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
@@ -264,7 +265,7 @@ const TRIP_FIELDS = [
   'startAddress',
 ] as const;
 
-const DAY_FIELDS = ['date', 'label', 'colorHex', 'dayStart', 'dayEnd'] as const;
+const DAY_FIELDS = ['date', 'label', 'colorHex', 'dayStart', 'dayEnd', 'timezone'] as const;
 
 const ITEM_FIELDS = [
   'dayId',
@@ -335,7 +336,7 @@ function roleFromDb(role: TripMemberRole): 'owner' | 'editor' {
   return role === 'OWNER' ? 'owner' : 'editor';
 }
 
-function createDaysForTrip(startDate: string, endDate: string): Day[] {
+function createDaysForTrip(startDate: string, endDate: string, timezone: string): Day[] {
   const start = parseISO(startDate);
   const end = parseISO(endDate);
   const days: Day[] = [];
@@ -353,6 +354,7 @@ function createDaysForTrip(startDate: string, endDate: string): Day[] {
       colorHex: ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'][index % 7],
       dayStart: '08:00',
       dayEnd: '22:00',
+      timezone,
     });
   }
 
@@ -661,6 +663,7 @@ async function replaceTripCoreSnapshot(
         colorHex: day.colorHex,
         dayStart: day.dayStart,
         dayEnd: day.dayEnd,
+        timezone: day.timezone,
         updatedByUserId: user.id,
       })),
     });
@@ -729,6 +732,7 @@ function applyDayUpdates(input: Day) {
     colorHex: input.colorHex,
     dayStart: input.dayStart,
     dayEnd: input.dayEnd,
+    timezone: input.timezone,
   };
 }
 
@@ -973,7 +977,7 @@ export function buildApp() {
 
     const { name, startDate, endDate, timezone } = parsed.data;
     const tripId = crypto.randomUUID();
-    const days = createDaysForTrip(startDate, endDate);
+      const days = createDaysForTrip(startDate, endDate, timezone);
 
     const created = await prisma.$transaction(async (tx) => {
       const trip = await tx.trip.create({
@@ -1012,6 +1016,7 @@ export function buildApp() {
             colorHex: day.colorHex,
             dayStart: day.dayStart,
             dayEnd: day.dayEnd,
+            timezone: day.timezone,
             updatedByUserId: user.id,
           })),
         });
@@ -1343,6 +1348,7 @@ export function buildApp() {
               colorHex: parsed.data.colorHex,
               dayStart: parsed.data.dayStart,
               dayEnd: parsed.data.dayEnd,
+              timezone: parsed.data.timezone,
               updatedByUserId: user.id,
             },
           });

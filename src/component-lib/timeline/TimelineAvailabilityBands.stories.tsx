@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, within } from 'storybook/test';
 import { TimelineAvailabilityBands } from './TimelineAvailabilityBands';
 
 const meta = {
@@ -15,6 +16,7 @@ const meta = {
     pxPerMin: 1,
     left: 8,
     right: 8,
+    timezoneLabel: 'CDT',
     label: true,
     labelSize: 'standard',
   },
@@ -33,7 +35,13 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const LabeledBands: Story = {};
+export const LabeledBands: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('8:30a - 10a CDT')).toBeInTheDocument();
+    await expect(canvas.getByText('11a - 12p CDT')).toBeInTheDocument();
+  },
+};
 
 export const CompactBands: Story = {
   args: {

@@ -11,6 +11,7 @@ interface AvailabilityEditorProps {
   value: string;
   onChange: (nextValue: string) => void;
   defaultDate?: string;
+  timezoneLabel?: string | null;
   mapsAvailabilityWindows?: AvailabilityWindow[];
   flat?: boolean;
 }
@@ -57,12 +58,17 @@ function groupMapsWindowsToEntries(windows: AvailabilityWindow[]): AvailabilityE
   });
 }
 
-function formatMapsHoursSummary(entries: AvailabilityEntry[]): string {
+function formatMapsHoursSummary(
+  entries: AvailabilityEntry[],
+  timezoneLabel?: string | null,
+): string {
   if (entries.length === 0) return 'No Maps hours';
   if (entries.length === 1 && entries[0].kind === 'weekly' && entries[0].days.length === 7) {
-    return `Maps hours: daily ${entries[0].startTime}-${entries[0].endTime}`;
+    const summary = `Maps hours: daily ${entries[0].startTime}-${entries[0].endTime}`;
+    return timezoneLabel ? `${summary} ${timezoneLabel}` : summary;
   }
-  return `Maps hours available: ${entries.length} row${entries.length === 1 ? '' : 's'}`;
+  const summary = `Maps hours available: ${entries.length} row${entries.length === 1 ? '' : 's'}`;
+  return timezoneLabel ? `${summary} ${timezoneLabel}` : summary;
 }
 
 function RecurrenceToggle({
@@ -100,6 +106,7 @@ export function AvailabilityEditor({
   value,
   onChange,
   defaultDate,
+  timezoneLabel,
   mapsAvailabilityWindows,
   flat = false,
 }: AvailabilityEditorProps) {
@@ -140,7 +147,7 @@ export function AvailabilityEditor({
       {mapsEntries.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-theme bg-theme px-3 py-2">
           <span className="text-[11px] text-theme-secondary">
-            {formatMapsHoursSummary(mapsEntries)}
+            {formatMapsHoursSummary(mapsEntries, timezoneLabel)}
           </span>
           <span className="flex-1" />
           {currentValue === mapsValue ? (

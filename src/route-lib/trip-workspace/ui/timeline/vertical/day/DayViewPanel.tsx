@@ -1,4 +1,5 @@
 import type React from 'react';
+import { TimezoneBadge } from '@/component-lib/timezone/TimezoneBadge';
 import type { Day, Item } from '@/types/trip';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
 import { getDayDisplayLabel } from '@/lib/day-labels';
@@ -16,6 +17,7 @@ interface DayViewPanelProps {
   activeDay: Day | null;
   items: Item[];
   dayItems: Item[];
+  baseTimezone?: string;
   pxPerMin: number;
   pxPerHr: number;
   snapMinutes: number;
@@ -26,6 +28,7 @@ interface DayViewPanelProps {
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (dayId: string, startTime: string, endTime: string) => void;
+  onEditDay?: (day: Day) => void;
   resolveExternalDrop: ResolveExternalDrop;
   commitExternalDrop: CommitExternalDrop;
   dayHeaderPreview: ExternalDragPreview | null;
@@ -48,6 +51,7 @@ export function DayViewPanel({
   activeDay,
   items,
   dayItems,
+  baseTimezone,
   pxPerMin,
   pxPerHr,
   snapMinutes,
@@ -58,6 +62,7 @@ export function DayViewPanel({
   onItemClick,
   onItemDoubleClick,
   onCreateAtTime,
+  onEditDay,
   resolveExternalDrop,
   commitExternalDrop,
   dayHeaderPreview,
@@ -94,7 +99,22 @@ export function DayViewPanel({
           <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: activeDay.colorHex }} />
           <span className="truncate text-xs font-semibold text-theme">{displayLabel}</span>
         </div>
-        <span className="text-[11px] text-theme-tertiary">{activeDay.date}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-theme-tertiary">{activeDay.date}</span>
+          <button
+            type="button"
+            onClick={() => onEditDay?.(activeDay)}
+            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            aria-label={`Edit timezone for ${displayLabel}`}
+          >
+            <TimezoneBadge
+              timezone={activeDay.timezone}
+              baseTimezone={baseTimezone}
+              date={activeDay.date}
+              variant="embedded"
+            />
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1">

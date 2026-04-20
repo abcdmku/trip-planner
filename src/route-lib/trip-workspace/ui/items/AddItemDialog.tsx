@@ -49,6 +49,7 @@ interface AddItemDialogProps {
   initialTravelFromItemId?: string;
   initialTravelToItemId?: string;
   defaultDate?: string;
+  defaultTimezoneLabel?: string | null;
 }
 
 export function AddItemDialog({
@@ -69,6 +70,7 @@ export function AddItemDialog({
   initialTravelFromItemId,
   initialTravelToItemId,
   defaultDate,
+  defaultTimezoneLabel,
 }: AddItemDialogProps) {
   useEscapeHotkey(isOpen, onClose);
 
@@ -190,6 +192,7 @@ export function AddItemDialog({
           isSubmitting={isSubmitting}
           submitDisabled={!model.isOriginValid}
           defaultDate={defaultDate}
+          timezoneLabel={defaultTimezoneLabel}
           mapsAvailabilityWindows={model.selectedPlace?.mapsAvailabilityWindows}
         />
       </div>

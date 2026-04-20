@@ -13,6 +13,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
   {
     day,
     dayItems,
+    baseTimezone,
     pxPerMin,
     pxPerHr,
     snapMinutes,
@@ -31,6 +32,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
     onItemDoubleClick,
     onCreateAtTime,
     onFocusDay,
+    onEditDay,
     resolveExternalDrop,
     commitExternalDrop,
     onMoveOutOfBounds,
@@ -170,6 +172,7 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
   return (
     <div
       ref={ref}
+      data-day-column-id={day.dayId}
       className={`flex-shrink-0 overflow-hidden rounded-lg border transition-all duration-150 ${
         isCrossDayTarget
           ? 'border-accent/70 shadow-lg shadow-accent/15'
@@ -183,8 +186,10 @@ export const MultiDayColumn = forwardRef<HTMLDivElement, MultiDayColumnProps>(fu
     >
       <MultiDayColumnHeader
         day={day}
+        baseTimezone={baseTimezone}
         isActive={isActive}
         onClick={onFocusDay}
+        onTimezoneClick={onEditDay}
         onDragOver={handleAppendDragOver}
         onDrop={handleAppendDrop}
         onDragLeave={handleAppendDragLeave}

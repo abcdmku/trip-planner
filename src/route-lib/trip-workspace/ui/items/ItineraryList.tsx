@@ -15,6 +15,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getDayTimezoneLabel } from '@/lib/day-time-display';
 import { ItemCard } from './ItemCard';
 import { ItemDetailCard } from './ItemDetailCard';
 import { TripEndpointRow } from './TripEndpointRow';
@@ -25,6 +26,7 @@ interface ItineraryListProps {
   items: Item[];
   days: Day[];
   itemDayColorsById?: Map<string, string[]>;
+  displayItemsById?: Map<string, Item>;
   trip?: Trip | null;
   selectedDayId?: string | null;
   selectedItemId?: string | null;
@@ -42,9 +44,11 @@ interface ItineraryListProps {
 
 function SortableItem({
   item,
+  displayItem,
   dayColor,
   dayColors,
   dayDate,
+  timezoneLabel,
   isSelected,
   isExpanded,
   onToggleExpand,
@@ -55,9 +59,11 @@ function SortableItem({
   onExternalDragEnd,
 }: {
   item: Item;
+  displayItem?: Item | null;
   dayColor?: string;
   dayColors?: string[];
   dayDate?: string;
+  timezoneLabel?: string | null;
   isSelected: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -90,6 +96,7 @@ function SortableItem({
           item={item}
           dayColor={dayColor}
           dayDate={dayDate}
+          dayTimezoneLabel={timezoneLabel}
           density="compact"
           onUpdate={onUpdate ? (updates) => onUpdate(updates) : undefined}
           onDelete={onDelete}
@@ -98,8 +105,10 @@ function SortableItem({
       ) : (
         <ItemCard
           item={item}
+          displayItem={displayItem}
           dayColor={dayColor}
           dayColors={dayColors}
+          timezoneLabel={timezoneLabel}
           isSelected={isSelected}
           isExpanded={isExpanded}
           isDragging={isDragging}
@@ -119,6 +128,7 @@ export function ItineraryList({
   items,
   days,
   itemDayColorsById,
+  displayItemsById,
   trip,
   selectedDayId,
   selectedItemId = null,
@@ -143,7 +153,7 @@ export function ItineraryList({
   );
 
   const dayColorMap = new Map(days.map((d) => [d.dayId, d.colorHex]));
-  const dayDateMap = new Map(days.map((d) => [d.dayId, d.date]));
+  const dayMap = new Map(days.map((d) => [d.dayId, d]));
   const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const handleDragEnd = useCallback(
@@ -195,17 +205,21 @@ export function ItineraryList({
 
           {sorted.map((item) => {
             const dayColors = itemDayColorsById?.get(item.itemId);
-            const displayDayId = selectedDayId ?? item.dayId;
+            const displayItem = displayItemsById?.get(item.itemId) ?? item;
+            const displayDayId =
+              selectedDayId && displayItemsById?.has(item.itemId) ? selectedDayId : item.dayId;
+            const displayDay = dayMap.get(displayDayId);
             const dayColor = dayColors && dayColors.length > 0 ? dayColorMap.get(displayDayId) : undefined;
-            const dayDate = dayDateMap.get(displayDayId);
 
             return (
               <SortableItem
                 key={item.itemId}
                 item={item}
+                displayItem={displayItem}
                 dayColor={dayColor}
                 dayColors={dayColors}
-                dayDate={dayDate}
+                dayDate={displayDay?.date}
+                timezoneLabel={getDayTimezoneLabel(displayDay)}
                 isSelected={selectedItemId === item.itemId}
                 isExpanded={expandedId === item.itemId}
                 onToggleExpand={() => setExpandedId(expandedId === item.itemId ? null : item.itemId)}

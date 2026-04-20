@@ -88,6 +88,7 @@ model Day {
   colorHex         String
   dayStart         String
   dayEnd           String
+  timezone         String
   version          Int      @default(1)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

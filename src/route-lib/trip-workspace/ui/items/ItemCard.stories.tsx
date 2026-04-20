@@ -14,6 +14,7 @@ const meta = {
   args: {
     item: baseItem,
     dayColor: '#F59E0B',
+    timezoneLabel: 'CDT',
     isSelected: false,
     isExpanded: false,
     isDragging: false,
@@ -58,6 +59,31 @@ export const MultiDay: Story = {
       scheduledStart: '18:30',
       scheduledEnd: '19:15',
     }),
+  },
+};
+
+export const SelectedDayCarryover: Story = {
+  args: {
+    item: createItemFixture({
+      itemId: 'item-overnight-origin',
+      placeName: 'Overnight Train',
+      scheduledStart: '23:30',
+      scheduledEnd: '23:59',
+      durationMinutes: 180,
+    }),
+    displayItem: createItemFixture({
+      itemId: 'item-overnight-origin',
+      placeName: 'Overnight Train',
+      scheduledStart: '00:30',
+      scheduledEnd: '03:30',
+      durationMinutes: 180,
+    }),
+    timezoneLabel: 'EDT',
+    dayColors: ['#F59E0B', '#0EA5E9'],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('12:30a - 3:30a EDT')).toBeInTheDocument();
   },
 };
 

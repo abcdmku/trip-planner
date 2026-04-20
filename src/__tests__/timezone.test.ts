@@ -62,4 +62,10 @@ describe('getTimezoneAbbr', () => {
     // In winter, New York is EST.
     expect(abbr).toBe('EST');
   });
+
+  it('keeps common non-US timezones compact for badge rendering', () => {
+    const date = new Date('2026-05-13T12:00:00Z');
+    expect(getTimezoneAbbr('Europe/London', date)).toBe('BST');
+    expect(getTimezoneAbbr('Asia/Tokyo', date)).toBe('JST');
+  });
 });

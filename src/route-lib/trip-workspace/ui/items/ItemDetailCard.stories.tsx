@@ -50,6 +50,7 @@ const meta = {
     item: routedItem,
     dayColor: '#0EA5E9',
     dayDate: '2026-05-12',
+    dayTimezoneLabel: 'CDT',
     onUpdate: fn(),
     onDelete: fn(),
     onClose: fn(),
@@ -83,6 +84,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const SelectedDayTimezone: Story = {
+  args: {
+    dayTimezoneLabel: 'EDT',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText('EDT')).toHaveLength(2);
+  },
+};
 
 export const Compact: Story = {
   args: {

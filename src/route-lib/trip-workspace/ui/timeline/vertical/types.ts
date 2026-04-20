@@ -66,14 +66,18 @@ export type CommitExternalDrop = (preview: ExternalDragPreview) => void;
 export interface VerticalTimelineProps {
   items: Item[];
   days: Day[];
+  baseTimezone?: string;
   selectedDayIds?: string[];
+  dayRevealRequest?: { dayId: string; key: string | number } | null;
   selectedItemId?: string | null;
   activeDragItemId?: string | null;
   snapMinutes?: number;
   onSnapMinutesChange?: (minutes: number) => void;
   onDragOverTimeline?: (isOver: boolean) => void;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
+  onDeleteItem?: (itemId: string) => void;
   onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
+  onEditDay?: (day: Day) => void;
   onItemClick?: (itemId: string) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (dayId: string, startTime: string, endTime: string) => void;
@@ -126,6 +130,7 @@ export interface SingleDayTimelineProps {
 export interface MultiDayColumnProps {
   day: Day;
   dayItems: Item[];
+  baseTimezone?: string;
   allItems?: Item[];
   activeDragItemId?: string | null;
   pxPerMin: number;
@@ -145,6 +150,7 @@ export interface MultiDayColumnProps {
   onItemDoubleClick?: (itemId: string) => void;
   onCreateAtTime?: (dayId: string, start: string, end: string) => void;
   onFocusDay: () => void;
+  onEditDay?: (day: Day) => void;
   resolveExternalDrop?: ResolveExternalDrop;
   commitExternalDrop?: CommitExternalDrop;
   /** Called when a timeline block is dragged out of this column horizontally */

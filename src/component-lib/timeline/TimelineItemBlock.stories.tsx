@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 import { TimelineItemBlock } from './TimelineItemBlock';
 import { createItemFixture } from '@/component-lib/story-support/trip-fixtures';
 import type { RemoteObjectPresence } from '@/types/collaboration';
@@ -35,6 +35,7 @@ const meta = {
     startMin: 540,
     endMin: 660,
     height: 88,
+    timezoneLabel: 'CDT',
     density: 'day',
     isSelected: false,
     isActive: false,
@@ -56,7 +57,12 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('9a - 11a CDT')).toBeInTheDocument();
+  },
+};
 
 export const Selected: Story = {
   args: {

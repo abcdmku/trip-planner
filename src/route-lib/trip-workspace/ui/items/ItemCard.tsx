@@ -1,12 +1,15 @@
 import { useRef, useState } from 'react';
 import { Clock, MapPin, GripVertical, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import { buildTimeRangeLabel } from '@/lib/day-time-display';
 import type { Item } from '@/types/trip';
 import { TIMELINE_ITEM_DRAG_MIME } from '@/lib/timeline-drop';
 
 interface ItemCardProps {
   item: Item;
+  displayItem?: Item | null;
   dayColor?: string;
   dayColors?: string[];
+  timezoneLabel?: string | null;
   isSelected?: boolean;
   isExpanded?: boolean;
   isDragging?: boolean;
@@ -31,8 +34,10 @@ const TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
 
 export function ItemCard({
   item,
+  displayItem,
   dayColor,
   dayColors,
+  timezoneLabel,
   isSelected = false,
   isExpanded = false,
   isDragging = false,
@@ -44,10 +49,16 @@ export function ItemCard({
   onNativeDragStart,
   onNativeDragEnd,
 }: ItemCardProps) {
+  const renderedItem = displayItem ?? item;
   const typeInfo = TYPE_LABELS[item.type] || TYPE_LABELS.other;
   const visibleDayColors = dayColors && dayColors.length > 0 ? dayColors : dayColor ? [dayColor] : [];
   const dragOriginIsHandleRef = useRef(false);
   const [isNativeDragging, setIsNativeDragging] = useState(false);
+  const timeRangeLabel = buildTimeRangeLabel({
+    start: renderedItem.scheduledStart,
+    end: renderedItem.scheduledEnd,
+    timezoneLabel,
+  });
 
   const isReorderHandleTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) return false;
@@ -192,11 +203,10 @@ export function ItemCard({
           </div>
 
           <div className="mt-1 flex items-center gap-3 text-xs text-theme-tertiary">
-            {item.scheduledStart && (
+            {timeRangeLabel && (
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {item.scheduledStart}
-                {item.scheduledEnd && ` – ${item.scheduledEnd}`}
+                {timeRangeLabel}
               </span>
             )}
             {item.durationMinutes > 0 && (

@@ -7,6 +7,7 @@ interface ItemEditorDialogProps {
   item: Item | null;
   dayColor?: string;
   dayDate?: string;
+  dayTimezoneLabel?: string | null;
   onUpdate?: (updates: Partial<Item>) => void;
   onDelete?: () => void;
   onClose: () => void;
@@ -17,6 +18,7 @@ export function ItemEditorDialog({
   item,
   dayColor,
   dayDate,
+  dayTimezoneLabel,
   onUpdate,
   onDelete,
   onClose,
@@ -43,6 +45,7 @@ export function ItemEditorDialog({
               item={item}
               dayColor={dayColor}
               dayDate={dayDate}
+              dayTimezoneLabel={dayTimezoneLabel}
               density="comfortable"
               onUpdate={onUpdate}
               onDelete={onDelete}

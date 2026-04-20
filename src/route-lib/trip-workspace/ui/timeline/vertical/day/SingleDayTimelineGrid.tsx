@@ -6,11 +6,26 @@ interface SingleDayTimelineGridProps {
   hours: number[];
   nowY: number | null;
   pxPerHr: number;
+  timezoneLabel?: string | null;
 }
 
-export function SingleDayTimelineGrid({ startH, hours, nowY, pxPerHr }: SingleDayTimelineGridProps) {
+export function SingleDayTimelineGrid({
+  startH,
+  hours,
+  nowY,
+  pxPerHr,
+  timezoneLabel,
+}: SingleDayTimelineGridProps) {
   return (
     <>
+      {timezoneLabel ? (
+        <div className="absolute left-0 top-1 z-10 flex justify-end pr-2" style={{ width: GUTTER }}>
+          <span className="rounded-full border border-theme bg-theme-subtle px-1.5 py-0.5 text-[9px] font-semibold text-theme-tertiary">
+            {timezoneLabel}
+          </span>
+        </div>
+      ) : null}
+
       <div
         className="absolute bottom-0 top-0 w-px"
         style={{ left: GUTTER, backgroundColor: 'rgb(var(--color-border) / 0.08)' }}

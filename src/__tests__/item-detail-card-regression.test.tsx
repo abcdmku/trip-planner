@@ -67,4 +67,16 @@ describe('ItemDetailCard editor synchronization', () => {
     expect(textarea.value).toBe('Local draft that should stay put');
     expect(document.activeElement).toBe(textarea);
   });
+
+  it('shows the selected day timezone on time and availability editors', () => {
+    render(
+      <ItemDetailCard
+        item={createItem()}
+        dayTimezoneLabel="EDT"
+        embedded
+      />,
+    );
+
+    expect(screen.getAllByText('EDT')).toHaveLength(2);
+  });
 });

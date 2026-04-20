@@ -84,6 +84,7 @@ export function toDayDto(record: DayRecord): Day {
     colorHex: record.colorHex,
     dayStart: record.dayStart,
     dayEnd: record.dayEnd,
+    timezone: record.timezone,
     version: record.version,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

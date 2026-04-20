@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { getDayTimezoneLabel } from '@/lib/day-time-display';
 import { useVerticalTimelineState } from './useVerticalTimelineState';
 import { TimelineViewControls } from './TimelineViewControls';
 import { DayViewPanel } from './day/DayViewPanel';
@@ -9,6 +10,7 @@ import type { VerticalTimelineProps } from './types';
 
 export function VerticalTimeline(props: VerticalTimelineProps) {
   const timeline = useVerticalTimelineState(props);
+  const activeDayTimezoneLabel = getDayTimezoneLabel(timeline.activeDay);
 
   const handleResetZoom = useCallback(() => {
     timeline.updateZoom(PX_PER_MIN);
@@ -21,6 +23,7 @@ export function VerticalTimeline(props: VerticalTimelineProps) {
   return (
     <div
       ref={timeline.rootRef}
+      data-timeline-root
       tabIndex={0}
       onPointerDownCapture={() => timeline.rootRef.current?.focus()}
       onDragOver={timeline.handleTimelineDragOver}
@@ -61,6 +64,7 @@ export function VerticalTimeline(props: VerticalTimelineProps) {
             activeDay={timeline.activeDay}
             items={props.items}
             dayItems={timeline.activeDay ? (timeline.timelineItemsByDay.get(timeline.activeDay.dayId) ?? []) : []}
+            baseTimezone={props.baseTimezone}
             selectedItemId={props.selectedItemId ?? null}
             activeDragItemId={props.activeDragItemId ?? null}
             onUpdateItem={props.onUpdateItem}
@@ -68,6 +72,7 @@ export function VerticalTimeline(props: VerticalTimelineProps) {
             onItemClick={props.onItemClick}
             onItemDoubleClick={props.onItemDoubleClick}
             onCreateAtTime={props.onCreateAtTime}
+            onEditDay={props.onEditDay}
             resolveExternalDrop={timeline.resolveExternalDrop}
             commitExternalDrop={timeline.commitExternalDrop}
             dayHeaderPreview={timeline.dayHeaderPreview}
@@ -86,13 +91,14 @@ export function VerticalTimeline(props: VerticalTimelineProps) {
           />
         </div>
       ) : (
-        <div ref={timeline.scrollerRef} className="min-h-0 flex-1 overflow-auto bg-theme">
+        <div ref={timeline.scrollerRef} data-timeline-scroller className="min-h-0 flex-1 overflow-auto bg-theme">
           <div className="inline-flex min-h-full min-w-full">
             <MultiViewTimeAxis
               globalStartH={timeline.globalRange.startH}
               gHours={timeline.gHours}
               gTotalH={timeline.gTotalH}
               pxPerHr={timeline.pxPerMin * 60}
+              timezoneLabel={activeDayTimezoneLabel}
             />
 
             <div className="flex gap-2 px-2 py-2">
@@ -107,6 +113,7 @@ export function VerticalTimeline(props: VerticalTimelineProps) {
                     }}
                     day={day}
                     dayItems={dayItems}
+                    baseTimezone={props.baseTimezone}
                     allItems={props.items}
                     pxPerMin={timeline.pxPerMin}
                     pxPerHr={timeline.pxPerMin * 60}
@@ -132,6 +139,7 @@ export function VerticalTimeline(props: VerticalTimelineProps) {
                       timeline.setFocusedDayId(day.dayId);
                       timeline.scrollDayIntoView(day.dayId);
                     }}
+                    onEditDay={props.onEditDay}
                     resolveExternalDrop={timeline.resolveExternalDrop}
                     commitExternalDrop={timeline.commitExternalDrop}
                     onMoveOutOfBounds={timeline.handleCrossDayMove}

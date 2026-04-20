@@ -11,6 +11,7 @@ const days = [
     colorHex: '#F59E0B',
     dayStart: '08:00',
     dayEnd: '22:00',
+    timezone: 'America/Chicago',
   },
   {
     dayId: 'day-2',
@@ -19,6 +20,7 @@ const days = [
     colorHex: '#3B82F6',
     dayStart: '08:00',
     dayEnd: '22:00',
+    timezone: 'America/Chicago',
   },
   {
     dayId: 'day-3',
@@ -27,6 +29,7 @@ const days = [
     colorHex: '#10B981',
     dayStart: '08:00',
     dayEnd: '22:00',
+    timezone: 'America/Chicago',
   },
 ] satisfies Day[];
 

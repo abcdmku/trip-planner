@@ -122,7 +122,12 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('9a - 10:30a CDT')).toBeInTheDocument();
+  },
+};
 
 export const EmptyState: Story = {
   args: {
@@ -137,6 +142,10 @@ export const CreatingState: Story = {
   args: {
     interaction: { type: 'creating', startMin: 870, endMin: 930 },
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('2:30p - 3:30p CDT')).toBeInTheDocument();
+  },
 };
 
 export const ExternalDropPreview: Story = {
@@ -150,6 +159,10 @@ export const ExternalDropPreview: Story = {
       endMin: 975,
     },
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('3p - 4:15p CDT')).toBeInTheDocument();
+  },
 };
 
 export const CrossDayTarget: Story = {
@@ -160,6 +173,10 @@ export const CrossDayTarget: Story = {
       startMin: 840,
       endMin: 915,
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('2p - 3:15p CDT')).toBeInTheDocument();
   },
 };
 

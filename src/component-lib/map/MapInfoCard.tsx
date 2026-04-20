@@ -1,5 +1,11 @@
 import { Clock3, Globe, Loader2, Pencil, Phone, Plus, Star, Trash2, X } from 'lucide-react';
-import type { Item, ItemType } from '@/types/trip';
+import {
+  buildHoursOfOperationLines,
+  buildHoursOfOperationSummary,
+  buildTimeRangeLabel,
+  getDayTimezoneLabel,
+} from '@/lib/day-time-display';
+import type { Day, Item, ItemType } from '@/types/trip';
 import type { PlaceSearchResult } from '@/services/maps-repository';
 
 const TYPE_BADGE: Record<ItemType, { className: string; label: string }> = {
@@ -28,19 +34,6 @@ const TYPE_BADGE: Record<ItemType, { className: string; label: string }> = {
     label: 'Other',
   },
 };
-
-function formatTime(iso: string): string {
-  try {
-    const date = new Date(iso);
-    return date.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return iso;
-  }
-}
 
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
@@ -76,6 +69,8 @@ function getRatingBadgeClasses(rating: number, userRatingsTotal?: number): strin
 
 export interface MapInfoCardProps {
   item?: Item | null;
+  displayItem?: Item | null;
+  day?: Pick<Day, 'date' | 'timezone'> | null;
   place: PlaceSearchResult | null;
   isLoading: boolean;
   error: string | null;
@@ -87,6 +82,8 @@ export interface MapInfoCardProps {
 
 export function MapInfoCard({
   item,
+  displayItem,
+  day,
   place,
   isLoading,
   error,
@@ -96,11 +93,25 @@ export function MapInfoCard({
   onDeleteItem,
 }: MapInfoCardProps) {
   const isItineraryItem = Boolean(item);
+  const renderedItem = displayItem ?? item;
   const badge = item ? TYPE_BADGE[item.type] ?? TYPE_BADGE.other : null;
   const photo = place?.photoUrls?.[0] ?? place?.photoRef;
   const price = formatPriceLevel(place?.priceLevel);
   const displayName = place?.name || item?.placeName || 'Unnamed place';
   const displayAddress = place?.address || item?.address;
+  const dayTimezoneLabel = getDayTimezoneLabel(day);
+  const timeRangeLabel = buildTimeRangeLabel({
+    start: renderedItem?.scheduledStart,
+    end: renderedItem?.scheduledEnd,
+    timezoneLabel: dayTimezoneLabel,
+    style: 'verbose',
+  });
+  const hoursSummary = buildHoursOfOperationSummary(day);
+  const hoursLines = buildHoursOfOperationLines({
+    day,
+    weekdayText: place?.weekdayText,
+    mapsAvailabilityWindows: place?.mapsAvailabilityWindows,
+  });
 
   return (
     <div className="relative max-h-[440px] min-w-[260px] max-w-[360px] overflow-y-auto rounded-xl border border-theme bg-theme-elevated p-3 text-theme shadow-theme-sm">
@@ -177,13 +188,12 @@ export function MapInfoCard({
             )}
           </div>
 
-          {item && (item.scheduledStart || item.durationMinutes > 0) && (
+          {item && (timeRangeLabel || item.durationMinutes > 0) && (
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-theme-secondary">
-              {item.scheduledStart && (
+              {timeRangeLabel && (
                 <span className="flex items-center gap-1">
                   <Clock3 className="h-3 w-3 flex-shrink-0" />
-                  {formatTime(item.scheduledStart)}
-                  {item.scheduledEnd && ` - ${formatTime(item.scheduledEnd)}`}
+                  {timeRangeLabel}
                 </span>
               )}
               {item.durationMinutes > 0 && (
@@ -206,11 +216,11 @@ export function MapInfoCard({
 
           {place && (
             <>
-              {place.weekdayText && place.weekdayText.length > 0 && (
+              {hoursLines.length > 0 && (
                 <details className="mt-2 rounded-md border border-theme bg-theme-subtle p-2 text-xs text-theme-secondary">
-                  <summary className="cursor-pointer font-medium">Hours of operation</summary>
+                  <summary className="cursor-pointer font-medium">{hoursSummary}</summary>
                   <ul className="mt-1 space-y-0.5">
-                    {place.weekdayText.map((line) => (
+                    {hoursLines.map((line) => (
                       <li key={line}>{line}</li>
                     ))}
                   </ul>

@@ -12,6 +12,7 @@ const existingDay = {
   colorHex: '#F59E0B',
   dayStart: '09:00',
   dayEnd: '21:00',
+  timezone: 'America/Chicago',
 } satisfies Day;
 
 const meta = {
@@ -22,6 +23,7 @@ const meta = {
     isOpen: true,
     defaultLabel: 'Trip Day',
     defaultDate: '2026-05-12',
+    baseTimezone: 'America/Chicago',
     onClose: fn(),
     onSave: saveSpy,
   },
@@ -65,6 +67,7 @@ export const SavesChanges: Story = {
     await userEvent.type(canvas.getByLabelText('Label'), 'Museum morning');
     await userEvent.clear(canvas.getByLabelText('Date'));
     await userEvent.type(canvas.getByLabelText('Date'), '2026-05-13');
+    await userEvent.selectOptions(canvas.getByLabelText('Timezone'), 'Europe/London');
     await userEvent.click(canvas.getByRole('button', { name: /Color #f59e0b/i }));
     await userEvent.click(canvas.getByRole('button', { name: 'Add Day' }));
 
@@ -72,6 +75,7 @@ export const SavesChanges: Story = {
       expect.objectContaining({
         label: 'Museum morning',
         date: '2026-05-13',
+        timezone: 'Europe/London',
       }),
     );
   },

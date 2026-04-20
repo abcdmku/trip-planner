@@ -63,4 +63,26 @@ describe('ItemCard', () => {
     expect(handleDelete).toHaveBeenCalledTimes(1);
     expect(handleClick).not.toHaveBeenCalled();
   });
+
+  it('renders selected-day display times with the selected day timezone label', () => {
+    render(
+      <ItemCard
+        item={createItem({
+          placeName: 'Overnight Train',
+          scheduledStart: '23:30',
+          scheduledEnd: '23:59',
+          durationMinutes: 180,
+        })}
+        displayItem={createItem({
+          placeName: 'Overnight Train',
+          scheduledStart: '00:30',
+          scheduledEnd: '03:30',
+          durationMinutes: 180,
+        })}
+        timezoneLabel="EDT"
+      />,
+    );
+
+    expect(screen.getByText('12:30a - 3:30a EDT')).toBeTruthy();
+  });
 });

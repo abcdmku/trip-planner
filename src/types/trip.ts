@@ -45,6 +45,7 @@ export interface Day {
   colorHex: string;  // e.g. "#3B82F6"
   dayStart: string;  // HH:mm  e.g. "08:00"
   dayEnd: string;    // HH:mm
+  timezone: string;  // IANA timezone e.g. "America/Chicago"
   version?: number;
   createdAt?: string;
   updatedAt?: string;

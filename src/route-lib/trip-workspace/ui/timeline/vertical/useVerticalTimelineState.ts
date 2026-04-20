@@ -1,5 +1,5 @@
 import { useHotkey } from '@tanstack/react-hotkeys';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { deriveTimelineConnectorsWithTiming } from '@/lib/connectors';
 import { DEFAULT_TIMELINE_SNAP_MINUTES } from '@/lib/timeline-snap';
 import { useCrossDayTimelineDrag } from './useCrossDayTimelineDrag';
@@ -19,12 +19,14 @@ export function useVerticalTimelineState({
   items,
   days,
   selectedDayIds = [],
+  dayRevealRequest = null,
   selectedItemId = null,
   activeDragItemId = null,
   snapMinutes,
   onSnapMinutesChange,
   onDragOverTimeline,
   onUpdateItem,
+  onDeleteItem,
   onLiveItemPreviewChange,
   suppressedConnectorIds,
   showTimelineConnectors = true,
@@ -96,25 +98,22 @@ export function useVerticalTimelineState({
 
   useWindowDragCleanup(clearDayHeaderPreview);
 
-  const handleRemoveFromTimeline = useCallback(() => {
-    if (!selectedTimelineItem || !onUpdateItem) return;
+  const handleDeleteTimelineItem = useCallback(() => {
+    if (!selectedTimelineItem || !onDeleteItem) return;
     if (selectedTimelineItem.timelineLocked) return;
 
-    onUpdateItem(selectedTimelineItem.itemId, {
-      scheduledStart: '',
-      scheduledEnd: '',
-    });
-  }, [onUpdateItem, selectedTimelineItem]);
+    onDeleteItem(selectedTimelineItem.itemId);
+  }, [onDeleteItem, selectedTimelineItem]);
 
-  useHotkey('Delete', handleRemoveFromTimeline, {
+  useHotkey('Delete', handleDeleteTimelineItem, {
     target: rootRef,
-    enabled: Boolean(selectedTimelineItem) && Boolean(onUpdateItem),
+    enabled: Boolean(selectedTimelineItem) && Boolean(onDeleteItem),
     conflictBehavior: 'allow',
   });
 
-  useHotkey('Backspace', handleRemoveFromTimeline, {
+  useHotkey('Backspace', handleDeleteTimelineItem, {
     target: rootRef,
-    enabled: Boolean(selectedTimelineItem) && Boolean(onUpdateItem),
+    enabled: Boolean(selectedTimelineItem) && Boolean(onDeleteItem),
     conflictBehavior: 'allow',
   });
 
@@ -168,11 +167,6 @@ export function useVerticalTimelineState({
     if (!hasFocusedDay) setFocusedDayId(orderedDays[0].dayId);
   }, [focusedDayId, orderedDays, selectedDayId]);
 
-  useLayoutEffect(() => {
-    if (!selectedDayId || viewMode === 'day') return;
-    setViewMode('day');
-  }, [selectedDayId, viewMode]);
-
   const scrollDayIntoView = useCallback((dayId: string, behavior: ScrollBehavior = 'smooth') => {
     const scroller = scrollerRef.current;
     const target = dayColumnRefs.current[dayId];
@@ -180,11 +174,30 @@ export function useVerticalTimelineState({
 
     const scrollerRect = scroller.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    const targetLeft = scroller.scrollLeft + (targetRect.left - scrollerRect.left);
     const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-    const nextLeft = Math.max(0, Math.min(maxLeft, targetLeft - TIME_AXIS_W));
+    const nextLeft = Math.max(
+      0,
+      Math.min(maxLeft, scroller.scrollLeft + (targetRect.left - scrollerRect.left) - TIME_AXIS_W),
+    );
     scroller.scrollTo({ left: nextLeft, behavior });
   }, []);
+
+  useEffect(() => {
+    if (viewMode !== 'multi' || !selectedDayId) return;
+    const frame = requestAnimationFrame(() => {
+      scrollDayIntoView(selectedDayId, 'smooth');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollDayIntoView, selectedDayId, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'multi' || !dayRevealRequest?.dayId) return;
+    const frame = requestAnimationFrame(() => {
+      setFocusedDayId(dayRevealRequest.dayId);
+      scrollDayIntoView(dayRevealRequest.dayId, 'smooth');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [dayRevealRequest, scrollDayIntoView, viewMode]);
 
   useEffect(() => {
     if (viewMode !== 'multi' || !effectiveDayId) return;

@@ -5,7 +5,117 @@
 // datetimes with timezone awareness, and comparing timezone offsets.
 // ---------------------------------------------------------------------------
 
+import { addDays, format, parseISO } from 'date-fns';
 import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz';
+
+export interface DayTimeContext {
+  date: string;
+  timezone: string;
+}
+
+export const COMMON_TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Rome',
+  'Europe/Madrid',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Asia/Singapore',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+] as const;
+
+const OFFSET_SUFFIX_RE = /(Z|[+-]\d{2}:\d{2})$/i;
+const COMPACT_TIMEZONE_LABELS: Partial<Record<(typeof COMMON_TIMEZONES)[number], (date: Date) => string>> = {
+  'Europe/London': (date) => (hasDifferentJanuaryOffset('Europe/London', date) ? 'BST' : 'GMT'),
+  'Europe/Paris': () => 'CET',
+  'Europe/Berlin': () => 'CET',
+  'Europe/Rome': () => 'CET',
+  'Europe/Madrid': () => 'CET',
+  'Asia/Tokyo': () => 'JST',
+  'Asia/Shanghai': () => 'CST',
+  'Asia/Singapore': () => 'SGT',
+  'Asia/Dubai': () => 'GST',
+  'Asia/Kolkata': () => 'IST',
+  'Australia/Sydney': () => 'AET',
+  'Pacific/Auckland': () => 'NZT',
+};
+
+function normalizeClockTime(value: string): string | null {
+  const candidate = value.slice(0, 5);
+  const [hours, minutes] = candidate.split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function toMinutesOfDay(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function hasExplicitOffset(value: string): boolean {
+  return OFFSET_SUFFIX_RE.test(value);
+}
+
+function hasDifferentJanuaryOffset(timezone: string, date: Date): boolean {
+  const januaryOffset = formatInTimeZone(new Date(Date.UTC(date.getUTCFullYear(), 0, 15, 12, 0, 0)), timezone, 'xxx');
+  const currentOffset = formatInTimeZone(date, timezone, 'xxx');
+  return januaryOffset !== currentOffset;
+}
+
+export function formatTimezoneOptionLabel(timezone: string): string {
+  return timezone.replace(/_/g, ' ');
+}
+
+export function getDayBoundsInstant(context: DayTimeContext): { start: Date; end: Date } {
+  const start = fromZonedTime(`${context.date}T00:00:00`, context.timezone);
+  const nextDate = format(addDays(parseISO(context.date), 1), 'yyyy-MM-dd');
+  const end = fromZonedTime(`${nextDate}T00:00:00`, context.timezone);
+  return { start, end };
+}
+
+export function formatInstantForDay(
+  instant: Date,
+  context: DayTimeContext,
+): { localDate: string; localTime: string; minutesOfDay: number } {
+  const localDate = formatInTimeZone(instant, context.timezone, 'yyyy-MM-dd');
+  const localTime = formatInTimeZone(instant, context.timezone, 'HH:mm');
+  return {
+    localDate,
+    localTime,
+    minutesOfDay: toMinutesOfDay(localTime),
+  };
+}
+
+export function parseScheduledInstant(value: string, context: DayTimeContext): Date | null {
+  if (!value) return null;
+
+  if (hasExplicitOffset(value)) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (value.includes('T')) {
+    const [datePart = context.date, timePart = ''] = value.split('T');
+    const normalizedTime = normalizeClockTime(timePart);
+    if (!normalizedTime) return null;
+    return fromZonedTime(`${datePart}T${normalizedTime}:00`, context.timezone);
+  }
+
+  const normalizedTime = normalizeClockTime(value);
+  if (!normalizedTime) return null;
+  return fromZonedTime(`${context.date}T${normalizedTime}:00`, context.timezone);
+}
 
 // ---------------------------------------------------------------------------
 // convertTime
@@ -77,7 +187,21 @@ export function getTimezoneAbbr(
   timezone: string,
   date: Date = new Date(),
 ): string {
-  return formatInTimeZone(date, timezone, 'zzz');
+  const compactLabel = COMPACT_TIMEZONE_LABELS[timezone as (typeof COMMON_TIMEZONES)[number]];
+  if (compactLabel) return compactLabel(date);
+
+  const derived = formatInTimeZone(date, timezone, 'zzz').toUpperCase();
+  const alphaOnly = derived.replace(/[^A-Z]/g, '');
+  if (alphaOnly.length >= 3) return alphaOnly.slice(0, 3);
+
+  const fallback = timezone
+    .split('/')
+    .pop()
+    ?.replace(/_/g, '')
+    .replace(/[^A-Za-z]/g, '')
+    .toUpperCase();
+
+  return fallback?.slice(0, 3) || 'TZ';
 }
 
 // ---------------------------------------------------------------------------

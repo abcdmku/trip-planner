@@ -3,12 +3,14 @@ import { Palette, X } from 'lucide-react';
 import type { Day } from '@/types/trip';
 import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
 import { getAutoDayLabel, isDefaultNumberedDayLabel } from '@/lib/day-labels';
+import { COMMON_TIMEZONES, formatTimezoneOptionLabel } from '@/lib/timezone';
 
 export interface DayEditorProps {
   day?: Day;
   isOpen: boolean;
   defaultLabel?: string;
   defaultDate?: string;
+  baseTimezone?: string;
   onClose: () => void;
   onSave: (day: Partial<Day> & { dayId: string }) => void;
 }
@@ -31,6 +33,7 @@ export function DayEditor({
   isOpen,
   defaultLabel = '',
   defaultDate = '',
+  baseTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
   onClose,
   onSave,
 }: DayEditorProps) {
@@ -39,7 +42,9 @@ export function DayEditor({
   const [colorHex, setColorHex] = useState('#3B82F6');
   const [dayStart, setDayStart] = useState('08:00');
   const [dayEnd, setDayEnd] = useState('22:00');
+  const [timezone, setTimezone] = useState(baseTimezone);
   const [labelIsAuto, setLabelIsAuto] = useState(true);
+  const timezoneOptions = Array.from(new Set([timezone, baseTimezone, ...COMMON_TIMEZONES]));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -50,6 +55,7 @@ export function DayEditor({
       setColorHex(day.colorHex);
       setDayStart(day.dayStart);
       setDayEnd(day.dayEnd);
+      setTimezone(day.timezone || baseTimezone);
       setLabelIsAuto(
         !day.label.trim() ||
           isDefaultNumberedDayLabel(day.label) ||
@@ -63,8 +69,9 @@ export function DayEditor({
     setColorHex('#3B82F6');
     setDayStart('08:00');
     setDayEnd('22:00');
+    setTimezone(baseTimezone);
     setLabelIsAuto(true);
-  }, [day, defaultDate, defaultLabel, isOpen]);
+  }, [baseTimezone, day, defaultDate, defaultLabel, isOpen]);
 
   useEscapeHotkey(isOpen, onClose);
 
@@ -86,6 +93,7 @@ export function DayEditor({
       colorHex,
       dayStart,
       dayEnd,
+      timezone,
     });
     onClose();
   };
@@ -147,6 +155,24 @@ export function DayEditor({
               </label>
               <input id="day-end" type="time" value={dayEnd} onChange={(event) => setDayEnd(event.target.value)} className="input" />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="day-timezone" className="mb-1 block text-sm font-medium text-theme-secondary">
+              Timezone
+            </label>
+            <select
+              id="day-timezone"
+              value={timezone}
+              onChange={(event) => setTimezone(event.target.value)}
+              className="input"
+            >
+              {timezoneOptions.map((tz) => (
+                <option key={tz} value={tz}>
+                  {formatTimezoneOptionLabel(tz)}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

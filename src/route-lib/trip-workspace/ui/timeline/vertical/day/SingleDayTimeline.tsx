@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getDayTimezoneLabel } from '@/lib/day-time-display';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
 import { toLiveItemPreview } from '../live-preview';
 import { mToY, snapM, toMins } from '../time';
@@ -31,6 +32,7 @@ export function SingleDayTimeline({
   showConnectors = true,
   remoteObjectPresenceById,
 }: SingleDayTimelineProps) {
+  const timezoneLabel = getDayTimezoneLabel(day);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const didScrollRef = useRef(false);
@@ -179,7 +181,13 @@ export function SingleDayTimeline({
         onDrop={handleExternalPointDrop}
         onDragLeave={handleExternalPointDragLeave}
       >
-        <SingleDayTimelineGrid startH={startH} hours={hours} nowY={nowY} pxPerHr={pxPerHr} />
+        <SingleDayTimelineGrid
+          startH={startH}
+          hours={hours}
+          nowY={nowY}
+          pxPerHr={pxPerHr}
+          timezoneLabel={timezoneLabel}
+        />
 
         <SingleDayItemLayer
           day={day}

@@ -8,6 +8,8 @@ export interface UnifiedInfoWindowProps extends MapInfoCardProps {
 export default function UnifiedInfoWindow({
   position,
   item,
+  displayItem,
+  day,
   place,
   isLoading,
   error,
@@ -26,6 +28,8 @@ export default function UnifiedInfoWindow({
     >
       <MapInfoCard
         item={item}
+        displayItem={displayItem}
+        day={day}
         place={place}
         isLoading={isLoading}
         error={error}

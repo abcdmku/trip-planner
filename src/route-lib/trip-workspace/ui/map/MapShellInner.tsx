@@ -18,6 +18,8 @@ interface MapShellInnerProps {
   legs?: Leg[];
   days?: Day[];
   trip?: Trip | null;
+  selectedDay?: Day | null;
+  displayItemsById?: Map<string, Item>;
   selectedDayIds?: string[];
   selectedItemId?: string | null;
   onSelectedItemChange?: (itemId: string | null) => void;
@@ -48,6 +50,8 @@ const MapInner = memo(function MapInner({
   legs = [],
   days = [],
   trip,
+  selectedDay,
+  displayItemsById,
   selectedDayIds,
   selectedItemId,
   onSelectedItemChange,
@@ -189,6 +193,8 @@ const MapInner = memo(function MapInner({
           <UnifiedInfoWindow
             position={{ lat: selectedItem.lat, lng: selectedItem.lng }}
             item={selectedItem}
+            displayItem={displayItemsById?.get(selectedItem.itemId) ?? null}
+            day={selectedDay}
             place={selectedMarkerPlace?.place ?? null}
             isLoading={selectedMarkerPlace?.isLoading ?? false}
             error={selectedMarkerPlace?.error ?? null}
@@ -201,6 +207,7 @@ const MapInner = memo(function MapInner({
         {selectedMapPlace && (
           <UnifiedInfoWindow
             position={selectedMapPlace.position}
+            day={selectedDay}
             place={selectedMapPlace.place}
             isLoading={selectedMapPlace.isLoading}
             error={selectedMapPlace.error}

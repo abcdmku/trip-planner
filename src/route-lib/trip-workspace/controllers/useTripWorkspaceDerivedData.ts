@@ -27,9 +27,12 @@ export function useTripWorkspaceDerivedData({
     () => [...days].sort((a, b) => a.date.localeCompare(b.date)),
     [days],
   );
+  const renderItemsByDay = useMemo(
+    () => buildTimelineRenderItemsByDay(orderedDays, renderItems),
+    [orderedDays, renderItems],
+  );
 
   const itemAppearanceDayIdsById = useMemo(() => {
-    const renderItemsByDay = buildTimelineRenderItemsByDay(orderedDays, renderItems);
     const next = new Map<string, string[]>();
 
     for (const day of orderedDays) {
@@ -43,7 +46,12 @@ export function useTripWorkspaceDerivedData({
     }
 
     return next;
-  }, [orderedDays, renderItems]);
+  }, [orderedDays, renderItemsByDay]);
+
+  const selectedDayDisplayItemsById = useMemo(() => {
+    if (!selectedDayId) return new Map<string, Item>();
+    return new Map((renderItemsByDay.get(selectedDayId) ?? []).map((item) => [item.itemId, item]));
+  }, [renderItemsByDay, selectedDayId]);
 
   const itemDayColorsById = useMemo(() => {
     const dayColorById = new Map(orderedDays.map((day) => [day.dayId, day.colorHex]));
@@ -131,6 +139,7 @@ export function useTripWorkspaceDerivedData({
     mapItemIds,
     mapItems,
     orderedDays,
+    selectedDayDisplayItemsById,
     selectedDayIds,
   };
 }

@@ -32,6 +32,7 @@ const meta = {
     onClose: fn(),
     onAdd: fn(),
     defaultDate: '2026-05-12',
+    defaultTimezoneLabel: 'CDT',
     isSubmitting: false,
   },
   render: (args) => (
@@ -65,6 +66,17 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     initialPlace: museum,
+  },
+};
+
+export const SelectedDayTimezone: Story = {
+  args: {
+    initialPlace: museum,
+    defaultTimezoneLabel: 'EDT',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText('EDT')).toHaveLength(2);
   },
 };
 

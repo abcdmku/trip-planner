@@ -9,7 +9,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Timezone label used across trip-aware views. Stories cover local, changed, and full-name display modes.',
+          'Timezone label used across trip-aware views. Stories cover compact 3-letter badges, alternate timezones, and the optional full-name display.',
       },
     },
   },
@@ -21,6 +21,7 @@ const meta = {
   args: {
     timezone: 'America/Chicago',
     baseTimezone: 'America/Chicago',
+    date: '2026-05-13',
     showFull: false,
   },
 } satisfies Meta<typeof TimezoneBadge>;
@@ -33,7 +34,7 @@ export const Local: Story = {};
 
 export const DifferentTimezone: Story = {
   args: {
-    timezone: 'Europe/London',
+    timezone: 'America/New_York',
     baseTimezone: 'America/Chicago',
   },
 };

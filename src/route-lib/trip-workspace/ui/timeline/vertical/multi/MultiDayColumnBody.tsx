@@ -7,6 +7,7 @@ import { TimelineConnectorLayer } from '@/component-lib/timeline/TimelineConnect
 import { TimelineItemBlock } from '@/component-lib/timeline/TimelineItemBlock';
 import { getPreviewAvailabilityRangesForDay } from '@/component-lib/timeline/timeline-render-utils';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
+import { buildTimeRangeLabel, getDayTimezoneLabel } from '@/lib/day-time-display';
 import type { RemoteObjectPresence } from '@/types/collaboration';
 import type { Day, Item } from '@/types/trip';
 import { MIN_BLOCK_H, TYPE_ICON } from '../constants';
@@ -72,6 +73,7 @@ export function MultiDayColumnBody({
   showConnectors = true,
   remoteObjectPresenceByItemId,
 }: MultiDayColumnBodyProps) {
+  const timezoneLabel = getDayTimezoneLabel(day);
   const previewTextColor = externalPreview?.valid ? day.colorHex : '#DC2626';
   const previewItem = externalPreview ? allItems?.find((item) => item.itemId === externalPreview.itemId) : null;
   const previewEmoji = previewItem ? (TYPE_ICON[previewItem.type] || '\u{1F4CD}') : null;
@@ -161,6 +163,7 @@ export function MultiDayColumnBody({
           pxPerMin={pxPerMin}
           left={2}
           right={2}
+          timezoneLabel={timezoneLabel}
           label
           labelSize="compact"
           backgroundAlpha="12"
@@ -176,6 +179,7 @@ export function MultiDayColumnBody({
           pxPerMin={pxPerMin}
           left={2}
           right={2}
+          timezoneLabel={timezoneLabel}
           backgroundAlpha="10"
           borderAlpha="35"
         />
@@ -189,6 +193,7 @@ export function MultiDayColumnBody({
           pxPerMin={pxPerMin}
           left={2}
           right={2}
+          timezoneLabel={timezoneLabel}
           backgroundAlpha="10"
           borderAlpha="35"
         />
@@ -202,6 +207,7 @@ export function MultiDayColumnBody({
           pxPerMin={pxPerMin}
           left={2}
           right={2}
+          timezoneLabel={timezoneLabel}
           backgroundAlpha="10"
           borderAlpha="35"
         />
@@ -245,6 +251,7 @@ export function MultiDayColumnBody({
               startMin={position.startMin}
               endMin={position.endMin}
               height={position.height}
+              timezoneLabel={timezoneLabel}
               density="multi"
               isSelected={isSelected}
               isActive={position.active}
@@ -269,7 +276,11 @@ export function MultiDayColumnBody({
         >
           <div className="px-1.5 py-0.5">
             <span className="text-[9px] font-semibold" style={{ color: day.colorHex }}>
-              {displayShort(toTime(interaction.startMin))} - {displayShort(toTime(interaction.endMin))}
+              {buildTimeRangeLabel({
+                start: toTime(interaction.startMin),
+                end: toTime(interaction.endMin),
+                timezoneLabel,
+              }) ?? `${displayShort(toTime(interaction.startMin))} - ${displayShort(toTime(interaction.endMin))}`}
             </span>
           </div>
         </TimelineOverlayCard>
@@ -298,7 +309,12 @@ export function MultiDayColumnBody({
             {previewHeight >= 28 && (
               <div className="px-1.5">
                 <span className="text-[8px]" style={{ color: `${previewTextColor}99` }}>
-                  {displayShort(toTime(externalPreview.startMin))} - {displayShort(toTime(externalPreview.endMin))}
+                  {buildTimeRangeLabel({
+                    start: toTime(externalPreview.startMin),
+                    end: toTime(externalPreview.endMin),
+                    timezoneLabel,
+                  }) ??
+                    `${displayShort(toTime(externalPreview.startMin))} - ${displayShort(toTime(externalPreview.endMin))}`}
                   {!externalPreview.valid ? ' \u00B7 Unavailable' : ''}
                 </span>
               </div>
@@ -338,7 +354,12 @@ export function MultiDayColumnBody({
                 </div>
                 {crossDayHeight >= 32 && (
                   <span className="mt-0.5 truncate text-[8px] leading-tight text-theme-secondary">
-                    {displayShort(toTime(crossDayDragPreview.startMin))} - {displayShort(toTime(crossDayDragPreview.endMin))}
+                    {buildTimeRangeLabel({
+                      start: toTime(crossDayDragPreview.startMin),
+                      end: toTime(crossDayDragPreview.endMin),
+                      timezoneLabel,
+                    }) ??
+                      `${displayShort(toTime(crossDayDragPreview.startMin))} - ${displayShort(toTime(crossDayDragPreview.endMin))}`}
                   </span>
                 )}
               </div>

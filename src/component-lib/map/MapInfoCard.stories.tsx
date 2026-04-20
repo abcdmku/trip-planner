@@ -32,6 +32,10 @@ const meta = {
   args: {
     place,
     item: null,
+    day: {
+      date: '2026-05-12',
+      timezone: 'America/Chicago',
+    },
     isLoading: false,
     error: null,
     onClose: closeSpy,
@@ -77,6 +81,36 @@ export const ItineraryItem: Story = {
       scheduledEnd: '2026-05-12T11:30:00.000Z',
       durationMinutes: 90,
     }),
+  },
+};
+
+export const SelectedDayTimezone: Story = {
+  args: {
+    item: createItemFixture({
+      itemId: 'item-overnight-origin',
+      type: 'transport',
+      placeName: 'Overnight Train',
+      scheduledStart: '23:30',
+      scheduledEnd: '23:59',
+      durationMinutes: 180,
+    }),
+    displayItem: createItemFixture({
+      itemId: 'item-overnight-origin',
+      type: 'transport',
+      placeName: 'Overnight Train',
+      scheduledStart: '00:30',
+      scheduledEnd: '03:30',
+      durationMinutes: 180,
+    }),
+    day: {
+      date: '2026-05-13',
+      timezone: 'America/New_York',
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('12:30 AM - 3:30 AM EDT')).toBeInTheDocument();
+    await expect(canvas.getByText('Hours of operation - EDT')).toBeInTheDocument();
   },
 };
 

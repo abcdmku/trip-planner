@@ -11,6 +11,7 @@ const selectedDay = {
   colorHex: '#F59E0B',
   dayStart: '08:00',
   dayEnd: '22:00',
+  timezone: 'America/Chicago',
 } satisfies Day;
 
 const previewResult: OptimizeResult = {

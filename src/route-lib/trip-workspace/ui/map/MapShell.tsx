@@ -13,6 +13,8 @@ export interface MapShellProps {
   legs?: Leg[];
   days?: Day[];
   trip?: Trip | null;
+  selectedDay?: Day | null;
+  displayItemsById?: Map<string, Item>;
   selectedDayIds?: string[];
   selectedItemId?: string | null;
   onSelectedItemChange?: (itemId: string | null) => void;
@@ -46,6 +48,8 @@ export default function MapShell({
   legs = [],
   days = [],
   trip,
+  selectedDay,
+  displayItemsById,
   selectedDayIds,
   selectedItemId,
   onSelectedItemChange,
@@ -81,6 +85,8 @@ export default function MapShell({
           legs={legs}
           days={days}
           trip={trip}
+          selectedDay={selectedDay}
+          displayItemsById={displayItemsById}
           selectedDayIds={selectedDayIds}
           selectedItemId={selectedItemId}
           onSelectedItemChange={onSelectedItemChange}

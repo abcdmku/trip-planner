@@ -15,7 +15,7 @@ import { ItineraryList } from '@route-lib/trip-workspace/ui/items/ItineraryList'
 import { VerticalTimeline } from '@route-lib/trip-workspace/ui/timeline/VerticalTimeline';
 import MapShell from '@route-lib/trip-workspace/ui/map/MapShell';
 import { CursorPresenceOverlay } from '@route-lib/trip-workspace/ui/presence/CursorPresenceOverlay';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAddDay, useDeleteDay, useUpdateDay } from '@/hooks/useDays';
 import { useAddItem, useUpdateItem, useDeleteItem, useReorderItems } from '@/hooks/useItems';
 import { useLegs, useUpdateLegMode, useUpdateLegRouteType, useRecalculateLegs } from '@/hooks/useLegs';
@@ -27,6 +27,7 @@ import { START_LOCATION_ID } from '@/services/leg-recompute';
 import { ApiError } from '@/services/api-client';
 import type { PlaceSearchResult } from '@/services/maps-repository';
 import type { TimelineConnector, TimelineConnectorWithTiming } from '@/lib/connectors';
+import { getDayTimezoneLabel } from '@/lib/day-time-display';
 import { getAutoDayLabel, getDayDisplayLabel } from '@/lib/day-labels';
 import { resolveAppendDropAfterLast, minutesToTime } from '@/lib/timeline-drop';
 import type { Day, Item, Leg, Trip, TransportMode, RouteType } from '@/types/trip';
@@ -44,6 +45,11 @@ import {
   persistTimelineSnapMinutes,
 } from '../helpers/timelineSnapStorage';
 import { buildSelectedLegPopupProps } from '../helpers/buildSelectedLegPopupProps';
+import {
+  buildTimelineItemDuplicate,
+  mergeTimelineItemUpdates,
+  shouldDuplicateTimelineItem,
+} from '../helpers/timeline-item-mutations';
 import {
   createStartLocationItem,
   buildTravelItemDraft,
@@ -173,6 +179,7 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
     remoteObjectPresenceById,
   } = useTripCollaboration(tripId, localConnectionId);
   const remoteEditNotice = getRemoteEditNotice(tripId);
+  const [dayRevealRequest, setDayRevealRequest] = useState<{ dayId: string; key: string } | null>(null);
 
   const renderItems = useTripWorkspaceRenderItems(
     committedItems,
@@ -488,6 +495,7 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
     mapItemIds,
     mapItems,
     orderedDays,
+    selectedDayDisplayItemsById,
     selectedDayIds,
   } = useTripWorkspaceDerivedData({
     days,
@@ -605,6 +613,18 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
     setShowDayEditor(true);
   };
 
+  const handleEditDay = useCallback((day: Day) => {
+    setEditingDay(day);
+    setNewDayDefaultDate(day.date);
+    setNewDayDefaultLabel(day.label);
+    setShowDayEditor(true);
+  }, []);
+
+  const handleCloseDayEditor = useCallback(() => {
+    setShowDayEditor(false);
+    setEditingDay(undefined);
+  }, []);
+
   const handleDeleteSelectedDay = useCallback((dayId: string) => {
     if (deleteDay.isPending) return;
 
@@ -632,9 +652,23 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
     });
   }, [deleteDay, pendingDayDelete, selectedDayId]);
 
+  const handleSelectDay = useCallback(
+    (dayId: string | null) => {
+      if (dayId && dayId === selectedDayId) {
+        setDayRevealRequest({ dayId, key: crypto.randomUUID() });
+      }
+      setSelectedDayId(dayId);
+    },
+    [selectedDayId, setSelectedDayId],
+  );
+
   const handleSaveDay = (dayData: Partial<Day> & { dayId: string }) => {
     if (editingDay) {
-      updateDay.mutate(dayData as Day);
+      updateDay.mutate({
+        ...editingDay,
+        ...dayData,
+        timezone: dayData.timezone ?? editingDay.timezone ?? trip?.baseTimezone ?? 'UTC',
+      });
     } else {
       addDay.mutate({
         dayId: dayData.dayId,
@@ -643,6 +677,7 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         colorHex: dayData.colorHex ?? '#3B82F6',
         dayStart: dayData.dayStart ?? '08:00',
         dayEnd: dayData.dayEnd ?? '22:00',
+        timezone: dayData.timezone ?? trip?.baseTimezone ?? 'UTC',
       });
     }
   };
@@ -713,26 +748,21 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
     [addItem, closeAddItemDialog, selectedDayId, days, committedItems, trip],
   );
 
-  const mergeItemUpdates = useCallback((existing: Item, updates: Partial<Item>): Item => {
-    const merged: Item = { ...existing, ...updates };
-    const routeRelevantKeys: (keyof Item)[] = [
-      'lat',
-      'lng',
-      'destLat',
-      'destLng',
-      'transportMode',
-      'itemRouteType',
-    ];
-    const shouldResetRoute = routeRelevantKeys.some(
-      (key) => key in updates && updates[key] !== existing[key],
-    );
-    if (shouldResetRoute) {
-      merged.itemRoutePathEncoded = '';
-      merged.itemRouteDistanceMeters = 0;
-      merged.itemRouteDurationMinutes = 0;
-    }
-    return merged;
-  }, []);
+  const handleTimelineItemUpdate = useCallback(
+    (itemId: string, updates: Partial<Item>) => {
+      const existing = committedItems.find((item) => item.itemId === itemId);
+      if (!existing) return;
+
+      const merged = mergeTimelineItemUpdates(existing, updates);
+      if (shouldDuplicateTimelineItem(existing, draggingItemId)) {
+        addItem.mutate(buildTimelineItemDuplicate(merged, committedItems));
+        return;
+      }
+
+      updateItem.mutate(merged);
+    },
+    [addItem, committedItems, draggingItemId, updateItem],
+  );
 
   const editingItem = useMemo(
     () =>
@@ -741,21 +771,26 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         : null,
     [committedItems, editingItemId],
   );
-  const editingItemDayColor = useMemo(() => {
+  const selectedDisplayDay = useMemo(
+    () =>
+      (selectedDayId ? days.find((day) => day.dayId === selectedDayId) : null) ??
+      days[0] ??
+      null,
+    [days, selectedDayId],
+  );
+  const selectedDayTimezoneLabel = useMemo(
+    () => getDayTimezoneLabel(selectedDisplayDay),
+    [selectedDisplayDay],
+  );
+  const editingItemDisplayDay = useMemo(() => {
     if (!editingItem) return null;
     const appearanceDayIds = itemAppearanceDayIdsById.get(editingItem.itemId) ?? [];
     const dayId =
       selectedDayId && appearanceDayIds.includes(selectedDayId)
         ? selectedDayId
-        : appearanceDayIds[0];
+        : appearanceDayIds[0] ?? editingItem.dayId;
     return dayId ? days.find((day) => day.dayId === dayId) ?? null : null;
   }, [days, editingItem, itemAppearanceDayIdsById, selectedDayId]);
-
-  const editingItemDayDate = useMemo(() => {
-    if (!editingItem) return null;
-    const dayId = selectedDayId ?? editingItem.dayId;
-    return dayId ? days.find((day) => day.dayId === dayId) ?? null : null;
-  }, [days, editingItem, selectedDayId]);
 
   // Handler for moving an item to a different day via drag-drop on tabs
   const handleMoveItemToDay = useCallback(
@@ -780,16 +815,22 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         (candidate) => candidate.dayId === dayId && candidate.itemId !== item.itemId,
       );
 
-      updateItem.mutate({
-        ...item,
+      const merged = mergeTimelineItemUpdates(item, {
         dayId,
         scheduledStart: minutesToTime(resolution.startMin),
         scheduledEnd: minutesToTime(resolution.endMin),
         durationMinutes: resolution.durationMinutes,
         sortOrder: targetDayItems.length,
       });
+
+      if (shouldDuplicateTimelineItem(item, draggingItemId)) {
+        addItem.mutate(buildTimelineItemDuplicate(merged, committedItems));
+        return;
+      }
+
+      updateItem.mutate(merged);
     },
-    [committedItems, days, getScheduledItemsForDay, timelineSnapMinutes, updateItem],
+    [addItem, committedItems, days, draggingItemId, getScheduledItemsForDay, timelineSnapMinutes, updateItem],
   );
 
   const activeCollaborators = useMemo(
@@ -1003,8 +1044,10 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         dayTabs: (
           <DayTabs
             days={days}
+            baseTimezone={trip?.baseTimezone}
             selectedDayId={selectedDayId}
-            onSelectDay={setSelectedDayId}
+            onSelectDay={handleSelectDay}
+            onEditDay={handleEditDay}
             onAddDay={handleAddDay}
             onDeleteSelectedDay={handleDeleteSelectedDay}
             onDropItem={handleMoveItemToDay}
@@ -1018,6 +1061,7 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
             items={filteredItems}
             days={days}
             itemDayColorsById={itemDayColorsById}
+            displayItemsById={selectedDayDisplayItemsById}
             trip={trip}
             selectedDayId={selectedDayId}
             selectedItemId={selectedItemId}
@@ -1036,7 +1080,7 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
             }}
             onUpdateItem={(id: string, updates: Partial<Item>) => {
               const existing = committedItems.find((item) => item.itemId === id);
-              if (existing) updateItem.mutate(mergeItemUpdates(existing, updates));
+              if (existing) updateItem.mutate(mergeTimelineItemUpdates(existing, updates));
             }}
             onDeleteItem={handleDeleteItem}
             onAddItem={() => {
@@ -1056,17 +1100,18 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
           <VerticalTimeline
             items={renderItems}
             days={days}
+            baseTimezone={trip?.baseTimezone}
             selectedDayIds={selectedDayIds ?? []}
+            dayRevealRequest={dayRevealRequest}
             selectedItemId={selectedItemId}
             activeDragItemId={draggingItemId}
             snapMinutes={timelineSnapMinutes}
             onSnapMinutesChange={setTimelineSnapMinutes}
             onDragOverTimeline={setIsDragOverTimeline}
-            onUpdateItem={(id: string, updates: Partial<Item>) => {
-              const existing = committedItems.find((item) => item.itemId === id);
-              if (existing) updateItem.mutate(mergeItemUpdates(existing, updates));
-            }}
+            onUpdateItem={handleTimelineItemUpdate}
+            onDeleteItem={handleDeleteItem}
             onLiveItemPreviewChange={handleLiveItemPreviewChange}
+            onEditDay={handleEditDay}
             onItemClick={(id: string) => {
               setSelectedItemId(id);
               const clickedItem = committedItems.find((item) => item.itemId === id);
@@ -1122,6 +1167,8 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
               legs={ENABLE_LEGACY_LEGS ? legs : []}
               days={days}
               trip={trip}
+              selectedDay={selectedDisplayDay}
+              displayItemsById={selectedDayDisplayItemsById}
               selectedDayIds={selectedDayIds}
               selectedItemId={selectedItemId}
               onSelectedItemChange={setSelectedItemId}
@@ -1179,7 +1226,8 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         isOpen: showDayEditor,
         defaultLabel: newDayDefaultLabel,
         defaultDate: newDayDefaultDate,
-        onClose: () => setShowDayEditor(false),
+        baseTimezone: trip?.baseTimezone,
+        onClose: handleCloseDayEditor,
         onSave: handleSaveDay,
       }}
       deleteDayDialogProps={{
@@ -1210,20 +1258,18 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         initialTimelineLocked: addItemInitialTimelineLocked,
         initialTravelFromItemId: addItemInitialTravelLink?.fromItemId,
         initialTravelToItemId: addItemInitialTravelLink?.toItemId,
-        defaultDate:
-          (
-            days.find((day) => day.dayId === (selectedDayId ?? days[0]?.dayId)) ??
-            days[0]
-          )?.date,
+        defaultDate: selectedDisplayDay?.date,
+        defaultTimezoneLabel: selectedDayTimezoneLabel,
       }}
       itemEditorDialogProps={{
         isOpen: Boolean(editingItem),
         item: editingItem,
-        dayColor: editingItemDayColor?.colorHex,
-        dayDate: editingItemDayDate?.date,
+        dayColor: editingItemDisplayDay?.colorHex,
+        dayDate: editingItemDisplayDay?.date,
+        dayTimezoneLabel: getDayTimezoneLabel(editingItemDisplayDay),
         onUpdate: (updates) => {
           if (!editingItem) return;
-          updateItem.mutate(mergeItemUpdates(editingItem, updates));
+          updateItem.mutate(mergeTimelineItemUpdates(editingItem, updates));
         },
         onDelete: () => {
           if (!editingItem) return;

@@ -1,33 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Loader2, Plane, X } from 'lucide-react';
 import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
+import { COMMON_TIMEZONES, formatTimezoneOptionLabel } from '@/lib/timezone';
 
 export interface CreateTripDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (name: string, startDate: string, endDate: string, timezone: string) => void;
 }
-
-const TIMEZONES = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Anchorage',
-  'Pacific/Honolulu',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Europe/Rome',
-  'Europe/Madrid',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Singapore',
-  'Asia/Dubai',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-];
 
 export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialogProps) {
   const [name, setName] = useState('');
@@ -36,6 +16,7 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const timezoneOptions = Array.from(new Set([timezone, ...COMMON_TIMEZONES]));
 
   useEffect(() => {
     if (isOpen) {
@@ -133,9 +114,9 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
               Base Timezone
             </label>
             <select id="timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} className="input">
-              {TIMEZONES.map((tz) => (
+              {timezoneOptions.map((tz) => (
                 <option key={tz} value={tz}>
-                  {tz.replace(/_/g, ' ')}
+                  {formatTimezoneOptionLabel(tz)}
                 </option>
               ))}
             </select>

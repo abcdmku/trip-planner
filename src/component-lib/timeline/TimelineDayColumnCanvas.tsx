@@ -4,6 +4,7 @@ import { TimelineConnectorLayer } from '@/component-lib/timeline/TimelineConnect
 import { TimelineItemBlock } from '@/component-lib/timeline/TimelineItemBlock';
 import { getPreviewAvailabilityRangesForDay } from '@/component-lib/timeline/timeline-render-utils';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
+import { buildTimeRangeLabel, getDayTimezoneLabel } from '@/lib/day-time-display';
 import type { RemoteObjectPresence } from '@/types/collaboration';
 import type { Day, Item } from '@/types/trip';
 
@@ -100,6 +101,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
     },
     ref,
   ) {
+    const timezoneLabel = getDayTimezoneLabel(day);
     const previewItem = externalPreview
       ? allItems?.find((item) => item.itemId === externalPreview.itemId) ?? null
       : null;
@@ -159,6 +161,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
             dayColor={day.colorHex}
             globalStartH={globalStartH}
             pxPerMin={pxPerMin}
+            timezoneLabel={timezoneLabel}
             labelled
           />
         )}
@@ -169,6 +172,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
             dayColor={day.colorHex}
             globalStartH={globalStartH}
             pxPerMin={pxPerMin}
+            timezoneLabel={timezoneLabel}
           />
         )}
 
@@ -178,6 +182,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
             dayColor={day.colorHex}
             globalStartH={globalStartH}
             pxPerMin={pxPerMin}
+            timezoneLabel={timezoneLabel}
           />
         )}
 
@@ -187,6 +192,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
             dayColor={day.colorHex}
             globalStartH={globalStartH}
             pxPerMin={pxPerMin}
+            timezoneLabel={timezoneLabel}
           />
         )}
 
@@ -228,6 +234,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
                 startMin={position.startMin}
                 endMin={position.endMin}
                 height={position.height}
+                timezoneLabel={timezoneLabel}
                 density="multi"
                 isSelected={isSelected}
                 isActive={position.active}
@@ -245,6 +252,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
             globalStartH={globalStartH}
             pxPerMin={pxPerMin}
             dayColor={day.colorHex}
+            timezoneLabel={timezoneLabel}
           />
         )}
 
@@ -255,6 +263,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
             dayColor={day.colorHex}
             globalStartH={globalStartH}
             pxPerMin={pxPerMin}
+            timezoneLabel={timezoneLabel}
           />
         )}
 
@@ -265,6 +274,7 @@ export const TimelineDayColumnCanvas = forwardRef<HTMLDivElement, TimelineDayCol
             dayColor={day.colorHex}
             globalStartH={globalStartH}
             pxPerMin={pxPerMin}
+            timezoneLabel={timezoneLabel}
           />
         )}
 
@@ -328,12 +338,14 @@ function AvailabilityRanges({
   dayColor,
   globalStartH,
   pxPerMin,
+  timezoneLabel,
   labelled = false,
 }: {
   ranges: { startMin: number; endMin: number }[];
   dayColor: string;
   globalStartH: number;
   pxPerMin: number;
+  timezoneLabel?: string | null;
   labelled?: boolean;
 }) {
   return (
@@ -361,7 +373,11 @@ function AvailabilityRanges({
                   className="rounded bg-theme/80 px-1 py-[1px] text-[7px] font-medium"
                   style={{ color: `${dayColor}CC` }}
                 >
-                  {displayShort(range.startMin)} - {displayShort(range.endMin)}
+                  {buildTimeRangeLabel({
+                    start: toTime(range.startMin),
+                    end: toTime(range.endMin),
+                    timezoneLabel,
+                  }) ?? `${displayShort(range.startMin)} - ${displayShort(range.endMin)}`}
                 </span>
               </div>
             )}
@@ -378,12 +394,14 @@ function CreatingPreview({
   globalStartH,
   pxPerMin,
   dayColor,
+  timezoneLabel,
 }: {
   startMin: number;
   endMin: number;
   globalStartH: number;
   pxPerMin: number;
   dayColor: string;
+  timezoneLabel?: string | null;
 }) {
   return (
     <div
@@ -399,7 +417,11 @@ function CreatingPreview({
     >
       <div className="px-1.5 py-0.5">
         <span className="text-[9px] font-semibold" style={{ color: dayColor }}>
-          {displayShort(startMin)} - {displayShort(endMin)}
+          {buildTimeRangeLabel({
+            start: toTime(startMin),
+            end: toTime(endMin),
+            timezoneLabel,
+          }) ?? `${displayShort(startMin)} - ${displayShort(endMin)}`}
         </span>
       </div>
     </div>
@@ -412,12 +434,14 @@ function ExternalPreviewBlock({
   dayColor,
   globalStartH,
   pxPerMin,
+  timezoneLabel,
 }: {
   preview: TimelineCanvasExternalPreview;
   previewItem: Item | null;
   dayColor: string;
   globalStartH: number;
   pxPerMin: number;
+  timezoneLabel?: string | null;
 }) {
   const previewHeight = Math.max(MIN_BLOCK_H, (preview.endMin - preview.startMin) * pxPerMin);
   const previewTextColor = preview.valid ? dayColor : '#DC2626';
@@ -444,7 +468,11 @@ function ExternalPreviewBlock({
       {previewHeight >= 28 && (
         <div className="px-1.5">
           <span className="text-[8px]" style={{ color: `${previewTextColor}99` }}>
-            {displayShort(preview.startMin)} - {displayShort(preview.endMin)}
+            {buildTimeRangeLabel({
+              start: toTime(preview.startMin),
+              end: toTime(preview.endMin),
+              timezoneLabel,
+            }) ?? `${displayShort(preview.startMin)} - ${displayShort(preview.endMin)}`}
             {!preview.valid ? ' · Unavailable' : ''}
           </span>
         </div>
@@ -459,12 +487,14 @@ function CrossDayPreviewBlock({
   dayColor,
   globalStartH,
   pxPerMin,
+  timezoneLabel,
 }: {
   preview: TimelineCanvasCrossDayPreview;
   previewItem: Item | null;
   dayColor: string;
   globalStartH: number;
   pxPerMin: number;
+  timezoneLabel?: string | null;
 }) {
   const previewHeight = Math.max(MIN_BLOCK_H, (preview.endMin - preview.startMin) * pxPerMin);
   const previewEmoji = getItemEmoji(previewItem);
@@ -492,7 +522,11 @@ function CrossDayPreviewBlock({
           </div>
           {previewHeight >= 32 && (
             <span className="mt-0.5 truncate text-[8px] leading-tight text-theme-secondary">
-              {displayShort(preview.startMin)} - {displayShort(preview.endMin)}
+              {buildTimeRangeLabel({
+                start: toTime(preview.startMin),
+                end: toTime(preview.endMin),
+                timezoneLabel,
+              }) ?? `${displayShort(preview.startMin)} - ${displayShort(preview.endMin)}`}
             </span>
           )}
         </div>
@@ -531,4 +565,10 @@ function displayShort(minutes: number): string {
   const suffix = hours >= 12 ? 'p' : 'a';
   const hour12 = hours % 12 || 12;
   return mins ? `${hour12}:${String(mins).padStart(2, '0')}${suffix}` : `${hour12}${suffix}`;
+}
+
+function toTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }

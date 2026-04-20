@@ -25,6 +25,7 @@ function makeSnapshot(name: string): TripCoreSnapshot {
         colorHex: '#2563EB',
         dayStart: '08:00',
         dayEnd: '22:00',
+        timezone: 'UTC',
       },
     ],
     items: [],

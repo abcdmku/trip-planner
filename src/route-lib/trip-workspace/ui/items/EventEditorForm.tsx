@@ -46,6 +46,7 @@ interface EventEditorFormProps {
   isSubmitting?: boolean;
   submitDisabled?: boolean;
   defaultDate?: string;
+  timezoneLabel?: string | null;
   compact?: boolean;
   mapsAvailabilityWindows?: AvailabilityWindow[];
 }
@@ -127,6 +128,7 @@ export function EventEditorForm({
   isSubmitting = false,
   submitDisabled = false,
   defaultDate,
+  timezoneLabel,
   compact = false,
   mapsAvailabilityWindows,
 }: EventEditorFormProps) {
@@ -216,6 +218,11 @@ export function EventEditorForm({
           <div className="flex items-center gap-2 text-[13px] font-medium text-theme-secondary">
             <Clock3 className="h-4 w-4 text-theme-tertiary" />
             <span>Time</span>
+            {timezoneLabel ? (
+              <span className="rounded-full border border-theme bg-theme-subtle px-2 py-0.5 text-[10px] font-semibold text-theme-tertiary">
+                {timezoneLabel}
+              </span>
+            ) : null}
           </div>
           <button
             type="button"
@@ -286,6 +293,11 @@ export function EventEditorForm({
         >
           <Clock3 className="h-4 w-4 text-theme-tertiary" />
           <span className="text-[13px] font-medium text-theme-secondary">Availability</span>
+          {timezoneLabel ? (
+            <span className="rounded-full border border-theme bg-theme-subtle px-2 py-0.5 text-[10px] font-semibold text-theme-tertiary">
+              {timezoneLabel}
+            </span>
+          ) : null}
           <span className="flex-1" />
           <span className="max-w-[180px] truncate text-right text-[11px] text-theme-tertiary">
             {availabilityBadge}
@@ -303,6 +315,7 @@ export function EventEditorForm({
               value={value.availabilityWindows}
               onChange={(next) => set('availabilityWindows', next)}
               defaultDate={defaultDate}
+              timezoneLabel={timezoneLabel}
               mapsAvailabilityWindows={mapsAvailabilityWindows}
               flat
             />

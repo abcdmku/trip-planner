@@ -1,3 +1,4 @@
+import { buildTimeRangeLabel } from '@/lib/day-time-display';
 import { displayShort, minuteToY, toTime } from '@/component-lib/timeline/timeline-render-utils';
 
 export interface TimelineAvailabilityBand {
@@ -12,6 +13,7 @@ export interface TimelineAvailabilityBandsProps {
   pxPerMin: number;
   left: number;
   right: number;
+  timezoneLabel?: string | null;
   label?: boolean;
   labelSize?: 'compact' | 'standard';
   labelColor?: string;
@@ -26,6 +28,7 @@ export function TimelineAvailabilityBands({
   pxPerMin,
   left,
   right,
+  timezoneLabel,
   label = false,
   labelSize = 'standard',
   labelColor,
@@ -60,7 +63,11 @@ export function TimelineAvailabilityBands({
                   className={`rounded bg-theme/80 px-1 py-[1px] font-medium ${textClassName}`}
                   style={{ color: labelColor ?? `${dayColor}CC` }}
                 >
-                  {displayShort(toTime(range.startMin))} - {displayShort(toTime(range.endMin))}
+                  {buildTimeRangeLabel({
+                    start: toTime(range.startMin),
+                    end: toTime(range.endMin),
+                    timezoneLabel,
+                  }) ?? `${displayShort(toTime(range.startMin))} - ${displayShort(toTime(range.endMin))}`}
                 </span>
               </div>
             )}

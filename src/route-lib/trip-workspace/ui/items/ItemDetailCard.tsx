@@ -7,6 +7,7 @@ interface ItemDetailCardProps {
   item: Item;
   dayColor?: string;
   dayDate?: string;
+  dayTimezoneLabel?: string | null;
   density?: 'compact' | 'comfortable';
   onUpdate?: (updates: Partial<Item>) => void;
   onDelete?: () => void;
@@ -18,6 +19,7 @@ export function ItemDetailCard({
   item,
   dayColor,
   dayDate,
+  dayTimezoneLabel,
   density = 'comfortable',
   onUpdate,
   onDelete,
@@ -71,6 +73,7 @@ export function ItemDetailCard({
             onChange={model.handleEditorChange}
             compact={isCompact}
             defaultDate={dayDate}
+            timezoneLabel={dayTimezoneLabel}
             mapsAvailabilityWindows={model.originPlaceDetails?.mapsAvailabilityWindows}
           />
         </section>
