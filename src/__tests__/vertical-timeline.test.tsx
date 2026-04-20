@@ -324,7 +324,8 @@ describe('VerticalTimeline', () => {
     if (!dayTwoColumn) return;
 
     await waitFor(() => {
-      expect(within(dayTwoColumn).getByText('12:30a - 3:30a EDT')).toBeTruthy();
+      expect(within(dayTwoColumn).getByText('12:30a - 3:30a')).toBeTruthy();
+      expect(within(dayTwoColumn).getByText('EDT')).toBeTruthy();
     });
   });
 
@@ -358,7 +359,8 @@ describe('VerticalTimeline', () => {
     if (!dayTwoColumn) return;
 
     await waitFor(() => {
-      expect(within(dayTwoColumn).getByText('12p - 1p BST')).toBeTruthy();
+      expect(within(dayTwoColumn).getByText('12p - 1p')).toBeTruthy();
+      expect(within(dayTwoColumn).getByText('BST')).toBeTruthy();
     });
   });
 });

@@ -8,7 +8,6 @@ import { getPreviewAvailabilityRangesForDay } from '@/component-lib/timeline/tim
 import type { RemoteObjectPresence } from '@/types/collaboration';
 import type { Day, Item } from '@/types/trip';
 import type { TimelineConnectorWithTiming } from '@/lib/connectors';
-import { buildTimeRangeLabel, getDayTimezoneLabel } from '@/lib/day-time-display';
 import { GUTTER, MIN_BLOCK_H, TYPE_ICON } from '../constants';
 import { displayShort, mToY, toTime } from '../time';
 import type { ExternalDragPreview, Interaction, ItemVisualPosition } from '../types';
@@ -50,7 +49,6 @@ export function SingleDayItemLayer({
   showConnectors = true,
   remoteObjectPresenceByItemId,
 }: SingleDayItemLayerProps) {
-  const timezoneLabel = getDayTimezoneLabel(day);
   const previewTextColor = externalPreview?.valid ? day.colorHex : '#DC2626';
   const previewItem = externalPreview ? allItems?.find((item) => item.itemId === externalPreview.itemId) : null;
   const previewEmoji = previewItem ? (TYPE_ICON[previewItem.type] || '\u{1F4CD}') : null;
@@ -92,7 +90,6 @@ export function SingleDayItemLayer({
           pxPerMin={pxPerMin}
           left={GUTTER + 2}
           right={4}
-          timezoneLabel={timezoneLabel}
           label
           labelSize="compact"
           backgroundAlpha="12"
@@ -110,7 +107,6 @@ export function SingleDayItemLayer({
             pxPerMin={pxPerMin}
             left={GUTTER + 2}
             right={4}
-            timezoneLabel={timezoneLabel}
             backgroundAlpha="10"
             borderAlpha="35"
           />
@@ -124,7 +120,6 @@ export function SingleDayItemLayer({
           pxPerMin={pxPerMin}
           left={GUTTER + 2}
           right={4}
-          timezoneLabel={timezoneLabel}
           backgroundAlpha="10"
           borderAlpha="35"
         />
@@ -152,7 +147,6 @@ export function SingleDayItemLayer({
               startMin={position.startMin}
               endMin={position.endMin}
               height={position.height}
-              timezoneLabel={timezoneLabel}
               density="day"
               isSelected={isSelected}
               isActive={position.active}
@@ -177,11 +171,7 @@ export function SingleDayItemLayer({
         >
           <div className="px-2 py-1">
             <span className="text-[10px] font-semibold" style={{ color: day.colorHex }}>
-              {buildTimeRangeLabel({
-                start: toTime(interaction.startMin),
-                end: toTime(interaction.endMin),
-                timezoneLabel,
-              }) ?? `${displayShort(toTime(interaction.startMin))} - ${displayShort(toTime(interaction.endMin))}`}
+              {`${displayShort(toTime(interaction.startMin))} - ${displayShort(toTime(interaction.endMin))}`}
             </span>
           </div>
         </div>
@@ -210,12 +200,7 @@ export function SingleDayItemLayer({
             {previewHeight >= 32 && (
               <div className="px-2">
                 <span className="text-[9px]" style={{ color: `${previewTextColor}99` }}>
-                  {buildTimeRangeLabel({
-                    start: toTime(externalPreview.startMin),
-                    end: toTime(externalPreview.endMin),
-                    timezoneLabel,
-                  }) ??
-                    `${displayShort(toTime(externalPreview.startMin))} - ${displayShort(toTime(externalPreview.endMin))}`}
+                  {`${displayShort(toTime(externalPreview.startMin))} - ${displayShort(toTime(externalPreview.endMin))}`}
                   {!externalPreview.valid ? ' \u00B7 Unavailable' : ''}
                 </span>
               </div>

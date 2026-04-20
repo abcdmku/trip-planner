@@ -154,6 +154,8 @@ export function ItineraryList({
 
   const dayColorMap = new Map(days.map((d) => [d.dayId, d.colorHex]));
   const dayMap = new Map(days.map((d) => [d.dayId, d]));
+  const selectedDay = selectedDayId ? dayMap.get(selectedDayId) ?? null : null;
+  const selectedDayTimezoneLabel = getDayTimezoneLabel(selectedDay);
   const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const handleDragEnd = useCallback(
@@ -202,6 +204,12 @@ export function ItineraryList({
           {trip && onUpdateTrip && (
             <TripEndpointRow trip={trip} onUpdate={onUpdateTrip} />
           )}
+
+          {selectedDayTimezoneLabel ? (
+            <div className="px-1 pt-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-theme-tertiary">
+              {`Times shown in ${selectedDayTimezoneLabel}`}
+            </div>
+          ) : null}
 
           {sorted.map((item) => {
             const dayColors = itemDayColorsById?.get(item.itemId);

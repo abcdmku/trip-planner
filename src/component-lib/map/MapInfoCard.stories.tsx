@@ -109,8 +109,10 @@ export const SelectedDayTimezone: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('12:30 AM - 3:30 AM EDT')).toBeInTheDocument();
+    await expect(canvas.getByText('12:30 AM - 3:30 AM')).toBeInTheDocument();
+    await expect(canvas.getByText('EDT')).toBeInTheDocument();
     await expect(canvas.getByText('Hours of operation - EDT')).toBeInTheDocument();
+    await expect(canvas.getByText('Monday: 10:00 AM - 5:00 PM')).toBeInTheDocument();
   },
 };
 

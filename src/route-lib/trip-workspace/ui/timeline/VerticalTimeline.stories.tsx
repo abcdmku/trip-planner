@@ -363,7 +363,8 @@ export const TimezoneConfiguration: Story = {
     if (!dayTwoColumn) return;
 
     await waitFor(() => {
-      expect(within(dayTwoColumn).getByText('12p - 1p BST')).toBeInTheDocument();
+      expect(within(dayTwoColumn).getByText('12p - 1p')).toBeInTheDocument();
+      expect(within(dayTwoColumn).getByText('BST')).toBeInTheDocument();
     });
   },
 };
@@ -408,7 +409,8 @@ export const CrossTimezoneOvernightSpan: Story = {
     if (!dayTwoColumn) return;
 
     await waitFor(() => {
-      expect(within(dayTwoColumn).getByText('12:30a - 3:30a EDT')).toBeInTheDocument();
+      expect(within(dayTwoColumn).getByText('12:30a - 3:30a')).toBeInTheDocument();
+      expect(within(dayTwoColumn).getByText('EDT')).toBeInTheDocument();
     });
   },
 };

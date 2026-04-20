@@ -16,7 +16,6 @@ const meta = {
     pxPerMin: 1,
     left: 8,
     right: 8,
-    timezoneLabel: 'CDT',
     label: true,
     labelSize: 'standard',
   },
@@ -38,8 +37,8 @@ type Story = StoryObj<typeof meta>;
 export const LabeledBands: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('8:30a - 10a CDT')).toBeInTheDocument();
-    await expect(canvas.getByText('11a - 12p CDT')).toBeInTheDocument();
+    await expect(canvas.getByText('8:30a - 10a')).toBeInTheDocument();
+    await expect(canvas.getByText('11a - 12p')).toBeInTheDocument();
   },
 };
 

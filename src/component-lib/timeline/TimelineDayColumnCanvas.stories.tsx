@@ -125,7 +125,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('9a - 10:30a CDT')).toBeInTheDocument();
+    await expect(canvas.getByText('9a - 10:30a')).toBeInTheDocument();
   },
 };
 
@@ -144,7 +144,7 @@ export const CreatingState: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('2:30p - 3:30p CDT')).toBeInTheDocument();
+    await expect(canvas.getByText('2:30p - 3:30p')).toBeInTheDocument();
   },
 };
 
@@ -161,7 +161,7 @@ export const ExternalDropPreview: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('3p - 4:15p CDT')).toBeInTheDocument();
+    await expect(canvas.getByText('3p - 4:15p')).toBeInTheDocument();
   },
 };
 
@@ -176,7 +176,7 @@ export const CrossDayTarget: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('2p - 3:15p CDT')).toBeInTheDocument();
+    await expect(canvas.getByText('2p - 3:15p')).toBeInTheDocument();
   },
 };
 

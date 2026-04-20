@@ -60,7 +60,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('9a - 11a CDT')).toBeInTheDocument();
+    await expect(canvas.getByText('9a - 11a')).toBeInTheDocument();
   },
 };
 

@@ -64,7 +64,7 @@ describe('ItemCard', () => {
     expect(handleClick).not.toHaveBeenCalled();
   });
 
-  it('renders selected-day display times with the selected day timezone label', () => {
+  it('renders selected-day display times without repeating the timezone on every card', () => {
     render(
       <ItemCard
         item={createItem({
@@ -83,6 +83,7 @@ describe('ItemCard', () => {
       />,
     );
 
-    expect(screen.getByText('12:30a - 3:30a EDT')).toBeTruthy();
+    expect(screen.getByText('12:30a - 3:30a')).toBeTruthy();
+    expect(screen.queryByText('12:30a - 3:30a EDT')).toBeNull();
   });
 });

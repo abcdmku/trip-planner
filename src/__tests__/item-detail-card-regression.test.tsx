@@ -68,7 +68,7 @@ describe('ItemDetailCard editor synchronization', () => {
     expect(document.activeElement).toBe(textarea);
   });
 
-  it('shows the selected day timezone on time and availability editors', () => {
+  it('shows the selected day timezone once in the event editor header', () => {
     render(
       <ItemDetailCard
         item={createItem()}
@@ -77,6 +77,6 @@ describe('ItemDetailCard editor synchronization', () => {
       />,
     );
 
-    expect(screen.getAllByText('EDT')).toHaveLength(2);
+    expect(screen.getAllByText('EDT')).toHaveLength(1);
   });
 });

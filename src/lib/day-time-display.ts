@@ -33,14 +33,14 @@ function formatMinutes(totalMinutes: number, style: 'compact' | 'verbose'): stri
   return `${hour12}:${String(minutes).padStart(2, '0')} ${suffix}`;
 }
 
-function formatAvailabilityWindow(window: AvailabilityWindow, timezoneLabel?: string | null): string {
+function formatAvailabilityWindow(window: AvailabilityWindow): string {
   if (window.openTime === '00:00' && window.closeTime === '23:59') {
-    return timezoneLabel ? `Open 24 hours ${timezoneLabel}` : 'Open 24 hours';
+    return 'Open 24 hours';
   }
 
   const start = formatClockLabel(window.openTime, 'verbose');
   const end = formatClockLabel(window.closeTime, 'verbose');
-  return timezoneLabel ? `${start} - ${end} ${timezoneLabel}` : `${start} - ${end}`;
+  return `${start} - ${end}`;
 }
 
 export function getDayTimezoneLabel(day?: DayTimeZoneContext | null): string | null {
@@ -65,12 +65,30 @@ export function buildTimeRangeLabel({
   timezoneLabel?: string | null;
   style?: 'compact' | 'verbose';
 }): string | null {
+  const parts = buildTimeRangeParts({ start, end, timezoneLabel, style });
+  if (!parts) return null;
+  return parts.timezoneLabel ? `${parts.rangeLabel} ${parts.timezoneLabel}` : parts.rangeLabel;
+}
+
+export function buildTimeRangeParts({
+  start,
+  end,
+  timezoneLabel,
+  style = 'compact',
+}: {
+  start?: string | null;
+  end?: string | null;
+  timezoneLabel?: string | null;
+  style?: 'compact' | 'verbose';
+}): { rangeLabel: string; timezoneLabel: string | null } | null {
   if (!start) return null;
 
   const startLabel = formatClockLabel(start, style);
   const endLabel = end ? formatClockLabel(end, style) : null;
-  const rangeLabel = endLabel ? `${startLabel} - ${endLabel}` : startLabel;
-  return timezoneLabel ? `${rangeLabel} ${timezoneLabel}` : rangeLabel;
+  return {
+    rangeLabel: endLabel ? `${startLabel} - ${endLabel}` : startLabel,
+    timezoneLabel: timezoneLabel ?? null,
+  };
 }
 
 export function getDisplayItemForDay(item: Item, displayItemsById?: Map<string, Item>): Item {
@@ -83,7 +101,7 @@ export function buildHoursOfOperationSummary(day?: DayTimeZoneContext | null): s
 }
 
 export function buildHoursOfOperationLines({
-  day,
+  day: _day,
   weekdayText,
   mapsAvailabilityWindows,
 }: {
@@ -91,8 +109,6 @@ export function buildHoursOfOperationLines({
   weekdayText?: string[] | null;
   mapsAvailabilityWindows?: AvailabilityWindow[] | null;
 }): string[] {
-  const timezoneLabel = getDayTimezoneLabel(day);
-
   if (mapsAvailabilityWindows && mapsAvailabilityWindows.length > 0) {
     return MONDAY_FIRST_DAY_LABELS.map(({ label, dayOfWeek }) => {
       const windows = mapsAvailabilityWindows.filter(
@@ -100,16 +116,15 @@ export function buildHoursOfOperationLines({
       );
 
       if (windows.length === 0) {
-        return `${label}: Closed${timezoneLabel ? ` ${timezoneLabel}` : ''}`;
+        return `${label}: Closed`;
       }
 
       return `${label}: ${windows
-        .map((window) => formatAvailabilityWindow(window, timezoneLabel))
+        .map((window) => formatAvailabilityWindow(window))
         .join(', ')}`;
     });
   }
 
   if (!weekdayText || weekdayText.length === 0) return [];
-  if (!timezoneLabel) return weekdayText;
-  return weekdayText.map((line) => `${line} ${timezoneLabel}`);
+  return weekdayText;
 }

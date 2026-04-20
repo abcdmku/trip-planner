@@ -24,16 +24,16 @@ export function TimezoneBadge({
   const badgeLabel = showFull ? timezone.replace(/_/g, ' ') : getTimezoneAbbr(timezone, toReferenceDate(date));
   const className =
     variant === 'onColor'
-      ? 'border-white/20 bg-white/15 text-white/90'
+      ? 'border-transparent bg-transparent text-white/75'
       : variant === 'embedded'
-        ? 'border-theme/60 bg-theme-subtle/90 text-theme-secondary'
+        ? 'border-transparent bg-transparent text-theme-tertiary'
         : isDifferent
           ? 'border-accent/30 bg-accent/10 text-accent'
           : 'border-theme bg-theme-subtle text-theme-tertiary';
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${className}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${className}`}
       title={timezone}
     >
       {showFull ? <Globe className="h-2.5 w-2.5" /> : null}

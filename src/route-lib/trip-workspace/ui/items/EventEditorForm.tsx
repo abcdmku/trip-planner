@@ -219,7 +219,7 @@ export function EventEditorForm({
             <Clock3 className="h-4 w-4 text-theme-tertiary" />
             <span>Time</span>
             {timezoneLabel ? (
-              <span className="rounded-full border border-theme bg-theme-subtle px-2 py-0.5 text-[10px] font-semibold text-theme-tertiary">
+              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-theme-tertiary opacity-75">
                 {timezoneLabel}
               </span>
             ) : null}
@@ -293,11 +293,6 @@ export function EventEditorForm({
         >
           <Clock3 className="h-4 w-4 text-theme-tertiary" />
           <span className="text-[13px] font-medium text-theme-secondary">Availability</span>
-          {timezoneLabel ? (
-            <span className="rounded-full border border-theme bg-theme-subtle px-2 py-0.5 text-[10px] font-semibold text-theme-tertiary">
-              {timezoneLabel}
-            </span>
-          ) : null}
           <span className="flex-1" />
           <span className="max-w-[180px] truncate text-right text-[11px] text-theme-tertiary">
             {availabilityBadge}

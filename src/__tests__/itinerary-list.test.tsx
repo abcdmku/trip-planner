@@ -51,7 +51,7 @@ function createItem(overrides: Partial<Item> = {}): Item {
 }
 
 describe('ItineraryList', () => {
-  it('uses selected-day display items and timezone labels for visible cards', () => {
+  it('shows the selected day timezone once for the list and uses converted display times on cards', () => {
     const dayOne = createDay({});
     const dayTwo = createDay({
       dayId: 'day-2',
@@ -91,6 +91,8 @@ describe('ItineraryList', () => {
       />,
     );
 
-    expect(screen.getByText('12:30a - 3:30a EDT')).toBeTruthy();
+    expect(screen.getByText('Times shown in EDT')).toBeTruthy();
+    expect(screen.getByText('12:30a - 3:30a')).toBeTruthy();
+    expect(screen.queryByText('12:30a - 3:30a EDT')).toBeNull();
   });
 });

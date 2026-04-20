@@ -83,7 +83,7 @@ export const SelectedDayCarryover: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('12:30a - 3:30a EDT')).toBeInTheDocument();
+    await expect(canvas.getByText('12:30a - 3:30a')).toBeInTheDocument();
   },
 };
 

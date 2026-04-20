@@ -1,6 +1,6 @@
 import type React from 'react';
 import { Bike, Bus, Car, Circle, Footprints, Lock, Plane } from 'lucide-react';
-import { buildTimeRangeLabel } from '@/lib/day-time-display';
+import { buildTimeRangeParts } from '@/lib/day-time-display';
 import type { RemoteObjectPresence } from '@/types/collaboration';
 import type { Item, TransportMode } from '@/types/trip';
 import { TIMELINE_TYPE_ICON, displayShort, formatTravelDuration, toTime } from './timeline-render-utils';
@@ -61,7 +61,7 @@ export function TimelineItemBlock({
   startMin,
   endMin,
   height,
-  timezoneLabel,
+  timezoneLabel: _timezoneLabel,
   density = 'day',
   isSelected = false,
   isActive = false,
@@ -82,10 +82,9 @@ export function TimelineItemBlock({
   const minimumTimeHeight = isCompact ? 32 : 36;
   const minimumTravelHeight = isCompact ? 44 : 50;
   const iconSizeClassName = isCompact ? 'h-2 w-2' : 'h-2.5 w-2.5';
-  const timeRangeLabel = buildTimeRangeLabel({
+  const timeRange = buildTimeRangeParts({
     start: toTime(startMin),
     end: toTime(endMin),
-    timezoneLabel,
   });
 
   return (
@@ -118,7 +117,7 @@ export function TimelineItemBlock({
 
           {height >= minimumTimeHeight && (
             <span className={`mt-0.5 truncate leading-tight text-theme-secondary ${timeClassName}`}>
-              {timeRangeLabel ?? `${displayShort(toTime(startMin))} - ${displayShort(toTime(endMin))}`}
+              {timeRange ? timeRange.rangeLabel : `${displayShort(toTime(startMin))} - ${displayShort(toTime(endMin))}`}
             </span>
           )}
 

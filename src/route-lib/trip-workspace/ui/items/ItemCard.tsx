@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Clock, MapPin, GripVertical, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
-import { buildTimeRangeLabel } from '@/lib/day-time-display';
+import { buildTimeRangeParts } from '@/lib/day-time-display';
 import type { Item } from '@/types/trip';
 import { TIMELINE_ITEM_DRAG_MIME } from '@/lib/timeline-drop';
 
@@ -54,7 +54,7 @@ export function ItemCard({
   const visibleDayColors = dayColors && dayColors.length > 0 ? dayColors : dayColor ? [dayColor] : [];
   const dragOriginIsHandleRef = useRef(false);
   const [isNativeDragging, setIsNativeDragging] = useState(false);
-  const timeRangeLabel = buildTimeRangeLabel({
+  const timeRange = buildTimeRangeParts({
     start: renderedItem.scheduledStart,
     end: renderedItem.scheduledEnd,
     timezoneLabel,
@@ -203,10 +203,10 @@ export function ItemCard({
           </div>
 
           <div className="mt-1 flex items-center gap-3 text-xs text-theme-tertiary">
-            {timeRangeLabel && (
+            {timeRange && (
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {timeRangeLabel}
+                <span>{timeRange.rangeLabel}</span>
               </span>
             )}
             {item.durationMinutes > 0 && (

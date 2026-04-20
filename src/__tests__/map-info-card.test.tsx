@@ -87,8 +87,9 @@ describe('MapInfoCard', () => {
       />,
     );
 
-    expect(screen.getByText('12:30 AM - 3:30 AM EDT')).toBeTruthy();
+    expect(screen.getByText('12:30 AM - 3:30 AM')).toBeTruthy();
+    expect(screen.getByText('EDT')).toBeTruthy();
     expect(screen.getByText('Hours of operation - EDT')).toBeTruthy();
-    expect(screen.getByText('Monday: 10:00 AM - 5:00 PM EDT')).toBeTruthy();
+    expect(screen.getByText('Monday: 10:00 AM - 5:00 PM')).toBeTruthy();
   });
 });

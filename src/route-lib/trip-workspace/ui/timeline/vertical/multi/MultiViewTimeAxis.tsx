@@ -14,23 +14,14 @@ export function MultiViewTimeAxis({
   gHours,
   gTotalH,
   pxPerHr,
-  timezoneLabel,
+  timezoneLabel: _timezoneLabel,
 }: MultiViewTimeAxisProps) {
   return (
     <div
       className="sticky left-0 z-20 flex-shrink-0 border-r border-theme-subtle bg-theme py-2"
       style={{ width: TIME_AXIS_W }}
     >
-      <div
-        className="sticky top-0 z-30 flex items-center justify-end border-b border-theme-subtle bg-theme px-2"
-        style={{ height: MULTI_HEADER_H }}
-      >
-        {timezoneLabel ? (
-          <span className="rounded-full border border-theme bg-theme-subtle px-2 py-0.5 text-[9px] font-semibold text-theme-tertiary">
-            {timezoneLabel}
-          </span>
-        ) : null}
-      </div>
+      <div className="sticky top-0 z-30 border-b border-theme-subtle bg-theme" style={{ height: MULTI_HEADER_H }} />
       <div className="relative" style={{ height: gTotalH }}>
         {gHours.map((hour) => {
           const y = (hour - globalStartH) * pxPerHr;

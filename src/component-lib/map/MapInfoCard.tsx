@@ -2,7 +2,7 @@ import { Clock3, Globe, Loader2, Pencil, Phone, Plus, Star, Trash2, X } from 'lu
 import {
   buildHoursOfOperationLines,
   buildHoursOfOperationSummary,
-  buildTimeRangeLabel,
+  buildTimeRangeParts,
   getDayTimezoneLabel,
 } from '@/lib/day-time-display';
 import type { Day, Item, ItemType } from '@/types/trip';
@@ -100,7 +100,7 @@ export function MapInfoCard({
   const displayName = place?.name || item?.placeName || 'Unnamed place';
   const displayAddress = place?.address || item?.address;
   const dayTimezoneLabel = getDayTimezoneLabel(day);
-  const timeRangeLabel = buildTimeRangeLabel({
+  const timeRange = buildTimeRangeParts({
     start: renderedItem?.scheduledStart,
     end: renderedItem?.scheduledEnd,
     timezoneLabel: dayTimezoneLabel,
@@ -188,12 +188,18 @@ export function MapInfoCard({
             )}
           </div>
 
-          {item && (timeRangeLabel || item.durationMinutes > 0) && (
+          {item && (timeRange || item.durationMinutes > 0) && (
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-theme-secondary">
-              {timeRangeLabel && (
+              {timeRange && (
                 <span className="flex items-center gap-1">
                   <Clock3 className="h-3 w-3 flex-shrink-0" />
-                  {timeRangeLabel}
+                  <span>{timeRange.rangeLabel}</span>
+                  {timeRange.timezoneLabel ? (
+                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] opacity-70">
+                      {' '}
+                      {timeRange.timezoneLabel}
+                    </span>
+                  ) : null}
                 </span>
               )}
               {item.durationMinutes > 0 && (

@@ -91,7 +91,7 @@ export const SelectedDayTimezone: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText('EDT')).toHaveLength(2);
+    await expect(canvas.getAllByText('EDT')).toHaveLength(1);
   },
 };
 
