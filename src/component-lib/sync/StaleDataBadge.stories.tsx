@@ -1,6 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { StaleDataBadge } from './StaleDataBadge';
 
+function renderInSlot(args: any, widthClass = 'max-w-[220px]') {
+  return (
+    <div className="min-h-[120px] bg-theme p-6">
+      <div className={widthClass}>
+        <StaleDataBadge {...args} />
+      </div>
+    </div>
+  );
+}
+
 const meta = {
   title: 'Component Lib/Sync/StaleDataBadge',
   component: StaleDataBadge,
@@ -13,11 +23,7 @@ const meta = {
       },
     },
   },
-  render: (args) => (
-    <div className="min-h-[120px] bg-theme p-6">
-      <StaleDataBadge {...args} />
-    </div>
-  ),
+  render: (args) => renderInSlot(args),
 } satisfies Meta<typeof StaleDataBadge>;
 
 export default meta;
@@ -30,4 +36,5 @@ export const CustomMessage: Story = {
   args: {
     message: 'Trip data may be stale while collaborators are offline',
   },
+  render: (args) => renderInSlot(args, 'max-w-[200px]'),
 };

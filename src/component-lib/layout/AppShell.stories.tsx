@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { AppShell, type AppShellProps } from './AppShell';
+import { StatusMessage } from '@/component-lib/sync/StatusMessage';
 
 function avatarDataUri(label: string, background: string): string {
   const initials = label
@@ -201,8 +202,8 @@ const multiDayTimeline = (
 );
 
 const map = (
-  <div className="relative h-full w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.35),_transparent_35%),linear-gradient(135deg,_rgba(249,250,251,1),_rgba(229,231,235,1))] dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.2),_transparent_35%),linear-gradient(135deg,_rgba(23,23,23,1),_rgba(38,38,38,1))]">
-    <div className="absolute inset-x-6 top-6 flex items-start justify-between gap-4">
+  <div className="flex h-full w-full flex-col justify-between overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.35),_transparent_35%),linear-gradient(135deg,_rgba(249,250,251,1),_rgba(229,231,235,1))] p-6 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.2),_transparent_35%),linear-gradient(135deg,_rgba(23,23,23,1),_rgba(38,38,38,1))]">
+    <div className="flex items-start justify-between gap-4">
       <div className="rounded-2xl border border-theme bg-theme/90 px-4 py-3 shadow-theme-lg backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-theme-tertiary">
           Live map
@@ -213,12 +214,30 @@ const map = (
         12 pins
       </div>
     </div>
-    <div className="absolute left-[20%] top-[24%] h-4 w-4 rounded-full border-4 border-white bg-accent shadow-lg" />
-    <div className="absolute left-[46%] top-[38%] h-4 w-4 rounded-full border-4 border-white bg-emerald-500 shadow-lg" />
-    <div className="absolute left-[58%] top-[62%] h-4 w-4 rounded-full border-4 border-white bg-amber-500 shadow-lg" />
-    <div className="absolute bottom-8 right-8 rounded-2xl border border-theme bg-theme/90 px-4 py-3 shadow-theme-lg backdrop-blur">
-      <p className="text-sm font-semibold text-theme">Lakefront route</p>
-      <p className="text-xs text-theme-secondary">18 min walking between afternoon stops</p>
+    <div className="grid flex-1 grid-cols-3 gap-3 px-8 py-6">
+      {['Morning cluster', 'River route', 'Evening handoff'].map((label, index) => (
+        <div
+          key={label}
+          className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 shadow-theme-sm backdrop-blur dark:border-white/10 dark:bg-black/20"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-theme-tertiary">
+            {label}
+          </p>
+          <p className="mt-1 text-sm font-semibold text-theme">
+            {index === 0
+              ? 'Museum Campus'
+              : index === 1
+                ? 'Riverwalk leg'
+                : 'Wicker Park shortlist'}
+          </p>
+        </div>
+      ))}
+    </div>
+    <div className="flex justify-end">
+      <div className="rounded-2xl border border-theme bg-theme/90 px-4 py-3 shadow-theme-lg backdrop-blur">
+        <p className="text-sm font-semibold text-theme">Lakefront route</p>
+        <p className="text-xs text-theme-secondary">18 min walking between afternoon stops</p>
+      </div>
     </div>
   </div>
 );
@@ -247,25 +266,35 @@ const shareControl = (
 );
 
 const followStatus = (
-  <div className="hidden rounded-full bg-theme-subtle px-2.5 py-1 text-xs font-medium text-theme-secondary md:block">
-    Following Maya on map
+  <div className="hidden md:block">
+    <StatusMessage label="Following Maya on map" tone="info" variant="badge" />
   </div>
 );
 
 const topBanner = (
-  <div className="rounded-2xl border border-accent/20 bg-theme/95 px-4 py-3 shadow-theme-lg backdrop-blur">
-    <p className="text-sm font-semibold text-theme">Draft itinerary synced for review</p>
-    <p className="text-xs text-theme-secondary">
-      Route-lib can swap this slot for trip warnings or collaboration notices.
-    </p>
-  </div>
+  <StatusMessage
+    label="Draft itinerary synced for review"
+    detail="Route-lib can swap this slot for trip warnings or collaboration notices."
+    tone="warning"
+    variant="banner"
+  />
 );
 
 const workspaceOverlay = (
-  <div className="pointer-events-none absolute bottom-4 right-4 z-40 rounded-2xl border border-theme bg-theme/90 px-3 py-2 text-xs text-theme-secondary shadow-theme-lg backdrop-blur">
+  <div className="pointer-events-none absolute bottom-4 left-4 z-40 rounded-2xl border border-theme bg-theme/90 px-3 py-2 text-xs text-theme-secondary shadow-theme-lg backdrop-blur">
     2 collaborators editing the itinerary
   </div>
 );
+
+function renderShell(args: AppShellProps, widthClass = 'w-full') {
+  return (
+    <div className="bg-theme">
+      <div className={`mx-auto h-screen ${widthClass}`}>
+        <AppShell {...args} />
+      </div>
+    </div>
+  );
+}
 
 const baseArgs = {
   activeTab: 'map',
@@ -326,6 +355,7 @@ const meta = {
     onThemeChange: { control: false },
   },
   args: baseArgs,
+  render: (args) => renderShell(args),
 } satisfies Meta<typeof AppShell>;
 
 export default meta;
@@ -359,6 +389,7 @@ export const CollaborativeOverlay: Story = {
       </div>
     ),
   },
+  render: (args) => renderShell(args, 'max-w-[1180px]'),
 };
 
 export const MultiDaySplit: Story = {
@@ -368,4 +399,36 @@ export const MultiDaySplit: Story = {
     timelineDayCount: 4,
     desktopLeftPanelWidth: 980,
   },
+};
+
+export const ConstrainedDesktopStress: Story = {
+  args: {
+    tripName: 'Lake Michigan Architecture Weekend Sprint With Collaborators',
+    syncStatus: 'error',
+    topBanner,
+    workspaceOverlay,
+    followStatus: (
+      <div className="hidden md:block">
+        <StatusMessage
+          label="Following Nora on timeline"
+          detail="Review mode"
+          tone="info"
+          variant="badge"
+        />
+      </div>
+    ),
+  },
+  render: (args) => renderShell(args, 'max-w-[960px]'),
+};
+
+export const MobileStress: Story = {
+  args: {
+    activeTab: 'map',
+    syncStatus: 'offline',
+    participantStrip: undefined,
+    followStatus: undefined,
+    topBanner,
+    workspaceOverlay: undefined,
+  },
+  render: (args) => renderShell(args, 'w-[430px]'),
 };

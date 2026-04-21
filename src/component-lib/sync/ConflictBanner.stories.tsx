@@ -5,6 +5,16 @@ import { ConflictBanner, type ConflictBannerProps } from './ConflictBanner';
 const onReloadSpy = fn();
 const onDismissSpy = fn();
 
+function renderBanner(args: ConflictBannerProps, widthClass = 'max-w-[760px]') {
+  return (
+    <div className="min-h-[200px] bg-theme p-6">
+      <div className={widthClass}>
+        <ConflictBanner {...args} />
+      </div>
+    </div>
+  );
+}
+
 const meta = {
   title: 'Component Lib/Sync/ConflictBanner',
   component: ConflictBanner,
@@ -22,6 +32,7 @@ const meta = {
     onReload: onReloadSpy,
     onDismiss: onDismissSpy,
   },
+  render: (args) => renderBanner(args),
 } satisfies Meta<typeof ConflictBanner>;
 
 export default meta;
@@ -41,9 +52,11 @@ export const AlertActions: Story = {
 };
 
 export const MessageOnly: Story = {
-  render: () => (
-    <div className="min-h-[160px] bg-theme p-6">
-      <ConflictBanner message="Remote edits were detected. Reload to reconcile with the latest trip data." />
-    </div>
-  ),
+  render: () =>
+    renderBanner(
+      {
+        message: 'Remote edits were detected. Reload to reconcile with the latest trip data.',
+      },
+      'max-w-[420px]',
+    ),
 };

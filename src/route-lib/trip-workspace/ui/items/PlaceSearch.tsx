@@ -19,7 +19,7 @@ export function PlaceSearch({
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
@@ -141,6 +141,7 @@ export function PlaceSearch({
           onFocus={() => results.length > 0 && setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          autoComplete="off"
           className="input w-full pl-10 pr-10"
           role="combobox"
           aria-expanded={isOpen}
@@ -168,7 +169,7 @@ export function PlaceSearch({
       {isOpen && results.length > 0 ? (
         <ul
           id={listboxId}
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-theme bg-theme-elevated py-1 shadow-theme-lg"
+          className="mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-theme bg-theme-elevated py-1 shadow-theme-lg"
           role="listbox"
         >
           {results.map((place, index) => {

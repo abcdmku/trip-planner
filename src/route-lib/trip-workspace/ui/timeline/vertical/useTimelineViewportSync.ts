@@ -24,8 +24,8 @@ export function useTimelineViewportSync({
   followViewport?: PresenceViewport | null;
   jumpToViewport?: { key: string; viewport: PresenceViewport } | null;
   onJumpApplied?: (key: string) => void;
-  scrollerRef: RefObject<HTMLDivElement>;
-  dayModeContainerRef: RefObject<HTMLDivElement>;
+  scrollerRef: RefObject<HTMLDivElement | null>;
+  dayModeContainerRef: RefObject<HTMLDivElement | null>;
   setViewMode: Dispatch<SetStateAction<ViewMode>>;
   setFocusedDayId: Dispatch<SetStateAction<string | null>>;
   updateZoom: (next: number) => void;

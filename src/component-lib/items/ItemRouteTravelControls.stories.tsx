@@ -9,14 +9,20 @@ import {
 const changeSpy = fn();
 const calculateSpy = fn();
 
-function InteractiveControlsStory(args: Partial<ItemRouteTravelControlsProps>) {
+function InteractiveControlsStory({
+  args,
+  containerClassName = 'max-w-md bg-theme p-6',
+}: {
+  args: Partial<ItemRouteTravelControlsProps>;
+  containerClassName?: string;
+}) {
   const [state, setState] = useState({
     transportMode: args?.transportMode ?? 'walking',
     itemRouteType: args?.itemRouteType ?? 'directions',
   });
 
   return (
-    <div className="max-w-md bg-theme p-6">
+    <div className={containerClassName}>
       <ItemRouteTravelControls
         {...args}
         transportMode={state.transportMode}
@@ -30,7 +36,7 @@ function InteractiveControlsStory(args: Partial<ItemRouteTravelControlsProps>) {
   );
 }
 
-const meta = {
+const meta: Meta<typeof ItemRouteTravelControls> = {
   title: 'Component Lib/Items/ItemRouteTravelControls',
   component: ItemRouteTravelControls,
   tags: ['autodocs'],
@@ -45,18 +51,32 @@ const meta = {
     onChange: changeSpy,
     onCalculateRoute: calculateSpy,
   },
-  render: (args) => <InteractiveControlsStory {...args} />,
-} satisfies Meta<typeof ItemRouteTravelControls>;
+  render: (args: ItemRouteTravelControlsProps) => <InteractiveControlsStory args={args} />,
+};
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<typeof ItemRouteTravelControls>;
 
 export const Default: Story = {};
 
 export const Compact: Story = {
   args: {
     compact: true,
+  },
+};
+
+export const CompactMobile: Story = {
+  args: {
+    compact: true,
+  },
+  render: (args: ItemRouteTravelControlsProps) => (
+    <InteractiveControlsStory args={args} containerClassName="max-w-[360px] bg-theme p-4" />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByText('Walk')).not.toBeInTheDocument();
+    await expect(canvas.getByRole('button', { name: 'Walk' })).toBeInTheDocument();
   },
 };
 
@@ -67,6 +87,10 @@ export const StraightLineOnly: Story = {
     hasOrigin: false,
     hasDestination: false,
     canCalculateRoute: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Straight line only')).toBeInTheDocument();
   },
 };
 
@@ -79,5 +103,24 @@ export const CalculateRoute: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Calculate travel time' }));
 
     await expect(calculateSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const Calculating: Story = {
+  args: {
+    isCalculatingRoute: true,
+    hasCalculatedRoute: false,
+    travelDurationMinutes: 0,
+  },
+};
+
+export const FlightWithMapsLink: Story = {
+  args: {
+    transportMode: 'flight',
+    itemRouteType: 'straight',
+    hasOrigin: true,
+    hasDestination: true,
+    canCalculateRoute: false,
+    openInGoogleMapsUrl: 'https://maps.google.com',
   },
 };

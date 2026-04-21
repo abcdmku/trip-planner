@@ -8,7 +8,7 @@ import type {
   TripInvite as TripInviteRecord,
   TripMember as TripMemberRecord,
   User,
-} from '@prisma/client';
+} from './prisma-client';
 import type {
   TripInvite,
   TripMember,

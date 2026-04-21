@@ -1,4 +1,5 @@
 import { Check, RefreshCw, Route } from 'lucide-react';
+import { StatusMessage } from './StatusMessage';
 
 export interface LegSyncStatusProps {
   isCalculating: boolean;
@@ -9,26 +10,32 @@ export interface LegSyncStatusProps {
 export function LegSyncStatus({ isCalculating, totalLegs, staleCount }: LegSyncStatusProps) {
   if (isCalculating) {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-amber-600">
-        <RefreshCw className="h-3 w-3 animate-spin" />
-        Calculating routes...
-      </span>
+      <StatusMessage
+        label="Calculating routes"
+        tone="info"
+        variant="inline"
+        icon={<RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+      />
     );
   }
 
   if (staleCount > 0) {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-amber-500">
-        <Route className="h-3 w-3" />
-        {staleCount} route{staleCount !== 1 ? 's' : ''} need recalculation
-      </span>
+      <StatusMessage
+        label={`${staleCount} route${staleCount !== 1 ? 's' : ''} need recalculation`}
+        tone="warning"
+        variant="inline"
+        icon={<Route className="h-3.5 w-3.5" />}
+      />
     );
   }
 
   return (
-    <span className="flex items-center gap-1.5 text-xs text-emerald-600">
-      <Check className="h-3 w-3" />
-      {totalLegs} route{totalLegs !== 1 ? 's' : ''} up to date
-    </span>
+    <StatusMessage
+      label={`${totalLegs} route${totalLegs !== 1 ? 's' : ''} up to date`}
+      tone="success"
+      variant="inline"
+      icon={<Check className="h-3.5 w-3.5" />}
+    />
   );
 }

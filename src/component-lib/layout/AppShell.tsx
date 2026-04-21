@@ -310,13 +310,13 @@ export function AppShell({
         theme={theme}
         onThemeChange={onThemeChange}
       />
+      {topBanner ? (
+        <div className="border-b border-theme bg-theme px-3 py-3">
+          {topBanner}
+        </div>
+      ) : null}
 
-      <div ref={workspaceRef} className="relative flex flex-1 overflow-hidden">
-        {topBanner ? (
-          <div className="pointer-events-none absolute inset-x-3 top-3 z-50">
-            <div className="pointer-events-auto">{topBanner}</div>
-          </div>
-        ) : null}
+      <div ref={workspaceRef} className="relative flex min-h-0 flex-1 overflow-hidden">
         {workspaceOverlay}
 
         <div className="hidden h-full w-full md:flex">
@@ -437,7 +437,7 @@ export function AppShell({
                 {map}
                 {isResizing && willTabMapOnRelease ? (
                   <div className="pointer-events-none absolute inset-3 z-30 flex items-start">
-                    <div className="rounded-lg border border-amber-400/60 bg-amber-50/90 px-3 py-2 text-xs font-medium text-amber-900 shadow-lg backdrop-blur dark:border-amber-500/40 dark:bg-amber-900/80 dark:text-amber-100">
+                    <div className="rounded-2xl border border-theme bg-theme-elevated px-3 py-2 text-xs font-semibold text-theme shadow-theme-lg">
                       Release to move Map into tabs
                     </div>
                   </div>

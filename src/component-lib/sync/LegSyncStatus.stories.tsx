@@ -1,6 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { LegSyncStatus } from './LegSyncStatus';
 
+function renderInSlot(args: any, widthClass = 'max-w-[220px]') {
+  return (
+    <div className="min-h-[160px] bg-theme p-6">
+      <div className={widthClass}>
+        <LegSyncStatus {...args} />
+      </div>
+    </div>
+  );
+}
+
 const meta = {
   title: 'Component Lib/Sync/LegSyncStatus',
   component: LegSyncStatus,
@@ -13,11 +23,7 @@ const meta = {
       },
     },
   },
-  render: (args) => (
-    <div className="min-h-[160px] bg-theme p-6">
-      <LegSyncStatus {...args} />
-    </div>
-  ),
+  render: (args) => renderInSlot(args),
   args: {
     isCalculating: false,
     totalLegs: 4,
@@ -41,4 +47,11 @@ export const NeedsRecalculation: Story = {
   args: {
     staleCount: 2,
   },
+};
+
+export const HeaderSlotStress: Story = {
+  args: {
+    staleCount: 3,
+  },
+  render: (args) => renderInSlot(args, 'max-w-[180px]'),
 };

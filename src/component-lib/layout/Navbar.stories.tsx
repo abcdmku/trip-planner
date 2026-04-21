@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { Navbar, type NavbarProps } from './Navbar';
+import { StatusMessage } from '@/component-lib/sync/StatusMessage';
 
 function avatarDataUri(label: string, background: string): string {
   const initials = label
@@ -68,10 +69,20 @@ const shareControl = (
 );
 
 const followStatus = (
-  <div className="hidden rounded-full bg-theme-subtle px-2.5 py-1 text-xs font-medium text-theme-secondary md:block">
-    Following Maya
+  <div className="hidden md:block">
+    <StatusMessage label="Following Maya" tone="info" variant="badge" />
   </div>
 );
+
+function renderNavbar(args: NavbarProps, widthClass = 'w-full') {
+  return (
+    <div className="min-h-screen bg-theme p-4">
+      <div className={`${widthClass} overflow-hidden rounded-2xl border border-theme shadow-theme-lg`}>
+        <Navbar {...args} />
+      </div>
+    </div>
+  );
+}
 
 const baseArgs = {
   tripName: 'Pacific Coast Sprint',
@@ -109,11 +120,7 @@ const meta = {
     onThemeChange: { control: false },
   },
   args: baseArgs,
-  render: (args) => (
-    <div className="min-h-screen bg-theme">
-      <Navbar {...args} />
-    </div>
-  ),
+  render: (args) => renderNavbar(args),
 } satisfies Meta<typeof Navbar>;
 
 export default meta;
@@ -136,6 +143,57 @@ export const OfflineMinimal: Story = {
     followStatus: undefined,
     activeCollaborators: [],
   },
+};
+
+export const HeaderStress: Story = {
+  args: {
+    tripName: 'Lake Michigan Architecture Weekend Sprint With Collaborators',
+    syncStatus: 'error',
+    activeCollaborators: [
+      ...collaborators,
+      {
+        userId: 'liam',
+        name: 'Liam Brooks',
+        picture: avatarDataUri('Liam Brooks', '#F97316'),
+        color: '#F97316',
+      },
+      {
+        userId: 'zoe',
+        name: 'Zoe Carter',
+        picture: avatarDataUri('Zoe Carter', '#14B8A6'),
+        color: '#14B8A6',
+      },
+    ],
+    followStatus: (
+      <div className="hidden md:block">
+        <StatusMessage
+          label="Following Nora on timeline"
+          detail="Review mode"
+          tone="info"
+          variant="badge"
+        />
+      </div>
+    ),
+    shareControl: (
+      <button
+        type="button"
+        className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+      >
+        Share Workspace
+      </button>
+    ),
+  },
+  render: (args) => renderNavbar(args, 'max-w-[860px]'),
+};
+
+export const MobileStress: Story = {
+  args: {
+    tripName: 'Chicago Sprint Planning',
+    syncStatus: 'offline',
+    participantStrip: undefined,
+    followStatus: undefined,
+  },
+  render: (args) => renderNavbar(args, 'w-[430px]'),
 };
 
 export const NoTripContext: Story = {

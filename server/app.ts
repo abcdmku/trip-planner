@@ -6,10 +6,10 @@ import fastifyWebsocket from '@fastify/websocket';
 import type { WebSocket } from '@fastify/websocket';
 import { addDays, format, isValid, parseISO } from 'date-fns';
 import Fastify, { type FastifyReply } from 'fastify';
-import type { Prisma, PrismaClient, TripMemberRole, User } from '@prisma/client';
 import { z } from 'zod';
 import { env } from './config';
 import { prisma } from './db';
+import type { Prisma, PrismaClient, TripMemberRole, User } from './prisma-client';
 import {
   buildGoogleOauthUrl,
   clearOauthState,

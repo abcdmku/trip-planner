@@ -6,6 +6,16 @@ const onRetrySpy = fn();
 const onLogoutSpy = fn();
 const onDismissSpy = fn();
 
+function renderBanner(args: ErrorRecoveryProps, widthClass = 'max-w-[760px]') {
+  return (
+    <div className="min-h-[220px] bg-theme p-6">
+      <div className={widthClass}>
+        <ErrorRecovery {...args} />
+      </div>
+    </div>
+  );
+}
+
 const meta = {
   title: 'Component Lib/Sync/ErrorRecovery',
   component: ErrorRecovery,
@@ -24,6 +34,7 @@ const meta = {
     onLogout: onLogoutSpy,
     onDismiss: onDismissSpy,
   },
+  render: (args) => renderBanner(args),
 } satisfies Meta<typeof ErrorRecovery>;
 
 export default meta;
@@ -44,6 +55,7 @@ export const SessionExpired: Story = {
   args: {
     error: new Error('401 token expired while syncing the workbook.'),
   },
+  render: (args) => renderBanner(args, 'max-w-[420px]'),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: /sign in again/i }));

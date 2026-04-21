@@ -5,9 +5,9 @@ import type { AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import WebSocket, { type RawData } from 'ws';
 import type { FastifyInstance } from 'fastify';
-import { TripMemberRole } from '@prisma/client';
 import { buildApp } from '../app';
 import { prisma } from '../db';
+import { TripMemberRole } from '../prisma-client';
 import type { RealtimeServerMessage } from '../../src/types/api';
 
 type PresenceSelfMessage = Extract<RealtimeServerMessage, { type: 'presence.self' }>;

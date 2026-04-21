@@ -4,6 +4,16 @@ import { SyncIndicator, type SyncIndicatorProps } from './SyncIndicator';
 
 const onRetrySpy = fn();
 
+function renderInSlot(args: SyncIndicatorProps, widthClass = 'max-w-[220px]') {
+  return (
+    <div className="min-h-[140px] bg-theme p-6">
+      <div className={widthClass}>
+        <SyncIndicator {...args} />
+      </div>
+    </div>
+  );
+}
+
 const meta = {
   title: 'Component Lib/Sync/SyncIndicator',
   component: SyncIndicator,
@@ -21,11 +31,7 @@ const meta = {
     lastSyncedAt: new Date('2026-04-19T15:10:00.000Z'),
     onRetry: onRetrySpy,
   },
-  render: (args) => (
-    <div className="min-h-[120px] bg-theme p-6">
-      <SyncIndicator {...args} />
-    </div>
-  ),
+  render: (args) => renderInSlot(args),
 } satisfies Meta<typeof SyncIndicator>;
 
 export default meta;
@@ -58,7 +64,14 @@ export const ErrorState: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: /sync failed/i }));
+    await userEvent.click(canvas.getByRole('button', { name: /retry/i }));
     await expect(onRetrySpy).toHaveBeenCalledTimes(1);
   },
+};
+
+export const HeaderSlotStress: Story = {
+  args: {
+    status: 'error',
+  },
+  render: (args) => renderInSlot(args, 'max-w-[180px]'),
 };

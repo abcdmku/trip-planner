@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { Item } from '@/types/trip';
 import { mapsRepository, type PlaceSearchResult } from '@/services/maps-repository';
-import { buildGoogleMapsDirectionsUrl } from '@/lib/google-maps-url';
-import { useRouteCalculation, type CalculatedRoute } from './useRouteCalculation';
 import type { EventEditorValue } from './EventEditorForm';
+import type { CalculatedRoute } from './useRouteCalculation';
+import {
+  applyCalculatedRouteToEditorValue,
+  emptyRouteMetadata,
+  useItemRouteEditorState,
+} from './useItemRouteEditorState';
 
 export interface ItemDetailCardModelInput {
   item: Item;
@@ -11,7 +15,8 @@ export interface ItemDetailCardModelInput {
 }
 
 export interface ItemDetailCardModel {
-  rootRef: RefObject<HTMLDivElement>;
+  rootRef: RefObject<HTMLDivElement | null>;
+  titleValue: string;
   editorValue: EventEditorValue;
   originPlaceDetails: PlaceSearchResult | null;
   isEditingOrigin: boolean;
@@ -24,6 +29,10 @@ export interface ItemDetailCardModel {
   hasOrigin: boolean;
   hasDest: boolean;
   showTravelControls: boolean;
+  canCalculateRoute: boolean;
+  routeBadge: string;
+  handleTitleChange: (next: string) => void;
+  handleTitleCommit: () => void;
   handleEditorChange: (next: EventEditorValue) => void;
   handleOriginSelect: (place: PlaceSearchResult) => void;
   handleDestinationSelect: (place: PlaceSearchResult) => void;
@@ -68,18 +77,21 @@ function areEditorValuesEqual(left: EventEditorValue, right: EventEditorValue): 
   );
 }
 
-export function useItemDetailCardModel({ item, onUpdate }: ItemDetailCardModelInput): ItemDetailCardModel {
+export function useItemDetailCardModel({
+  item,
+  onUpdate,
+}: ItemDetailCardModelInput): ItemDetailCardModel {
+  const [titleValue, setTitleValue] = useState(item.placeName);
   const [editorValue, setEditorValue] = useState<EventEditorValue>(() => itemToEditorValue(item));
   const [originPlaceDetails, setOriginPlaceDetails] = useState<PlaceSearchResult | null>(null);
-  const [isEditingOrigin, setIsEditingOrigin] = useState(false);
-  const [isEditingDestination, setIsEditingDestination] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const titleHasManualOverrideRef = useRef(false);
   const previousItemIdRef = useRef(item.itemId);
   const nextEditorValue = useMemo(() => itemToEditorValue(item), [item]);
 
   const hasDest = item.destLat !== 0 || item.destLng !== 0;
   const hasOrigin = item.lat !== 0 || item.lng !== 0;
-  const showTravelControls = hasDest || editorValue.type === 'transport';
+  const originDefaultTitle = (originPlaceDetails?.name || item.placeName).trim();
 
   const commit = useCallback(
     (updates: Partial<Item>) => {
@@ -88,73 +100,35 @@ export function useItemDetailCardModel({ item, onUpdate }: ItemDetailCardModelIn
     [onUpdate],
   );
 
-  const handleCalculatedRoute = useCallback(
-    (route: CalculatedRoute) => {
-      if (route.itemRouteDurationMinutes <= 0) return;
-
-      setEditorValue((prev) => {
-        let nextDuration = route.itemRouteDurationMinutes;
-        const next: EventEditorValue = { ...prev, durationMinutes: nextDuration };
-
-        if (prev.scheduledStart) {
-          const [startHour, startMin] = prev.scheduledStart.split(':').map(Number);
-          const startTotalMin = startHour * 60 + startMin;
-          const maxDuration = Math.max(0, 23 * 60 + 59 - startTotalMin);
-          nextDuration = Math.min(nextDuration, maxDuration);
-          next.durationMinutes = nextDuration;
-          const endTotalMin = startTotalMin + nextDuration;
-          const endHour = Math.floor(endTotalMin / 60);
-          const endMinute = endTotalMin % 60;
-          next.scheduledEnd = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-        }
-
-        return next;
-      });
-
-      commit({
-        itemRoutePathEncoded: route.itemRoutePathEncoded,
-        itemRouteDistanceMeters: route.itemRouteDistanceMeters,
-        itemRouteDurationMinutes: route.itemRouteDurationMinutes,
-      });
-    },
-    [commit],
-  );
-
-  const { calculatedRoute, isCalculatingRoute, calculateRoute, clearCalculatedRoute } =
-    useRouteCalculation({
-      origin: hasOrigin ? { lat: item.lat, lng: item.lng } : null,
-      destination: hasDest ? { lat: item.destLat, lng: item.destLng } : null,
-      transportMode: editorValue.transportMode,
-      routeType: editorValue.itemRouteType,
-      onCalculated: handleCalculatedRoute,
-    });
-
-  const displayedRouteDurationMinutes =
-    calculatedRoute?.itemRouteDurationMinutes ?? item.itemRouteDurationMinutes;
-  const openInGoogleMapsUrl = useMemo(() => {
-    if (!hasOrigin || !hasDest) return undefined;
-    return buildGoogleMapsDirectionsUrl({
-      origin: { lat: item.lat, lng: item.lng },
-      destination: { lat: item.destLat, lng: item.destLng },
-      mode: editorValue.transportMode,
-    });
-  }, [
-    editorValue.transportMode,
-    hasDest,
-    hasOrigin,
-    item.destLat,
-    item.destLng,
-    item.lat,
-    item.lng,
-  ]);
-
-  const hasCalculatedRoute = useMemo(() => {
-    return (
-      Boolean(calculatedRoute?.itemRoutePathEncoded) ||
+  const routeEditor = useItemRouteEditorState({
+    origin: hasOrigin ? { lat: item.lat, lng: item.lng } : null,
+    destination: hasDest ? { lat: item.destLat, lng: item.destLng } : null,
+    transportMode: editorValue.transportMode,
+    itemRouteType: editorValue.itemRouteType,
+    itemType: editorValue.type,
+    existingRouteDurationMinutes: item.itemRouteDurationMinutes,
+    hasPersistedRoute:
+      Boolean(item.itemRoutePathEncoded) ||
       item.itemRouteDistanceMeters > 0 ||
-      displayedRouteDurationMinutes > 0
-    );
-  }, [calculatedRoute?.itemRoutePathEncoded, displayedRouteDurationMinutes, item.itemRouteDistanceMeters]);
+      item.itemRouteDurationMinutes > 0,
+    onCalculated: useCallback(
+      (route: CalculatedRoute) => {
+        setEditorValue((current) => applyCalculatedRouteToEditorValue(current, route));
+        commit({
+          itemRoutePathEncoded: route.itemRoutePathEncoded,
+          itemRouteDistanceMeters: route.itemRouteDistanceMeters,
+          itemRouteDurationMinutes: route.itemRouteDurationMinutes,
+        });
+      },
+      [commit],
+    ),
+  });
+  const {
+    clearCalculatedRoute,
+    resetUiState,
+    handleOriginEditCancel,
+    handleDestinationEditCancel,
+  } = routeEditor;
 
   useEffect(() => {
     const didSwitchItems = previousItemIdRef.current !== item.itemId;
@@ -175,13 +149,35 @@ export function useItemDetailCardModel({ item, onUpdate }: ItemDetailCardModelIn
 
       return nextEditorValue;
     });
-  }, [item.itemId, nextEditorValue]);
+
+    const activeElement =
+      typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const isTitleInputFocused = activeElement?.dataset.itemTitleInput === 'true';
+
+    setTitleValue((current) => {
+      if (current === item.placeName) {
+        return current;
+      }
+
+      if (!didSwitchItems && isTitleInputFocused) {
+        return current;
+      }
+
+      titleHasManualOverrideRef.current = false;
+      return item.placeName;
+    });
+  }, [item.itemId, item.placeName, nextEditorValue]);
 
   useEffect(() => {
-    setIsEditingOrigin(false);
-    setIsEditingDestination(false);
-    clearCalculatedRoute();
-  }, [clearCalculatedRoute, item.itemId]);
+    titleHasManualOverrideRef.current =
+      Boolean(titleValue.trim()) && titleValue.trim() !== originDefaultTitle;
+  }, [originDefaultTitle, titleValue]);
+
+  useEffect(() => {
+    resetUiState();
+  }, [item.itemId, resetUiState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,31 +208,27 @@ export function useItemDetailCardModel({ item, onUpdate }: ItemDetailCardModelIn
     (next: EventEditorValue) => {
       setEditorValue(next);
       const updates: Partial<Item> = {};
+
       if (next.type !== editorValue.type) updates.type = next.type;
-      if (next.transportMode !== editorValue.transportMode)
-        updates.transportMode = next.transportMode;
-      if (next.itemRouteType !== editorValue.itemRouteType)
-        updates.itemRouteType = next.itemRouteType;
-      if (next.scheduledStart !== editorValue.scheduledStart)
-        updates.scheduledStart = next.scheduledStart;
+      if (next.transportMode !== editorValue.transportMode) updates.transportMode = next.transportMode;
+      if (next.itemRouteType !== editorValue.itemRouteType) updates.itemRouteType = next.itemRouteType;
+      if (next.scheduledStart !== editorValue.scheduledStart) updates.scheduledStart = next.scheduledStart;
       if (next.scheduledEnd !== editorValue.scheduledEnd) updates.scheduledEnd = next.scheduledEnd;
-      if (next.durationMinutes !== editorValue.durationMinutes)
-        updates.durationMinutes = next.durationMinutes;
+      if (next.durationMinutes !== editorValue.durationMinutes) updates.durationMinutes = next.durationMinutes;
       if (next.notesMd !== editorValue.notesMd) updates.notesMd = next.notesMd;
       if (next.availabilityWindows !== editorValue.availabilityWindows) {
         updates.availabilityWindows = next.availabilityWindows;
       }
-      if (next.timelineLocked !== editorValue.timelineLocked)
+      if (next.timelineLocked !== editorValue.timelineLocked) {
         updates.timelineLocked = next.timelineLocked;
+      }
 
       if (
         next.transportMode !== editorValue.transportMode ||
         next.itemRouteType !== editorValue.itemRouteType
       ) {
-        updates.itemRoutePathEncoded = '';
-        updates.itemRouteDistanceMeters = 0;
-        updates.itemRouteDurationMinutes = 0;
         clearCalculatedRoute();
+        Object.assign(updates, emptyRouteMetadata());
       }
 
       if (Object.keys(updates).length > 0) {
@@ -246,22 +238,43 @@ export function useItemDetailCardModel({ item, onUpdate }: ItemDetailCardModelIn
     [clearCalculatedRoute, commit, editorValue],
   );
 
+  const handleTitleChange = useCallback((next: string) => {
+    setTitleValue(next);
+  }, []);
+
+  const handleTitleCommit = useCallback(() => {
+    const normalized = titleValue.trim() || originDefaultTitle || item.placeName;
+    setTitleValue(normalized);
+    titleHasManualOverrideRef.current = normalized !== originDefaultTitle;
+
+    if (normalized !== item.placeName) {
+      commit({ placeName: normalized });
+    }
+  }, [commit, item.placeName, originDefaultTitle, titleValue]);
+
   const handleOriginSelect = useCallback(
     (place: PlaceSearchResult) => {
+      const normalizedTitle = titleValue.trim();
+      const shouldFollowOriginTitle =
+        !titleHasManualOverrideRef.current ||
+        !normalizedTitle ||
+        normalizedTitle === originDefaultTitle;
+      const nextTitle = shouldFollowOriginTitle ? place.name : normalizedTitle;
+
       clearCalculatedRoute();
+      setTitleValue(nextTitle);
+      titleHasManualOverrideRef.current = !shouldFollowOriginTitle;
       commit({
         placeId: place.placeId,
-        placeName: place.name,
+        placeName: nextTitle,
         lat: place.lat,
         lng: place.lng,
         address: place.address,
-        itemRoutePathEncoded: '',
-        itemRouteDistanceMeters: 0,
-        itemRouteDurationMinutes: 0,
+        ...emptyRouteMetadata(),
       });
-      setIsEditingOrigin(false);
+      handleOriginEditCancel();
     },
-    [clearCalculatedRoute, commit],
+    [clearCalculatedRoute, commit, handleOriginEditCancel, originDefaultTitle, titleValue],
   );
 
   const handleDestinationSelect = useCallback(
@@ -272,19 +285,12 @@ export function useItemDetailCardModel({ item, onUpdate }: ItemDetailCardModelIn
         destLng: place.lng,
         destName: place.name,
         destAddress: place.address,
-        itemRoutePathEncoded: '',
-        itemRouteDistanceMeters: 0,
-        itemRouteDurationMinutes: 0,
+        ...emptyRouteMetadata(),
       });
-      setIsEditingDestination(false);
+      handleDestinationEditCancel();
     },
-    [clearCalculatedRoute, commit],
+    [clearCalculatedRoute, commit, handleDestinationEditCancel],
   );
-
-  const handleOriginEditStart = useCallback(() => setIsEditingOrigin(true), []);
-  const handleOriginEditCancel = useCallback(() => setIsEditingOrigin(false), []);
-  const handleDestinationEditStart = useCallback(() => setIsEditingDestination(true), []);
-  const handleDestinationEditCancel = useCallback(() => setIsEditingDestination(false), []);
 
   const handleDestinationClear = useCallback(() => {
     clearCalculatedRoute();
@@ -293,52 +299,72 @@ export function useItemDetailCardModel({ item, onUpdate }: ItemDetailCardModelIn
       destLng: 0,
       destName: '',
       destAddress: '',
-      itemRoutePathEncoded: '',
-      itemRouteDistanceMeters: 0,
-      itemRouteDurationMinutes: 0,
+      ...emptyRouteMetadata(),
     });
-    setIsEditingDestination(false);
-  }, [clearCalculatedRoute, commit]);
+    handleDestinationEditCancel();
+  }, [clearCalculatedRoute, commit, handleDestinationEditCancel]);
 
   const handleRouteChange = useCallback(
-    (next: { transportMode: EventEditorValue['transportMode']; itemRouteType: EventEditorValue['itemRouteType'] }) => {
-      setEditorValue((prev) => {
-        if (prev.transportMode !== next.transportMode || prev.itemRouteType !== next.itemRouteType) {
+    (next: {
+      transportMode: EventEditorValue['transportMode'];
+      itemRouteType: EventEditorValue['itemRouteType'];
+    }) => {
+      setEditorValue((current) => {
+        if (
+          current.transportMode !== next.transportMode ||
+          current.itemRouteType !== next.itemRouteType
+        ) {
           clearCalculatedRoute();
         }
-        return { ...prev, ...next };
+        return { ...current, ...next };
       });
-      commit(next.transportMode !== editorValue.transportMode || next.itemRouteType !== editorValue.itemRouteType
-        ? { transportMode: next.transportMode, itemRouteType: next.itemRouteType, itemRoutePathEncoded: '', itemRouteDistanceMeters: 0, itemRouteDurationMinutes: 0 }
-        : { transportMode: next.transportMode, itemRouteType: next.itemRouteType });
+
+      commit(
+        next.transportMode !== editorValue.transportMode ||
+          next.itemRouteType !== editorValue.itemRouteType
+          ? {
+              transportMode: next.transportMode,
+              itemRouteType: next.itemRouteType,
+              ...emptyRouteMetadata(),
+            }
+          : {
+              transportMode: next.transportMode,
+              itemRouteType: next.itemRouteType,
+            },
+      );
     },
     [clearCalculatedRoute, commit, editorValue.itemRouteType, editorValue.transportMode],
   );
 
   return {
     rootRef,
+    titleValue,
     editorValue,
     originPlaceDetails,
-    isEditingOrigin,
-    isEditingDestination,
-    calculatedRoute,
-    isCalculatingRoute,
-    openInGoogleMapsUrl,
-    displayedRouteDurationMinutes,
-    hasCalculatedRoute,
+    isEditingOrigin: routeEditor.isEditingOrigin,
+    isEditingDestination: routeEditor.isEditingDestination,
+    calculatedRoute: routeEditor.calculatedRoute,
+    isCalculatingRoute: routeEditor.isCalculatingRoute,
+    openInGoogleMapsUrl: routeEditor.openInGoogleMapsUrl,
+    displayedRouteDurationMinutes: routeEditor.displayedRouteDurationMinutes,
+    hasCalculatedRoute: routeEditor.hasCalculatedRoute,
     hasOrigin,
     hasDest,
-    showTravelControls,
+    showTravelControls: routeEditor.showTravelControls,
+    canCalculateRoute: routeEditor.canCalculateRoute,
+    routeBadge: routeEditor.routeBadge,
+    handleTitleChange,
+    handleTitleCommit,
     handleEditorChange,
     handleOriginSelect,
     handleDestinationSelect,
-    handleOriginEditStart,
-    handleOriginEditCancel,
-    handleDestinationEditStart,
-    handleDestinationEditCancel,
+    handleOriginEditStart: routeEditor.handleOriginEditStart,
+    handleOriginEditCancel: routeEditor.handleOriginEditCancel,
+    handleDestinationEditStart: routeEditor.handleDestinationEditStart,
+    handleDestinationEditCancel: routeEditor.handleDestinationEditCancel,
     handleDestinationClear,
     handleRouteChange,
-    handleCalculateRoute: calculateRoute,
+    handleCalculateRoute: routeEditor.handleCalculateRoute,
     clearCalculatedRoute,
   };
 }

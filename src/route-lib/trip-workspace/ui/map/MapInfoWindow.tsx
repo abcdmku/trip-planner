@@ -1,39 +1,42 @@
 import { InfoWindow } from '@vis.gl/react-google-maps';
-import type { PlaceSearchResult } from '@/services/maps-repository';
-import { MapInfoCard } from '@/component-lib/map/MapInfoCard';
+import { MapInfoCard, type MapInfoCardProps } from '@/component-lib/map/MapInfoCard';
 
-interface MapPlaceInfoWindowProps {
+export interface MapInfoWindowProps extends MapInfoCardProps {
   position: { lat: number; lng: number };
-  place: PlaceSearchResult | null;
-  isLoading: boolean;
-  error: string | null;
-  onAddToItinerary: (place: PlaceSearchResult) => void;
-  onClose: () => void;
 }
 
-export default function MapPlaceInfoWindow({
+export default function MapInfoWindow({
   position,
+  item,
+  displayItem,
+  day,
   place,
   isLoading,
   error,
-  onAddToItinerary,
   onClose,
-}: MapPlaceInfoWindowProps) {
+  onAddToItinerary,
+  onEditItem,
+  onDeleteItem,
+}: MapInfoWindowProps) {
   return (
     <InfoWindow
       position={position}
       onCloseClick={onClose}
       headerDisabled
       className="tp-map-info-window"
-      pixelOffset={[0, -35]}
+      pixelOffset={[0, -40]}
     >
       <MapInfoCard
-        item={null}
+        item={item}
+        displayItem={displayItem}
+        day={day}
         place={place}
         isLoading={isLoading}
         error={error}
         onClose={onClose}
         onAddToItinerary={onAddToItinerary}
+        onEditItem={onEditItem}
+        onDeleteItem={onDeleteItem}
       />
     </InfoWindow>
   );

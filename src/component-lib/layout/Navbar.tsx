@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle,
-  Check,
   ChevronDown,
   Compass,
   LogOut,
@@ -9,8 +7,8 @@ import {
   Moon,
   RefreshCw,
   Sun,
-  WifiOff,
 } from 'lucide-react';
+import { StatusMessage } from '@component-lib/sync/StatusMessage';
 
 export type NavbarTheme = 'light' | 'dark' | 'system';
 
@@ -31,34 +29,21 @@ export interface NavbarProps {
 function SyncBadge({ status }: { status: 'synced' | 'syncing' | 'error' | 'offline' }) {
   if (status === 'syncing') {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-theme-secondary">
-        <RefreshCw className="h-3 w-3 animate-spin" />
-        <span className="hidden sm:inline">Syncing</span>
-      </span>
+      <StatusMessage
+        label="Syncing"
+        tone="info"
+        variant="badge"
+        icon={<RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+      />
     );
   }
   if (status === 'error') {
-    return (
-      <span className="flex items-center gap-1.5 text-xs text-red-500">
-        <AlertTriangle className="h-3 w-3" />
-        <span className="hidden sm:inline">Error</span>
-      </span>
-    );
+    return <StatusMessage label="Sync error" tone="danger" variant="badge" />;
   }
   if (status === 'offline') {
-    return (
-      <span className="flex items-center gap-1.5 text-xs text-amber-500">
-        <WifiOff className="h-3 w-3" />
-        <span className="hidden sm:inline">Offline</span>
-      </span>
-    );
+    return <StatusMessage label="Offline" tone="warning" variant="badge" />;
   }
-  return (
-    <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-      <Check className="h-3 w-3" />
-      <span className="hidden sm:inline">Saved</span>
-    </span>
-  );
+  return <StatusMessage label="Saved" tone="success" variant="badge" />;
 }
 
 function ThemeToggle({
@@ -177,110 +162,131 @@ export function Navbar({
   };
 
   return (
-    <nav className="sticky top-0 z-40 flex h-14 items-center border-b border-theme bg-theme-elevated px-4">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
-          <Compass className="h-4 w-4 text-white dark:text-neutral-900" />
-        </div>
-        <span className="hidden text-sm font-semibold text-theme sm:block">Trip Planner</span>
-      </div>
-
-      <div className="mx-4 flex flex-1 items-center justify-center gap-2">
-        {tripName !== undefined ? (
-          <>
-            {isEditing ? (
-              <input
-                ref={inputRef}
-                value={editValue}
-                onChange={(event) => setEditValue(event.target.value)}
-                onBlur={commitEdit}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') commitEdit();
-                  if (event.key === 'Escape') {
-                    setEditValue(tripName);
-                    setIsEditing(false);
-                  }
-                }}
-                className="input max-w-[200px] text-center text-sm font-medium"
-                aria-label="Edit trip name"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="max-w-[200px] truncate rounded-lg px-2 py-1 text-sm font-medium text-theme transition-colors hover:bg-theme-subtle"
-                title="Click to edit"
-              >
-                {tripName || 'Untitled Trip'}
-              </button>
-            )}
-            <SyncBadge status={syncStatus} />
-          </>
-        ) : null}
-      </div>
-
-      <div className="flex items-center gap-1">
-        {followStatus}
-        {participantStrip}
-
-        {activeCollaborators.length > 0 ? (
-          <div className="flex items-center gap-1 md:hidden">
-            {activeCollaborators.slice(0, 3).map((collaborator) => (
-              <div
-                key={collaborator.userId}
-                className="rounded-full p-[1px]"
-                style={{ backgroundColor: collaborator.color }}
-                title={collaborator.name}
-              >
-                <img
-                  src={collaborator.picture}
-                  alt={collaborator.name}
-                  className="h-6 w-6 rounded-full border border-white"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-            ))}
+    <nav className="sticky top-0 z-40 border-b border-theme bg-theme-elevated">
+      <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-2 sm:px-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-theme bg-theme shadow-theme-sm">
+            <Compass className="h-4 w-4 text-accent" />
           </div>
-        ) : null}
+          <div className="hidden min-w-0 sm:block">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-theme-tertiary">
+              Trip Planner
+            </p>
+            <p className="text-sm font-semibold text-theme">Workspace</p>
+          </div>
+        </div>
 
-        {shareControl}
-        <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
-
-        {user ? (
-          <div className="relative" ref={dropdownRef}>
-            <button
-              type="button"
-              onClick={() => setDropdownOpen((current) => !current)}
-              className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-theme-subtle"
-              aria-expanded={dropdownOpen}
-            >
-              <img
-                src={user.picture}
-                alt={user.name}
-                className="h-7 w-7 rounded-full"
-                referrerPolicy="no-referrer"
-              />
-              <ChevronDown className="hidden h-3 w-3 text-theme-tertiary sm:block" />
-            </button>
-
-            {dropdownOpen ? (
-              <div className="absolute right-0 top-full mt-1 w-44 animate-in rounded-lg border border-theme bg-theme-elevated py-1 shadow-theme-lg">
-                <div className="border-b border-theme-subtle px-3 py-2">
-                  <p className="truncate text-sm font-medium text-theme">{user.name}</p>
-                </div>
+        <div className="mx-2 flex min-w-0 flex-wrap items-center justify-center gap-2 sm:mx-4">
+          {tripName !== undefined ? (
+            <>
+              {isEditing ? (
+                <input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(event) => setEditValue(event.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commitEdit();
+                    if (event.key === 'Escape') {
+                      setEditValue(tripName);
+                      setIsEditing(false);
+                    }
+                  }}
+                  className="input max-w-[180px] text-center text-sm font-medium sm:max-w-[220px]"
+                  aria-label="Edit trip name"
+                />
+              ) : (
                 <button
                   type="button"
-                  onClick={() => {
-                    setDropdownOpen(false);
-                    onLogout?.();
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-red-500"
+                  onClick={() => setIsEditing(true)}
+                  className="max-w-[180px] truncate rounded-full border border-transparent px-3 py-1.5 text-sm font-semibold text-theme transition-colors hover:border-theme hover:bg-theme sm:max-w-[280px]"
+                  title="Click to edit"
                 >
-                  <LogOut className="h-4 w-4" />
-                  Sign out
+                  {tripName || 'Untitled Trip'}
                 </button>
-              </div>
-            ) : null}
+              )}
+              <SyncBadge status={syncStatus} />
+            </>
+          ) : null}
+        </div>
+
+        <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
+          <div className="hidden min-w-0 items-center gap-1.5 xl:flex">
+            {followStatus}
+            {participantStrip}
+          </div>
+
+          {activeCollaborators.length > 0 ? (
+            <div className="flex items-center gap-1 md:hidden">
+              {activeCollaborators.slice(0, 3).map((collaborator) => (
+                <div
+                  key={collaborator.userId}
+                  className="rounded-full p-[1px]"
+                  style={{ backgroundColor: collaborator.color }}
+                  title={collaborator.name}
+                >
+                  <img
+                    src={collaborator.picture}
+                    alt={collaborator.name}
+                    className="h-6 w-6 rounded-full border border-white"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {shareControl ? <div className="hidden sm:block">{shareControl}</div> : null}
+          <div className="rounded-full border border-theme bg-theme px-0.5 py-0.5 shadow-theme-sm">
+            <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
+          </div>
+
+          {user ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setDropdownOpen((current) => !current)}
+                className="flex items-center gap-2 rounded-full border border-theme bg-theme px-2 py-1.5 shadow-theme-sm transition-colors hover:bg-theme-subtle"
+                aria-expanded={dropdownOpen}
+              >
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="h-7 w-7 rounded-full"
+                  referrerPolicy="no-referrer"
+                />
+                <span className="hidden max-w-[120px] truncate text-sm font-medium text-theme lg:block">
+                  {user.name}
+                </span>
+                <ChevronDown className="hidden h-3 w-3 text-theme-tertiary sm:block" />
+              </button>
+
+              {dropdownOpen ? (
+                <div className="absolute right-0 top-full mt-1 w-44 animate-in rounded-lg border border-theme bg-theme-elevated py-1 shadow-theme-lg">
+                  <div className="border-b border-theme-subtle px-3 py-2">
+                    <p className="truncate text-sm font-medium text-theme">{user.name}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      onLogout?.();
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-red-500"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {(followStatus || participantStrip) ? (
+          <div className="col-span-3 hidden min-w-0 items-center gap-2 overflow-hidden border-t border-theme-subtle pt-2 md:flex xl:hidden">
+            <div className="min-w-0 flex-1">{followStatus}</div>
+            {participantStrip}
           </div>
         ) : null}
       </div>

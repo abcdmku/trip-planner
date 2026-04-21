@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlaceSearchResult } from '@/services/maps-repository';
 import type { ItemType, RouteType, TransportMode } from '@/types/trip';
 import { hasAvailabilityConstraints, serializeAvailabilityWindows } from '@/lib/availability';
-import { buildGoogleMapsDirectionsUrl } from '@/lib/google-maps-url';
-import { useRouteCalculation, type CalculatedRoute } from './useRouteCalculation';
+import {
+  applyCalculatedRouteToEditorValue,
+  useItemRouteEditorState,
+} from './useItemRouteEditorState';
+import type { CalculatedRoute } from './useRouteCalculation';
 import type { EventEditorValue } from './EventEditorForm';
 
 export interface AddItemDialogModelInput {
@@ -23,6 +26,8 @@ export interface AddItemDialogModelInput {
 export interface AddItemDialogModel {
   selectedPlace: PlaceSearchResult | null;
   destPlace: PlaceSearchResult | null;
+  titleValue: string;
+  resolvedTitle: string;
   isRouteOpen: boolean;
   isEditingOrigin: boolean;
   isEditingDestination: boolean;
@@ -35,6 +40,9 @@ export interface AddItemDialogModel {
   isCustomLocation: boolean;
   isOriginValid: boolean;
   showTravelControls: boolean;
+  canCalculateRoute: boolean;
+  hasCalculatedRoute: boolean;
+  displayedRouteDurationMinutes: number;
   handleRouteToggle: () => void;
   handleOriginEditStart: () => void;
   handleOriginEditCancel: () => void;
@@ -44,6 +52,7 @@ export interface AddItemDialogModel {
   handleDestinationSelect: (place: PlaceSearchResult) => void;
   handleOriginClear: () => void;
   handleDestinationClear: () => void;
+  handleTitleChange: (value: string) => void;
   handleCustomNameChange: (value: string) => void;
   handleEditorChange: (next: EventEditorValue) => void;
   handleCalculateRoute: () => Promise<CalculatedRoute | null>;
@@ -53,20 +62,47 @@ export interface AddItemDialogModel {
 }
 
 function inferItemType(googleTypes: string[]): ItemType {
-  const s = new Set(googleTypes);
-  if (s.has('lodging') || s.has('hotel') || s.has('motel') || s.has('resort_hotel')) return 'hotel';
-  if (s.has('restaurant') || s.has('food') || s.has('cafe') || s.has('bar')) return 'restaurant';
+  const typeSet = new Set(googleTypes);
   if (
-    s.has('airport') ||
-    s.has('train_station') ||
-    s.has('transit_station') ||
-    s.has('bus_station')
-  )
+    typeSet.has('lodging') ||
+    typeSet.has('hotel') ||
+    typeSet.has('motel') ||
+    typeSet.has('resort_hotel')
+  ) {
+    return 'hotel';
+  }
+  if (
+    typeSet.has('restaurant') ||
+    typeSet.has('food') ||
+    typeSet.has('cafe') ||
+    typeSet.has('bar')
+  ) {
+    return 'restaurant';
+  }
+  if (
+    typeSet.has('airport') ||
+    typeSet.has('train_station') ||
+    typeSet.has('transit_station') ||
+    typeSet.has('bus_station')
+  ) {
     return 'transport';
-  if (s.has('museum') || s.has('art_gallery') || s.has('tourist_attraction') || s.has('park'))
+  }
+  if (
+    typeSet.has('museum') ||
+    typeSet.has('art_gallery') ||
+    typeSet.has('tourist_attraction') ||
+    typeSet.has('park')
+  ) {
     return 'attraction';
-  if (s.has('gym') || s.has('spa') || s.has('stadium') || s.has('amusement_park'))
+  }
+  if (
+    typeSet.has('gym') ||
+    typeSet.has('spa') ||
+    typeSet.has('stadium') ||
+    typeSet.has('amusement_park')
+  ) {
     return 'activity';
+  }
   return 'other';
 }
 
@@ -74,21 +110,9 @@ function routeTypeForMode(mode: TransportMode): RouteType {
   return mode === 'flight' || mode === 'other' ? 'straight' : 'directions';
 }
 
-function transportModeLabel(mode: TransportMode): string {
-  switch (mode) {
-    case 'driving':
-      return 'Drive';
-    case 'walking':
-      return 'Walk';
-    case 'bicycling':
-      return 'Bike';
-    case 'transit':
-      return 'Transit';
-    case 'flight':
-      return 'Flight';
-    default:
-      return 'Other';
-  }
+function defaultTitleForPlace(place: PlaceSearchResult | null, customName = ''): string {
+  if (!place) return '';
+  return place.placeId.startsWith('custom-') ? customName.trim() : place.name;
 }
 
 function maybeApplyMapsAvailabilityWindows(
@@ -125,12 +149,14 @@ function draftFromProps(
   const mode = initialTransportMode ?? 'driving';
   const routeType = initialRouteType ?? routeTypeForMode(mode);
   let duration = 60;
+
   if (initialStartTime && initialEndTime) {
-    const [sh, sm] = initialStartTime.split(':').map(Number);
-    const [eh, em] = initialEndTime.split(':').map(Number);
-    const nextDuration = eh * 60 + em - (sh * 60 + sm);
+    const [startHour, startMinute] = initialStartTime.split(':').map(Number);
+    const [endHour, endMinute] = initialEndTime.split(':').map(Number);
+    const nextDuration = endHour * 60 + endMinute - (startHour * 60 + startMinute);
     if (nextDuration > 0) duration = nextDuration;
   }
+
   return {
     type: initialType ?? 'attraction',
     transportMode: mode,
@@ -159,9 +185,7 @@ export function useAddItemDialogModel({
 }: AddItemDialogModelInput): AddItemDialogModel {
   const [selectedPlace, setSelectedPlace] = useState<PlaceSearchResult | null>(null);
   const [destPlace, setDestPlace] = useState<PlaceSearchResult | null>(null);
-  const [isRouteOpen, setIsRouteOpen] = useState(true);
-  const [isEditingOrigin, setIsEditingOrigin] = useState(false);
-  const [isEditingDestination, setIsEditingDestination] = useState(false);
+  const [titleValue, setTitleValue] = useState('');
   const [customName, setCustomName] = useState('');
   const [editor, setEditor] = useState<EventEditorValue>(() =>
     draftFromProps(
@@ -187,69 +211,44 @@ export function useAddItemDialogModel({
         initialTimelineLocked,
       ),
     [
-      initialType,
-      initialTransportMode,
+      initialAvailabilityWindows,
+      initialEndTime,
       initialRouteType,
       initialStartTime,
-      initialEndTime,
-      initialAvailabilityWindows,
       initialTimelineLocked,
+      initialTransportMode,
+      initialType,
     ],
   );
+  const titleHasManualOverrideRef = useRef(false);
 
-  const handleCalculatedRoute = useCallback((route: CalculatedRoute) => {
-    if (route.itemRouteDurationMinutes <= 0) return;
-
-    setEditor((prev) => {
-      let nextDuration = route.itemRouteDurationMinutes;
-      const next: EventEditorValue = { ...prev, durationMinutes: nextDuration };
-      if (prev.scheduledStart) {
-        const [startHour, startMin] = prev.scheduledStart.split(':').map(Number);
-        const startTotalMin = startHour * 60 + startMin;
-        const maxDuration = Math.max(0, 23 * 60 + 59 - startTotalMin);
-        nextDuration = Math.min(nextDuration, maxDuration);
-        next.durationMinutes = nextDuration;
-        const endTotalMin = startTotalMin + nextDuration;
-        const endHour = Math.floor(endTotalMin / 60);
-        const endMinute = endTotalMin % 60;
-        next.scheduledEnd = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-      }
-      return next;
-    });
-  }, []);
-
-  const { calculatedRoute, isCalculatingRoute, calculateRoute, clearCalculatedRoute } =
-    useRouteCalculation({
-      origin: selectedPlace ? { lat: selectedPlace.lat, lng: selectedPlace.lng } : null,
-      destination: destPlace ? { lat: destPlace.lat, lng: destPlace.lng } : null,
-      transportMode: editor.transportMode,
-      routeType: editor.itemRouteType,
-      onCalculated: handleCalculatedRoute,
-    });
+  const routeEditor = useItemRouteEditorState({
+    origin: selectedPlace ? { lat: selectedPlace.lat, lng: selectedPlace.lng } : null,
+    destination: destPlace ? { lat: destPlace.lat, lng: destPlace.lng } : null,
+    transportMode: editor.transportMode,
+    itemRouteType: editor.itemRouteType,
+    itemType: editor.type,
+    onCalculated: useCallback((route: CalculatedRoute) => {
+      setEditor((current) => applyCalculatedRouteToEditorValue(current, route));
+    }, []),
+  });
+  const {
+    clearCalculatedRoute,
+    resetUiState,
+    handleOriginEditCancel,
+    handleDestinationEditCancel,
+  } = routeEditor;
 
   const isCustomLocation = Boolean(selectedPlace?.placeId.startsWith('custom-'));
   const isOriginValid = Boolean(selectedPlace) && (!isCustomLocation || Boolean(customName.trim()));
-  const showTravelControls = Boolean(destPlace) || editor.type === 'transport';
-  const openInGoogleMapsUrl = useMemo(() => {
-    if (!selectedPlace || !destPlace) return undefined;
-    return buildGoogleMapsDirectionsUrl({
-      origin: { lat: selectedPlace.lat, lng: selectedPlace.lng },
-      destination: { lat: destPlace.lat, lng: destPlace.lng },
-      mode: editor.transportMode,
-    });
-  }, [destPlace, editor.transportMode, selectedPlace]);
-  const travelBadge = useMemo(() => {
-    const routeLabel = editor.itemRouteType === 'directions' ? 'Routed' : 'Straight';
-    const duration =
-      calculatedRoute && calculatedRoute.itemRouteDurationMinutes > 0
-        ? `${calculatedRoute.itemRouteDurationMinutes}m`
-        : '';
-    return `${transportModeLabel(editor.transportMode)} · ${routeLabel}${duration ? ` · ${duration}` : ''}`;
-  }, [calculatedRoute, editor.itemRouteType, editor.transportMode]);
+  const resolvedTitle = titleValue.trim() || defaultTitleForPlace(selectedPlace, customName);
 
   const resetOnOpen = useCallback(() => {
+    titleHasManualOverrideRef.current = false;
+
     if (initialPlace) {
       setSelectedPlace(initialPlace);
+      setTitleValue(initialPlace.name);
       setCustomName('');
       setEditor({
         ...initialDraft,
@@ -271,51 +270,86 @@ export function useAddItemDialogModel({
         lng: initialLocation.lng,
         types: [],
       });
+      setTitleValue('');
       setCustomName('');
       setEditor(initialDraft);
     } else {
       setSelectedPlace(null);
+      setTitleValue('');
       setCustomName('');
       setEditor(initialDraft);
     }
 
     setDestPlace(initialDestination ?? null);
-    setIsEditingOrigin(false);
-    setIsEditingDestination(false);
-    setIsRouteOpen(true);
-    clearCalculatedRoute();
-  }, [clearCalculatedRoute, initialDraft, initialDestination, initialLocation, initialPlace, initialType]);
+    resetUiState();
+  }, [
+    initialDestination,
+    initialDraft,
+    initialLocation,
+    initialPlace,
+    initialType,
+    resetUiState,
+  ]);
 
   useEffect(() => {
     if (!isOpen) return;
     resetOnOpen();
   }, [isOpen, resetOnOpen]);
 
-  const handleRouteToggle = useCallback(() => {
-    if (isRouteOpen) {
-      setIsEditingOrigin(false);
-      setIsEditingDestination(false);
-    }
-    setIsRouteOpen((current) => !current);
-  }, [isRouteOpen]);
+  const handleTitleChange = useCallback((value: string) => {
+    titleHasManualOverrideRef.current = true;
+    setTitleValue(value);
+  }, []);
 
-  const handleOriginEditStart = useCallback(() => setIsEditingOrigin(true), []);
-  const handleOriginEditCancel = useCallback(() => setIsEditingOrigin(false), []);
-  const handleDestinationEditStart = useCallback(() => setIsEditingDestination(true), []);
-  const handleDestinationEditCancel = useCallback(() => setIsEditingDestination(false), []);
-  const handleCustomNameChange = useCallback((value: string) => setCustomName(value), []);
+  const handleCustomNameChange = useCallback(
+    (value: string) => {
+      const previousDefaultTitle = defaultTitleForPlace(selectedPlace, customName);
+      setCustomName(value);
+
+      if (!selectedPlace?.placeId.startsWith('custom-')) {
+        return;
+      }
+
+      setTitleValue((current) => {
+        if (
+          !titleHasManualOverrideRef.current ||
+          !current.trim() ||
+          current.trim() === previousDefaultTitle
+        ) {
+          titleHasManualOverrideRef.current = false;
+          return value;
+        }
+        return current;
+      });
+    },
+    [customName, selectedPlace],
+  );
 
   const handleOriginSelect = useCallback(
     (place: PlaceSearchResult) => {
+      const previousDefaultTitle = defaultTitleForPlace(selectedPlace, customName);
+      const nextDefaultTitle = defaultTitleForPlace(place);
+
       setSelectedPlace(place);
       setCustomName('');
-      setIsEditingOrigin(false);
       clearCalculatedRoute();
-      setEditor((prev) => {
+      handleOriginEditCancel();
+      setTitleValue((current) => {
+        if (
+          !titleHasManualOverrideRef.current ||
+          !current.trim() ||
+          current.trim() === previousDefaultTitle
+        ) {
+          titleHasManualOverrideRef.current = false;
+          return nextDefaultTitle;
+        }
+        return current;
+      });
+      setEditor((current) => {
         const next: EventEditorValue = {
-          ...prev,
+          ...current,
           availabilityWindows: maybeApplyMapsAvailabilityWindows(
-            prev.availabilityWindows,
+            current.availabilityWindows,
             place,
             selectedPlace,
           ),
@@ -326,21 +360,23 @@ export function useAddItemDialogModel({
         return next;
       });
     },
-    [clearCalculatedRoute, initialType, selectedPlace],
+    [clearCalculatedRoute, customName, handleOriginEditCancel, initialType, selectedPlace],
   );
 
   const handleDestinationSelect = useCallback(
     (place: PlaceSearchResult) => {
       setDestPlace(place);
-      setIsEditingDestination(false);
       clearCalculatedRoute();
+      handleDestinationEditCancel();
     },
-    [clearCalculatedRoute],
+    [clearCalculatedRoute, handleDestinationEditCancel],
   );
 
   const handleOriginClear = useCallback(() => {
     setSelectedPlace(null);
+    setTitleValue('');
     setCustomName('');
+    titleHasManualOverrideRef.current = false;
     clearCalculatedRoute();
   }, [clearCalculatedRoute]);
 
@@ -366,11 +402,14 @@ export function useAddItemDialogModel({
 
   const handleRouteChange = useCallback(
     (next: { transportMode: TransportMode; itemRouteType: RouteType }) => {
-      setEditor((prev) => {
-        if (prev.transportMode !== next.transportMode || prev.itemRouteType !== next.itemRouteType) {
+      setEditor((current) => {
+        if (
+          current.transportMode !== next.transportMode ||
+          current.itemRouteType !== next.itemRouteType
+        ) {
           clearCalculatedRoute();
         }
-        return { ...prev, ...next };
+        return { ...current, ...next };
       });
     },
     [clearCalculatedRoute],
@@ -379,30 +418,36 @@ export function useAddItemDialogModel({
   return {
     selectedPlace,
     destPlace,
-    isRouteOpen,
-    isEditingOrigin,
-    isEditingDestination,
+    titleValue,
+    resolvedTitle,
+    isRouteOpen: routeEditor.isRouteOpen,
+    isEditingOrigin: routeEditor.isEditingOrigin,
+    isEditingDestination: routeEditor.isEditingDestination,
     customName,
     editor,
-    calculatedRoute,
-    isCalculatingRoute,
-    openInGoogleMapsUrl,
-    travelBadge,
+    calculatedRoute: routeEditor.calculatedRoute,
+    isCalculatingRoute: routeEditor.isCalculatingRoute,
+    openInGoogleMapsUrl: routeEditor.openInGoogleMapsUrl,
+    travelBadge: routeEditor.routeBadge,
     isCustomLocation,
     isOriginValid,
-    showTravelControls,
-    handleRouteToggle,
-    handleOriginEditStart,
-    handleOriginEditCancel,
-    handleDestinationEditStart,
-    handleDestinationEditCancel,
+    showTravelControls: routeEditor.showTravelControls,
+    canCalculateRoute: routeEditor.canCalculateRoute,
+    hasCalculatedRoute: routeEditor.hasCalculatedRoute,
+    displayedRouteDurationMinutes: routeEditor.displayedRouteDurationMinutes,
+    handleRouteToggle: routeEditor.handleRouteToggle,
+    handleOriginEditStart: routeEditor.handleOriginEditStart,
+    handleOriginEditCancel: routeEditor.handleOriginEditCancel,
+    handleDestinationEditStart: routeEditor.handleDestinationEditStart,
+    handleDestinationEditCancel: routeEditor.handleDestinationEditCancel,
     handleOriginSelect,
     handleDestinationSelect,
     handleOriginClear,
     handleDestinationClear,
+    handleTitleChange,
     handleCustomNameChange,
     handleEditorChange,
-    handleCalculateRoute: calculateRoute,
+    handleCalculateRoute: routeEditor.handleCalculateRoute,
     resetOnOpen,
     clearCalculatedRoute,
     handleRouteChange,

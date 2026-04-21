@@ -40,22 +40,11 @@ const routedItem = createItemFixture({
   itemRouteDurationMinutes: 12,
   itemRouteDistanceMeters: 950,
 });
+
 const itemDetailUpdateSpy = fn();
 
-const meta = {
-  title: 'Items/ItemDetailCard',
-  component: ItemDetailCard,
-  tags: ['autodocs'],
-  args: {
-    item: routedItem,
-    dayColor: '#0EA5E9',
-    dayDate: '2026-05-12',
-    dayTimezoneLabel: 'CDT',
-    onUpdate: fn(),
-    onDelete: fn(),
-    onClose: fn(),
-  },
-  render: (args) => (
+function renderDetailCard(args: any, widthClass = 'max-w-[680px]') {
+  return (
     <MockMapsRepositoryBoundary
       options={{
         searchResults: [originPlace, destinationPlace],
@@ -72,11 +61,29 @@ const meta = {
         },
       }}
     >
-      <div className="max-w-xl bg-theme p-6">
-        <ItemDetailCard {...args} />
+      <div className="bg-theme p-6">
+        <div className={widthClass}>
+          <ItemDetailCard {...args} />
+        </div>
       </div>
     </MockMapsRepositoryBoundary>
-  ),
+  );
+}
+
+const meta = {
+  title: 'Items/ItemDetailCard',
+  component: ItemDetailCard,
+  tags: ['autodocs'],
+  args: {
+    item: routedItem,
+    dayColor: '#0EA5E9',
+    dayDate: '2026-05-12',
+    dayTimezoneLabel: 'CDT',
+    onUpdate: fn(),
+    onDelete: fn(),
+    onClose: fn(),
+  },
+  render: (args) => renderDetailCard(args),
 } satisfies Meta<typeof ItemDetailCard>;
 
 export default meta;
@@ -99,6 +106,29 @@ export const Compact: Story = {
   args: {
     density: 'compact',
   },
+  render: (args) => renderDetailCard(args, 'max-w-[420px]'),
+};
+
+export const EditableTitle: Story = {
+  args: {
+    onUpdate: itemDetailUpdateSpy,
+  },
+  play: async ({ canvasElement }) => {
+    itemDetailUpdateSpy.mockClear();
+
+    const canvas = within(canvasElement);
+    const titleInput = canvas.getByLabelText('Title');
+
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, 'Museum lunch');
+    await userEvent.tab();
+
+    await expect(itemDetailUpdateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        placeName: 'Museum lunch',
+      }),
+    );
+  },
 };
 
 export const Embedded: Story = {
@@ -112,8 +142,8 @@ export const NoDestination: Story = {
   args: {
     item: createItemFixture({
       placeId: originPlace.placeId,
-      placeName: originPlace.name,
-      address: originPlace.address,
+      placeName: 'Museum Campus Arrival Plaza and Public Garden Entrance',
+      address: '111 South Michigan Avenue, Chicago, Illinois 60603, United States',
       lat: originPlace.lat,
       lng: originPlace.lng,
       destLat: 0,
@@ -124,6 +154,7 @@ export const NoDestination: Story = {
       itemRouteDurationMinutes: 0,
     }),
   },
+  render: (args) => renderDetailCard(args, 'max-w-[420px]'),
 };
 
 export const RecalculatesRoute: Story = {
@@ -149,7 +180,7 @@ export const RecalculatesRoute: Story = {
     itemDetailUpdateSpy.mockClear();
 
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Calculate travel time' }));
+    await userEvent.click(canvas.getByRole('button', { name: /calculate/i }));
 
     await expect(await canvas.findByText('18 min')).toBeInTheDocument();
     await expect(itemDetailUpdateSpy).toHaveBeenCalledWith(

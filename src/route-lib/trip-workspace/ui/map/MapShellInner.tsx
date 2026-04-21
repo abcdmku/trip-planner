@@ -5,7 +5,7 @@ import type { PresenceMapCamera, PresenceMapOpenLocation } from '@/types/collabo
 import type { TimelineConnector } from '@/lib/connectors';
 import type { PlaceSearchResult } from '@/services/maps-repository';
 import ItemMarker from './ItemMarker';
-import UnifiedInfoWindow from './UnifiedInfoWindow';
+import MapInfoWindow from './MapInfoWindow';
 import RouteOverlay from './RouteOverlay';
 import StartLocationMarker from './StartLocationMarker';
 import ItemRouteOverlay from './ItemRouteOverlay';
@@ -190,7 +190,7 @@ const MapInner = memo(function MapInner({
         ))}
 
         {selectedItem && (
-          <UnifiedInfoWindow
+          <MapInfoWindow
             position={{ lat: selectedItem.lat, lng: selectedItem.lng }}
             item={selectedItem}
             displayItem={displayItemsById?.get(selectedItem.itemId) ?? null}
@@ -205,7 +205,7 @@ const MapInner = memo(function MapInner({
         )}
 
         {selectedMapPlace && (
-          <UnifiedInfoWindow
+          <MapInfoWindow
             position={selectedMapPlace.position}
             day={selectedDay}
             place={selectedMapPlace.place}

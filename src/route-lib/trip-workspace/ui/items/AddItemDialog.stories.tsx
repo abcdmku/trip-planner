@@ -21,21 +21,11 @@ const riverwalk = createPlaceSearchResultFixture({
   lng: -87.6277,
   types: ['tourist_attraction', 'park'],
 });
+
 const addItemSpy = fn();
 
-const meta = {
-  title: 'Items/AddItemDialog',
-  component: AddItemDialog,
-  tags: ['autodocs'],
-  args: {
-    isOpen: true,
-    onClose: fn(),
-    onAdd: fn(),
-    defaultDate: '2026-05-12',
-    defaultTimezoneLabel: 'CDT',
-    isSubmitting: false,
-  },
-  render: (args) => (
+function renderDialog(args: any, widthClass = 'max-w-[760px]', heightClass = 'min-h-screen') {
+  return (
     <MockMapsRepositoryBoundary
       options={{
         searchResults: [museum, riverwalk],
@@ -52,11 +42,28 @@ const meta = {
         },
       }}
     >
-      <div className="min-h-screen bg-theme p-6">
-        <AddItemDialog {...args} />
+      <div className={`${heightClass} bg-theme p-6`}>
+        <div className={widthClass}>
+          <AddItemDialog {...args} />
+        </div>
       </div>
     </MockMapsRepositoryBoundary>
-  ),
+  );
+}
+
+const meta = {
+  title: 'Items/AddItemDialog',
+  component: AddItemDialog,
+  tags: ['autodocs'],
+  args: {
+    isOpen: true,
+    onClose: fn(),
+    onAdd: fn(),
+    defaultDate: '2026-05-12',
+    defaultTimezoneLabel: 'CDT',
+    isSubmitting: false,
+  },
+  render: (args) => renderDialog(args),
 } satisfies Meta<typeof AddItemDialog>;
 
 export default meta;
@@ -66,6 +73,30 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     initialPlace: museum,
+  },
+};
+
+export const CustomTitleSubmit: Story = {
+  args: {
+    initialPlace: museum,
+    onAdd: addItemSpy,
+  },
+  play: async ({ canvasElement }) => {
+    addItemSpy.mockClear();
+
+    const canvas = within(canvasElement);
+    const titleInput = canvas.getByLabelText('Title');
+
+    await expect(titleInput).toHaveValue(museum.name);
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, 'Museum lunch');
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Event to Itinerary' }));
+
+    await expect(addItemSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        placeName: 'Museum lunch',
+      }),
+    );
   },
 };
 
@@ -82,6 +113,14 @@ export const SelectedDayTimezone: Story = {
 
 export const EmptyState: Story = {};
 
+export const Submitting: Story = {
+  args: {
+    initialPlace: museum,
+    initialDestination: riverwalk,
+    isSubmitting: true,
+  },
+};
+
 export const WithRouteCalculation: Story = {
   args: {
     initialPlace: museum,
@@ -92,7 +131,7 @@ export const WithRouteCalculation: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Calculate travel time' }));
+    await userEvent.click(canvas.getByRole('button', { name: /calculate/i }));
 
     await expect(await canvas.findByText('18 min')).toBeInTheDocument();
   },
@@ -111,7 +150,7 @@ export const CustomPinRequiresName: Story = {
 
     await expect(submitButton).toBeDisabled();
 
-    await userEvent.type(canvas.getByPlaceholderText('Name this location'), 'Lakefront overlook');
+    await userEvent.type(canvas.getByLabelText('Location name'), 'Lakefront overlook');
     await userEvent.click(submitButton);
 
     await expect(addItemSpy).toHaveBeenCalledWith(
@@ -122,4 +161,15 @@ export const CustomPinRequiresName: Story = {
       }),
     );
   },
+};
+
+export const CompactViewport: Story = {
+  args: {
+    initialPlace: museum,
+    initialDestination: riverwalk,
+    initialType: 'transport',
+    initialTransportMode: 'walking',
+    initialRouteType: 'directions',
+  },
+  render: (args) => renderDialog(args, 'w-[430px]', 'min-h-[760px]'),
 };

@@ -75,4 +75,38 @@ describe('ItemDetailCard draft sync', () => {
 
     expect(textarea.value).toBe('Server final');
   });
+
+  it('keeps the focused title draft when the same item props echo back in', () => {
+    const { rerender } = render(<ItemDetailCard item={createItem()} embedded />);
+
+    const input = screen.getByLabelText('Title') as HTMLInputElement;
+    input.focus();
+    fireEvent.change(input, { target: { value: 'Local title draft' } });
+
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('Local title draft');
+
+    rerender(
+      <ItemDetailCard
+        item={createItem({ placeName: 'Server title echo' })}
+        embedded
+      />,
+    );
+
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('Local title draft');
+  });
+
+  it('accepts the latest same-item title props after focus leaves the title field', () => {
+    const { rerender } = render(<ItemDetailCard item={createItem()} embedded />);
+
+    const input = screen.getByLabelText('Title') as HTMLInputElement;
+    input.focus();
+    fireEvent.change(input, { target: { value: 'Local title draft' } });
+    input.blur();
+
+    rerender(<ItemDetailCard item={createItem({ placeName: 'Server final title' })} embedded />);
+
+    expect(input.value).toBe('Server final title');
+  });
 });

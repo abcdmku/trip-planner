@@ -1,13 +1,9 @@
 import type { Preview } from '@storybook/react-vite';
-import { initialize, mswLoader } from 'msw-storybook-addon';
 import { withAppProviders } from '../src/app/storybook/decorators';
 import '../src/index.css';
 
-initialize();
-
 const preview: Preview = {
   decorators: [withAppProviders],
-  loaders: [mswLoader],
   globalTypes: {
     theme: {
       description: 'Global theme for stories',

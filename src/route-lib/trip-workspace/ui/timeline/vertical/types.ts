@@ -143,7 +143,7 @@ export interface MultiDayColumnProps {
   nowMin: number;
   selectedItemId: string | null;
   isActive: boolean;
-  scrollerRef: RefObject<HTMLDivElement>;
+  scrollerRef: RefObject<HTMLDivElement | null>;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
   onLiveItemPreviewChange?: (preview: LiveItemPreview | null) => void;
   onItemClick?: (itemId: string) => void;

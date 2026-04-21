@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { StatusMessage } from './StatusMessage';
 
 export interface SyncIndicatorProps {
   status: 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
@@ -14,40 +15,56 @@ export function SyncIndicator({ status, lastSyncedAt, onRetry }: SyncIndicatorPr
   return (
     <div className="flex items-center gap-2">
       {status === 'syncing' ? (
-        <span className="flex items-center gap-1.5 text-xs text-amber-600">
-          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-          Syncing...
-        </span>
+        <StatusMessage
+          label="Syncing"
+          tone="info"
+          variant="inline"
+          icon={<RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+        />
       ) : null}
       {status === 'synced' ? (
-        <span className="flex items-center gap-1.5 text-xs text-emerald-600">
-          <Check className="h-3.5 w-3.5" />
-          Saved
-          {lastSyncedAt ? <span className="text-stone-400">{formatTime(lastSyncedAt)}</span> : null}
-        </span>
+        <StatusMessage
+          label="Saved"
+          detail={lastSyncedAt ? formatTime(lastSyncedAt) : undefined}
+          tone="success"
+          variant="inline"
+          icon={<Check className="h-3.5 w-3.5" />}
+        />
       ) : null}
       {status === 'error' ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:text-red-600"
-        >
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Sync failed
-          {onRetry ? <span className="underline">Retry</span> : null}
-        </button>
+        <StatusMessage
+          label="Sync failed"
+          tone="danger"
+          variant="inline"
+          icon={<AlertTriangle className="h-3.5 w-3.5" />}
+          actions={
+            onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="inline-flex items-center rounded-full border border-current/25 px-2 py-0.5 text-[10px] font-semibold transition-colors hover:bg-current/10"
+              >
+                Retry
+              </button>
+            ) : null
+          }
+        />
       ) : null}
       {status === 'offline' ? (
-        <span className="flex items-center gap-1.5 text-xs text-stone-400">
-          <WifiOff className="h-3.5 w-3.5" />
-          Offline
-        </span>
+        <StatusMessage
+          label="Offline"
+          tone="warning"
+          variant="inline"
+          icon={<WifiOff className="h-3.5 w-3.5" />}
+        />
       ) : null}
       {status === 'idle' ? (
-        <span className="flex items-center gap-1.5 text-xs text-stone-400">
-          <Wifi className="h-3.5 w-3.5" />
-          Connected
-        </span>
+        <StatusMessage
+          label="Connected"
+          tone="neutral"
+          variant="inline"
+          icon={<Wifi className="h-3.5 w-3.5" />}
+        />
       ) : null}
     </div>
   );
