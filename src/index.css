@@ -105,6 +105,10 @@
     border-color: rgb(var(--color-border));
   }
 
+  .bg-theme-border {
+    background-color: rgb(var(--color-border));
+  }
+
   .border-theme-subtle {
     border-color: rgb(var(--color-border-subtle));
   }

@@ -73,11 +73,22 @@ const shareControl = (
 
 const followStatus = <FollowModeBanner name="Maya Patel" contextLabel="Map" onExit={fn()} />;
 
-function renderNavbar(args: NavbarProps, widthClass = 'w-full') {
+function renderNavbar(
+  args: NavbarProps,
+  widthClass = 'w-full',
+  options?: { outerClassName?: string; shellClassName?: string },
+) {
+  const outerClassName = options?.outerClassName ?? 'min-h-screen bg-theme p-4';
+  const shellClassName =
+    options?.shellClassName ??
+    'overflow-visible rounded-theme-control border border-theme bg-theme shadow-theme-lg';
+
   return (
-    <div className="min-h-screen bg-theme p-4">
-      <div className={`${widthClass} overflow-hidden rounded-2xl border border-theme shadow-theme-lg`}>
-        <Navbar {...args} />
+    <div className={outerClassName}>
+      <div className={`${widthClass} ${shellClassName}`}>
+        <div className="overflow-visible [&>nav]:overflow-visible [&>nav]:border-b-0 [&>nav]:bg-transparent [&>nav]:backdrop-blur-none">
+          <Navbar {...args} />
+        </div>
       </div>
     </div>
   );
@@ -183,10 +194,15 @@ export const MobileStress: Story = {
   args: {
     tripName: 'Chicago Sprint Planning',
     syncStatus: 'offline',
+    compact: true,
     participantStrip: undefined,
     followStatus: undefined,
   },
-  render: (args) => renderNavbar(args, 'max-w-[320px]'),
+  render: (args) =>
+    renderNavbar(args, 'w-full max-w-[320px]', {
+      outerClassName: 'min-h-screen bg-theme p-0',
+      shellClassName: 'overflow-visible border-b border-theme bg-theme',
+    }),
 };
 
 export const NoTripContext: Story = {

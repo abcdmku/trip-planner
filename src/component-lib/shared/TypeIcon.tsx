@@ -10,12 +10,36 @@ import {
 import type { ItemType } from '@/types/trip';
 
 const TYPE_MAP: Record<ItemType, { icon: LucideIcon; color: string; bg: string }> = {
-  attraction: { icon: Landmark, color: 'text-blue-600', bg: 'bg-blue-50' },
-  restaurant: { icon: UtensilsCrossed, color: 'text-orange-600', bg: 'bg-orange-50' },
-  hotel: { icon: Bed, color: 'text-purple-600', bg: 'bg-purple-50' },
-  transport: { icon: Bus, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  activity: { icon: Target, color: 'text-pink-600', bg: 'bg-pink-50' },
-  other: { icon: MapPin, color: 'text-stone-600', bg: 'bg-stone-100' },
+  attraction: {
+    icon: Landmark,
+    color: 'text-blue-600 dark:text-blue-300',
+    bg: 'bg-blue-50 dark:bg-blue-500/12',
+  },
+  restaurant: {
+    icon: UtensilsCrossed,
+    color: 'text-orange-600 dark:text-orange-300',
+    bg: 'bg-orange-50 dark:bg-orange-500/12',
+  },
+  hotel: {
+    icon: Bed,
+    color: 'text-violet-600 dark:text-violet-300',
+    bg: 'bg-violet-50 dark:bg-violet-500/12',
+  },
+  transport: {
+    icon: Bus,
+    color: 'text-emerald-600 dark:text-emerald-300',
+    bg: 'bg-emerald-50 dark:bg-emerald-500/12',
+  },
+  activity: {
+    icon: Target,
+    color: 'text-pink-600 dark:text-pink-300',
+    bg: 'bg-pink-50 dark:bg-pink-500/12',
+  },
+  other: {
+    icon: MapPin,
+    color: 'text-stone-600 dark:text-stone-300',
+    bg: 'bg-stone-100 dark:bg-stone-500/12',
+  },
 };
 
 export interface TypeIconProps {

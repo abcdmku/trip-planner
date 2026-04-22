@@ -42,6 +42,9 @@ export const InvalidDateRange: Story = {
     await userEvent.type(canvas.getByLabelText('Start Date'), '2026-05-16');
     await userEvent.type(canvas.getByLabelText('End Date'), '2026-05-12');
 
+    await expect(
+      canvas.getByText('End date must be the same day or later than the start date.'),
+    ).toBeInTheDocument();
     await expect(canvas.getByRole('button', { name: 'Create Trip' })).toBeDisabled();
   },
 };

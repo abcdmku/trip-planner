@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  ChevronDown,
-  House,
-  LogOut,
-  Monitor,
-  Moon,
-  RefreshCw,
-  Sun,
-} from 'lucide-react';
-import { StatusMessage } from '@component-lib/sync/StatusMessage';
-
+import { ChevronDown, House, LogOut, Monitor, Moon, Sun, Users } from 'lucide-react';
 export type NavbarTheme = 'light' | 'dark' | 'system';
 
 export interface NavbarProps {
   tripName?: string;
   onTripNameChange?: (name: string) => void;
   syncStatus?: 'synced' | 'syncing' | 'error' | 'offline';
+  compact?: boolean;
   user?: { name: string; picture: string };
   onLogout?: () => void | Promise<void>;
   onHomeClick?: () => void;
@@ -37,36 +28,18 @@ const THEME_OPTIONS = [
   Icon: typeof Sun;
 }>;
 
-function SyncBadge({ status }: { status: 'synced' | 'syncing' | 'error' | 'offline' }) {
-  if (status === 'syncing') {
-    return (
-      <StatusMessage
-        label="Syncing"
-        tone="info"
-        variant="badge"
-        icon={<RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-      />
-    );
-  }
-  if (status === 'error') {
-    return <StatusMessage label="Sync error" tone="danger" variant="badge" />;
-  }
-  if (status === 'offline') {
-    return <StatusMessage label="Offline" tone="warning" variant="badge" />;
-  }
-  return <StatusMessage label="Saved" tone="success" variant="badge" />;
-}
-
 function CollaboratorSummary({
   activeCollaborators,
   participantStrip,
   open,
   onToggle,
+  compact,
 }: {
   activeCollaborators: Array<{ userId: string; name: string; picture: string; color: string }>;
   participantStrip?: ReactNode;
   open: boolean;
   onToggle: () => void;
+  compact: boolean;
 }) {
   const visibleCollaborators = activeCollaborators.slice(0, 2);
   const overflowCollaboratorCount = Math.max(activeCollaborators.length - visibleCollaborators.length, 0);
@@ -80,63 +53,69 @@ function CollaboratorSummary({
       onClick={onToggle}
       aria-expanded={open}
       aria-label="Open collaborators panel"
-      className="flex items-center rounded-full border border-theme bg-theme px-1.5 py-1 shadow-theme-sm transition-colors hover:bg-theme-subtle"
+      className={`flex items-center rounded-theme-control transition-colors ${
+        open ? 'bg-theme-subtle shadow-theme-sm' : 'bg-theme hover:bg-theme-subtle'
+      }`}
     >
       {visibleCollaborators.length > 0 ? (
-        <div className="flex items-center -space-x-2">
-          {visibleCollaborators.map((collaborator) => (
-            <span
-              key={collaborator.userId}
-              className="rounded-full p-[1px] ring-2 ring-theme"
-              style={{ backgroundColor: collaborator.color }}
-              title={collaborator.name}
-            >
-              <img
-                src={collaborator.picture}
-                alt={collaborator.name}
-                className="h-6 w-6 rounded-full border border-white/90 sm:h-7 sm:w-7"
-                referrerPolicy="no-referrer"
-              />
+        compact ? (
+          <span className="relative flex h-6 w-6 items-center justify-center">
+            <Users className="h-3 w-3 text-theme-secondary" />
+            <span className="absolute -right-1 top-0 flex h-3 min-w-3 items-center justify-center rounded-full bg-theme-border px-0.5 text-[7px] font-semibold leading-none text-theme">
+              {activeCollaborators.length}
             </span>
-          ))}
-          {overflowCollaboratorCount > 0 ? (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/90 bg-theme-subtle text-[9px] font-semibold text-theme-secondary ring-2 ring-theme sm:h-7 sm:w-7 sm:text-[10px]">
-              +{overflowCollaboratorCount}
-            </span>
-          ) : null}
-        </div>
+          </span>
+        ) : (
+          <div className="flex items-center px-1.5 py-1">
+            <div className="flex items-center -space-x-2">
+              {visibleCollaborators.map((collaborator) => (
+                <span
+                  key={collaborator.userId}
+                  className="rounded-full p-[1px]"
+                  style={{ backgroundColor: collaborator.color }}
+                  title={collaborator.name}
+                >
+                  <img
+                    src={collaborator.picture}
+                    alt={collaborator.name}
+                    className="h-7 w-7 rounded-full"
+                    referrerPolicy="no-referrer"
+                  />
+                </span>
+              ))}
+            </div>
+            {overflowCollaboratorCount > 0 ? (
+              <span className="ml-0.5 flex h-7 min-w-7 items-center justify-center text-[10px] font-semibold text-theme-secondary">
+                +{overflowCollaboratorCount}
+              </span>
+            ) : null}
+          </div>
+        )
       ) : (
-        <span className="px-2 text-xs font-semibold text-theme-secondary">Team</span>
+        <span className="px-2 py-1 text-xs font-semibold text-theme-secondary">Team</span>
       )}
     </button>
   );
 }
 
-function SyncToast({ status }: { status: 'error' | 'offline' }) {
-  const isError = status === 'error';
+function MenuPointer({ rightClassName, hidden }: { rightClassName: string; hidden: boolean }) {
+  if (hidden) return null;
+
   return (
-    <div className="px-3 pb-3 sm:px-5">
-      <div
-        className={`inline-flex max-w-full items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-medium shadow-theme-sm ${
-          isError
-            ? 'border-red-500/25 bg-red-500/10 text-red-600 dark:text-red-300'
-            : 'border-amber-500/25 bg-amber-500/12 text-amber-800 dark:text-amber-200'
-        }`}
-        role="status"
-      >
-        <span className="shrink-0">{isError ? 'Sync error' : 'Offline mode'}</span>
-        <span className="min-w-0 truncate opacity-85">
-          {isError ? 'Changes will retry automatically.' : 'Working locally until the connection returns.'}
-        </span>
-      </div>
-    </div>
+    <span
+      aria-hidden
+      className={`pointer-events-none absolute -top-[9px] h-[9px] w-[18px] ${rightClassName}`}
+    >
+      <span className="absolute inset-0 bg-theme-border [clip-path:polygon(50%_0,0_100%,100%_100%)]" />
+      <span className="absolute left-[2px] top-[2px] h-[7px] w-[14px] bg-theme-elevated [clip-path:polygon(50%_0,0_100%,100%_100%)]" />
+    </span>
   );
 }
 
 export function Navbar({
   tripName,
   onTripNameChange,
-  syncStatus = 'synced',
+  compact = false,
   user,
   onLogout,
   onHomeClick,
@@ -194,21 +173,38 @@ export function Navbar({
 
   const showThemeControls = Boolean(onThemeChange);
   const showCollaboratorSummary = activeCollaborators.length > 0 || Boolean(participantStrip);
-  const inlineSyncStatus = syncStatus === 'synced' || syncStatus === 'syncing' ? syncStatus : null;
-  const toastSyncStatus = syncStatus === 'error' || syncStatus === 'offline' ? syncStatus : null;
+  const navRowClassName = compact
+    ? 'grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-1 gap-y-2 pl-1 pr-1 py-1.5'
+    : 'grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 pl-4 pr-5 py-2';
+  const homeButtonClassName = compact
+    ? 'flex h-8 w-8 items-center justify-center rounded-theme-control bg-theme shadow-theme-sm transition-colors hover:bg-theme-subtle'
+    : 'flex h-10 w-10 items-center justify-center rounded-theme-control bg-theme shadow-theme-sm transition-colors hover:bg-theme-subtle';
+  const homeIconClassName = compact ? 'h-3.5 w-3.5 text-accent' : 'h-4 w-4 text-accent';
+  const titleButtonClassName = compact
+    ? 'max-w-full truncate text-left text-[13px] font-semibold text-theme transition-colors hover:text-accent'
+    : 'max-w-full truncate text-left text-sm font-semibold text-theme transition-colors hover:text-accent sm:text-base';
+  const rightSideClassName = compact
+    ? 'flex min-w-0 items-center justify-end gap-1'
+    : 'flex min-w-0 items-center justify-end gap-2.5';
+  const collaboratorMenuClassName = compact
+    ? 'fixed inset-x-2 top-[3.75rem] z-50 w-auto rounded-theme-shell border border-theme bg-theme-elevated shadow-theme-lg'
+    : 'absolute right-0 top-full z-50 mt-1.5 w-[min(320px,calc(100vw-2rem))] rounded-theme-shell border border-theme bg-theme-elevated shadow-theme-lg';
+  const profileMenuClassName = compact
+    ? 'fixed inset-x-2 top-[3.75rem] z-50 w-auto rounded-theme-shell border border-theme bg-theme-elevated shadow-theme-lg'
+    : 'absolute right-0 top-full z-50 mt-1.5 w-60 rounded-theme-shell border border-theme bg-theme-elevated shadow-theme-lg';
 
   return (
     <nav className="sticky top-0 z-40 border-b border-theme bg-theme-elevated/95 backdrop-blur">
-      <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2 sm:px-5">
+      <div className={navRowClassName}>
         <div className="flex items-center">
           <button
             type="button"
             onClick={onHomeClick}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-theme bg-theme shadow-theme-sm transition-colors hover:bg-theme-subtle"
+            className={homeButtonClassName}
             aria-label="Go to trips home"
             title="Back to trips"
           >
-            <House className="h-4 w-4 text-accent" />
+            <House className={homeIconClassName} />
           </button>
         </div>
 
@@ -235,23 +231,17 @@ export function Navbar({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="max-w-full truncate text-left text-sm font-semibold text-theme transition-colors hover:text-accent sm:text-base"
+                  className={titleButtonClassName}
                   title="Click to edit"
                 >
                   {tripName || 'Untitled Trip'}
                 </button>
               )}
-
-              <div className="mt-1 flex items-center gap-2">
-                {inlineSyncStatus ? <SyncBadge status={inlineSyncStatus} /> : null}
-              </div>
             </div>
           ) : null}
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-2.5">
-          {shareControl ? <div className="hidden md:block">{shareControl}</div> : null}
-
+        <div className={rightSideClassName}>
           {followStatus ? (
             <div className="hidden min-w-0 max-w-[220px] items-center overflow-hidden lg:flex [&>*]:max-w-full">
               {followStatus}
@@ -265,11 +255,13 @@ export function Navbar({
                 participantStrip={participantStrip}
                 open={collaborationOpen}
                 onToggle={() => setCollaborationOpen((current) => !current)}
+                compact={compact}
               />
 
               {collaborationOpen ? (
-                <div className="absolute right-0 top-full z-50 mt-2 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-theme bg-theme-elevated shadow-theme-lg">
-                  <div className="border-b border-theme-subtle px-4 py-3">
+                <div className={collaboratorMenuClassName}>
+                  <MenuPointer rightClassName="right-[29px]" hidden={compact} />
+                  <div className={compact ? 'border-b border-theme-subtle px-3 py-2.5' : 'border-b border-theme-subtle px-4 py-3'}>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-theme-tertiary">
                       Collaboration
                     </p>
@@ -279,11 +271,11 @@ export function Navbar({
                   </div>
 
                   {activeCollaborators.length > 0 ? (
-                    <div className="space-y-2 px-4 py-3">
+                    <div className={compact ? 'space-y-2 px-3 py-2.5' : 'space-y-2 px-4 py-3'}>
                       {activeCollaborators.map((collaborator) => (
                         <div
                           key={collaborator.userId}
-                          className="flex items-center gap-3 rounded-2xl bg-theme-subtle px-3 py-2"
+                          className={compact ? 'flex items-center gap-2.5 rounded-theme-control bg-theme px-2.5 py-2' : 'flex items-center gap-3 rounded-theme-control bg-theme px-3 py-2'}
                         >
                           <span
                             className="rounded-full p-[1px]"
@@ -292,7 +284,7 @@ export function Navbar({
                             <img
                               src={collaborator.picture}
                               alt={collaborator.name}
-                              className="h-8 w-8 rounded-full border border-white/90"
+                              className={compact ? 'h-7 w-7 rounded-full' : 'h-8 w-8 rounded-full'}
                               referrerPolicy="no-referrer"
                             />
                           </span>
@@ -308,7 +300,7 @@ export function Navbar({
                   ) : null}
 
                   {participantStrip ? (
-                    <div className="border-t border-theme-subtle px-4 py-3">
+                    <div className={compact ? 'border-t border-theme-subtle px-3 py-2.5' : 'border-t border-theme-subtle px-4 py-3'}>
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-theme-tertiary">
                         Jump Or Follow
                       </p>
@@ -327,30 +319,33 @@ export function Navbar({
               <button
                 type="button"
                 onClick={() => setProfileMenuOpen((current) => !current)}
-                className="group flex items-center gap-1 rounded-full border border-theme bg-theme px-1.5 py-1 shadow-theme-sm transition-colors hover:bg-theme-subtle"
+                className={`group flex items-center rounded-theme-control transition-colors ${
+                  profileMenuOpen ? 'bg-theme-subtle shadow-theme-sm' : 'bg-theme hover:bg-theme-subtle'
+                } ${compact ? 'px-1.5 py-0' : 'gap-1 px-1.5 py-1'}`}
                 aria-expanded={profileMenuOpen}
                 aria-label={`Open profile menu for ${user.name}`}
               >
                 <img
                   src={user.picture}
                   alt={user.name}
-                  className="h-8 w-8 rounded-full"
+                  className={compact ? 'mx-0.5 h-5.5 w-5.5 rounded-full' : 'h-8 w-8 rounded-full'}
                   referrerPolicy="no-referrer"
                 />
                 <ChevronDown
-                  className={`h-3.5 w-3.5 text-theme-tertiary transition-transform ${
+                  className={`${compact ? 'hidden' : 'h-3.5 w-3.5'} text-theme-tertiary transition-transform ${
                     profileMenuOpen ? 'rotate-180' : ''
                   }`}
                 />
               </button>
 
               {profileMenuOpen ? (
-                <div className="absolute right-0 top-full z-50 mt-2 w-60 rounded-2xl border border-theme bg-theme-elevated shadow-theme-lg">
-                  <div className="flex items-center gap-3 border-b border-theme-subtle px-4 py-4">
+                <div className={profileMenuClassName}>
+                  <MenuPointer rightClassName="right-[29px]" hidden={compact} />
+                  <div className={compact ? 'flex items-center gap-3 border-b border-theme-subtle px-3 py-3' : 'flex items-center gap-3 border-b border-theme-subtle px-4 py-4'}>
                     <img
                       src={user.picture}
                       alt={user.name}
-                      className="h-11 w-11 rounded-full"
+                      className={compact ? 'h-10 w-10 rounded-full' : 'h-11 w-11 rounded-full'}
                       referrerPolicy="no-referrer"
                     />
                     <div className="min-w-0">
@@ -359,12 +354,21 @@ export function Navbar({
                     </div>
                   </div>
 
+                  {shareControl ? (
+                    <div className={`${compact ? 'border-b border-theme-subtle px-3 py-2.5' : 'border-b border-theme-subtle px-4 py-3'} [&>*]:w-full [&>*]:justify-start`}>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-theme-tertiary">
+                        Workspace
+                      </p>
+                      {shareControl}
+                    </div>
+                  ) : null}
+
                   {showThemeControls ? (
-                    <div className="border-b border-theme-subtle px-4 py-3">
+                    <div className={compact ? 'border-b border-theme-subtle px-3 py-2.5' : 'border-b border-theme-subtle px-4 py-3'}>
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-theme-tertiary">
                         Appearance
                       </p>
-                      <div className="grid grid-cols-3 gap-1 rounded-2xl bg-theme-subtle p-1">
+                      <div className="grid grid-cols-3 gap-1 rounded-theme-control bg-theme p-1">
                         {THEME_OPTIONS.map(({ value, label, Icon }) => (
                           <button
                             key={value}
@@ -374,7 +378,7 @@ export function Navbar({
                               setProfileMenuOpen(false);
                             }}
                             aria-label={`${label} theme`}
-                            className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold transition-colors ${
+                            className={`flex flex-col items-center gap-1 rounded-theme-surface px-2 py-2 text-[11px] font-semibold transition-colors ${
                               theme === value
                                 ? 'bg-theme text-accent shadow-theme-sm'
                                 : 'text-theme-secondary hover:bg-theme hover:text-theme'
@@ -394,7 +398,7 @@ export function Navbar({
                       setProfileMenuOpen(false);
                       onLogout?.();
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-red-500"
+                    className={compact ? 'flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-red-500' : 'flex w-full items-center gap-2 px-4 py-3 text-sm font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-red-500'}
                   >
                     <LogOut className="h-4 w-4" />
                     Sign out
@@ -405,8 +409,6 @@ export function Navbar({
           ) : null}
         </div>
       </div>
-
-      {toastSyncStatus ? <SyncToast status={toastSyncStatus} /> : null}
     </nav>
   );
 }
