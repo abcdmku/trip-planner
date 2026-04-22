@@ -1,0 +1,9 @@
+{
+  "name": "frontend-design",
+  "version": "1.0.0",
+  "description": "Repo-local frontend design skill for Claude Code, launched through Opus with max effort via the included wrapper script.",
+  "author": {
+    "name": "cafal",
+    "email": "local-plugin@localhost"
+  }
+}

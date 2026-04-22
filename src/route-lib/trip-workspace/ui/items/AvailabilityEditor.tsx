@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
+import { DateInput } from '@/component-lib/shared/DateInput';
 import {
   parseAvailabilityEntries,
   serializeAvailabilityEntries,
@@ -232,8 +233,7 @@ export function AvailabilityEditor({
                     })}
                   </div>
                 ) : (
-                  <input
-                    type="date"
+                  <DateInput
                     value={entry.date}
                     onChange={(e) =>
                       updateEntry(index, (current) =>
@@ -242,7 +242,7 @@ export function AvailabilityEditor({
                           : current,
                       )
                     }
-                    className="input h-8 w-[148px] py-1 text-[11px]"
+                    className="h-8 w-full py-1 text-[11px] sm:w-[168px]"
                   />
                 )}
 

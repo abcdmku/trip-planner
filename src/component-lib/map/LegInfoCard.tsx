@@ -1,15 +1,6 @@
 import type { Leg, RouteType, TransportMode } from '@/types/trip';
 import type { FeasibilityStatus } from '@/lib/route-feasibility';
 
-const MODE_LABELS: Record<TransportMode, string> = {
-  driving: 'Drive',
-  walking: 'Walk',
-  bicycling: 'Bike',
-  transit: 'Transit',
-  flight: 'Flight',
-  other: 'Other',
-};
-
 const SELECTABLE_MODES: { mode: TransportMode; label: string }[] = [
   { mode: 'driving', label: 'Drive' },
   { mode: 'walking', label: 'Walk' },
@@ -80,22 +71,6 @@ export function LegInfoCard({
         <CloseIcon />
       </button>
 
-      <div className="mb-2 flex items-center gap-2">
-        <ModeIcon mode={leg.mode} />
-        <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          {MODE_LABELS[leg.mode] ?? leg.mode}
-        </span>
-        {feasibility && feasibility.status !== 'unknown' && (
-          <span
-            className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
-            style={{ backgroundColor: feasibility.color }}
-          >
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-white/60" />
-            {feasibility.label}
-          </span>
-        )}
-      </div>
-
       <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
         <span className="max-w-[120px] truncate font-semibold" title={fromName}>
           {fromName}
@@ -106,7 +81,16 @@ export function LegInfoCard({
         </span>
       </div>
 
-      <div className="mt-2 flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+      <div className="mt-2 flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+        {feasibility && feasibility.status !== 'unknown' && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
+            style={{ backgroundColor: feasibility.color }}
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-white/60" />
+            {feasibility.label}
+          </span>
+        )}
         <span className="flex items-center gap-1">
           <ClockIcon />
           {formatDuration(leg.durationMinutes)}
@@ -118,8 +102,7 @@ export function LegInfoCard({
       </div>
 
       {onModeChange && (
-        <div className="mt-3 border-t border-gray-100 pt-2 dark:border-gray-700">
-          <div className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">Change mode</div>
+        <div className="mt-3">
           <div className="flex gap-1">
             {selectableModes.map(({ mode, label }) => (
               <button
@@ -133,7 +116,7 @@ export function LegInfoCard({
                     : 'bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                <ModeIcon mode={mode} size="h-3.5 w-3.5" />
+                <ModeIcon mode={mode} size="h-3.5 w-3.5" tone="current" />
                 <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
@@ -142,7 +125,7 @@ export function LegInfoCard({
       )}
 
       {onRouteTypeChange && (
-        <div className="mt-3 border-t border-gray-100 pt-2 dark:border-gray-700">
+        <div className="mt-3">
           <div className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">Route type</div>
           <div className="flex gap-1">
             {routeTypes.map(({ type, label }) => (
@@ -166,7 +149,7 @@ export function LegInfoCard({
       )}
 
       {openInGoogleMapsUrl && (
-        <div className="mt-3 border-t border-gray-100 pt-2 dark:border-gray-700">
+        <div className="mt-3">
           <a
             href={openInGoogleMapsUrl}
             target="_blank"
@@ -189,8 +172,18 @@ function CloseIcon() {
   );
 }
 
-function ModeIcon({ mode, size = 'h-5 w-5' }: { mode: TransportMode; size?: string }) {
-  const className = `${size} text-gray-700`;
+function ModeIcon({
+  mode,
+  size = 'h-5 w-5',
+  tone = 'muted',
+}: {
+  mode: TransportMode;
+  size?: string;
+  tone?: 'muted' | 'current';
+}) {
+  const className = `${size} ${
+    tone === 'current' ? 'text-current' : 'text-gray-700 dark:text-gray-300'
+  }`;
 
   switch (mode) {
     case 'driving':

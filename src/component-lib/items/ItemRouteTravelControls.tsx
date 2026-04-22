@@ -60,14 +60,33 @@ export function ItemRouteTravelControls({
   const showRouteRow = true;
   const hasTravelDuration = isRouted && travelDurationMinutes > 0 && !isCalculatingRoute;
   const actionCount = Number(Boolean(isRouted && onCalculateRoute)) + Number(Boolean(openInGoogleMapsUrl));
+  const compactSingleLineRouteRow = compact && routeModeCapable && actionCount <= 1;
   const routeRowClassName = compact
-    ? 'space-y-2.5 rounded-lg bg-theme-subtle p-2.5'
+    ? compactSingleLineRouteRow
+      ? 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 rounded-lg bg-theme-subtle px-2 py-1.5'
+      : 'flex flex-wrap items-center gap-1.5 rounded-lg bg-theme-subtle px-2 py-1.5'
     : 'grid gap-3 rounded-lg bg-theme-subtle p-3 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center';
   const routeActionsClassName = compact
-    ? actionCount > 1
-      ? 'grid grid-cols-2 gap-2'
-      : 'grid grid-cols-1 gap-2'
+    ? compactSingleLineRouteRow
+      ? 'flex shrink-0 items-center'
+      : actionCount > 1
+      ? 'flex w-full flex-wrap gap-1.5'
+      : 'ml-auto flex shrink-0 items-center'
     : 'flex flex-col gap-2 sm:flex-row md:justify-end';
+  const routeToggleGroupClassName = compact
+    ? 'inline-flex shrink-0 rounded-md bg-theme p-0.5'
+    : 'inline-flex w-full rounded-md bg-theme p-0.5 md:w-auto';
+  const routeSummaryClassName = compact
+    ? compactSingleLineRouteRow
+      ? hasTravelDuration
+        ? 'min-w-0 text-right text-[11px] text-theme-tertiary'
+        : 'min-w-0 text-center text-[10px] text-theme-tertiary'
+      : hasTravelDuration
+      ? 'shrink-0 text-[11px] text-theme-tertiary'
+      : routeModeCapable
+        ? 'order-3 basis-full text-[11px] text-theme-tertiary'
+        : 'min-w-0 flex-1 text-[11px] text-theme-tertiary'
+    : 'min-w-0 text-[11px] text-theme-tertiary';
 
   const calculateTitle = !canCalculateRoute
     ? !hasOrigin
@@ -83,7 +102,7 @@ export function ItemRouteTravelControls({
 
   const modePill = (active: boolean) =>
     compact
-      ? `flex h-11 w-full items-center justify-center rounded-xl border text-[10px] font-semibold transition-colors ${
+      ? `flex h-9 min-w-0 w-full items-center justify-center rounded-lg border text-[10px] font-semibold transition-colors ${
           active
             ? 'border-[rgba(var(--color-accent),0.35)] bg-[rgba(var(--color-accent),0.15)] text-accent'
             : 'border-theme bg-theme text-theme-secondary hover:bg-theme-subtle hover:text-theme'
@@ -95,7 +114,7 @@ export function ItemRouteTravelControls({
         }`;
 
   const routeTogglePill = (active: boolean) =>
-    `inline-flex h-7 items-center justify-center rounded-md px-2.5 text-[10px] font-semibold transition-colors ${
+    `inline-flex ${compact ? 'h-6 px-2' : 'h-7 px-2.5'} items-center justify-center rounded-md text-[10px] font-semibold transition-colors ${
       active
         ? 'bg-[rgba(var(--color-accent),0.15)] text-accent'
         : 'text-theme-tertiary hover:bg-theme hover:text-theme-secondary'
@@ -104,13 +123,13 @@ export function ItemRouteTravelControls({
   return (
     <div
       className={`rounded-xl border border-theme bg-theme ${
-        compact ? 'space-y-2 p-2' : 'space-y-2.5 p-2.5'
+        compact ? 'space-y-1.5 p-1.5' : 'space-y-2.5 p-2.5'
       }`}
     >
       <div
         className={
           compact
-            ? 'grid grid-cols-3 gap-1.5 sm:grid-cols-6'
+            ? 'grid grid-cols-6 gap-1'
             : 'grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6'
         }
         role="group"
@@ -131,7 +150,7 @@ export function ItemRouteTravelControls({
             aria-label={label}
             title={label}
           >
-            <Icon className={`${compact ? 'h-5 w-5' : 'h-4 w-4'} shrink-0`} />
+            <Icon className="h-4 w-4 shrink-0" />
             {!compact ? <span className="truncate leading-none">{label}</span> : null}
           </button>
         ))}
@@ -141,13 +160,13 @@ export function ItemRouteTravelControls({
         <div className={routeRowClassName}>
           <div className="min-w-0">
             {routeModeCapable ? (
-              <div className="inline-flex w-full rounded-md bg-theme p-0.5 md:w-auto">
+              <div className={routeToggleGroupClassName}>
                 {ROUTE_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => onChange({ transportMode, itemRouteType: option.value })}
-                    className={`${routeTogglePill(itemRouteType === option.value)} flex-1 md:flex-none`}
+                    className={`${routeTogglePill(itemRouteType === option.value)} ${compact ? 'flex-none' : 'flex-1 md:flex-none'}`}
                     aria-pressed={itemRouteType === option.value}
                   >
                     {option.label}
@@ -166,13 +185,13 @@ export function ItemRouteTravelControls({
             )}
           </div>
 
-          <div className="min-w-0 text-[11px] text-theme-tertiary">
+          <div className={routeSummaryClassName}>
             {hasTravelDuration ? (
               <span className="text-[13px] font-semibold tabular-nums text-accent">
                 {travelDurationMinutes} min
               </span>
             ) : (
-              <span className="line-clamp-2">
+              <span className={compactSingleLineRouteRow ? 'block truncate' : 'line-clamp-2'}>
                 {canCalculateRoute
                   ? hasCalculatedRoute
                     ? 'Refresh travel time after editing stops or mode.'
@@ -188,7 +207,9 @@ export function ItemRouteTravelControls({
                 type="button"
                 onClick={onCalculateRoute}
                 disabled={!canCalculateRoute || isCalculatingRoute}
-                className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-theme bg-theme px-2.5 py-1.5 text-[10px] font-semibold text-theme-secondary transition-colors hover:bg-theme hover:text-theme disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+                className={`inline-flex items-center justify-center gap-1 rounded-md border border-theme bg-theme font-semibold text-theme-secondary transition-colors hover:bg-theme hover:text-theme disabled:cursor-not-allowed disabled:opacity-40 ${
+                  compact ? 'h-7 shrink-0 px-2 text-[10px]' : 'w-full px-2.5 py-1.5 text-[10px] sm:w-auto'
+                }`}
                 aria-label={calculateTitle}
                 title={calculateTitle}
               >
@@ -206,7 +227,9 @@ export function ItemRouteTravelControls({
                 href={openInGoogleMapsUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex w-full items-center justify-center rounded-md px-2.5 py-1.5 text-[10px] font-semibold text-theme-secondary transition-colors hover:bg-theme hover:text-theme sm:w-auto"
+                className={`inline-flex items-center justify-center rounded-md font-semibold text-theme-secondary transition-colors hover:bg-theme hover:text-theme ${
+                  compact ? 'h-7 shrink-0 px-2 text-[10px]' : 'w-full px-2.5 py-1.5 text-[10px] sm:w-auto'
+                }`}
               >
                 Open in Maps
               </a>

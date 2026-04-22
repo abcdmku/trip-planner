@@ -18,6 +18,7 @@ const meta = {
   },
   args: {
     name: 'Maya Patel',
+    contextLabel: 'Timeline',
     onExit: onExitSpy,
   },
   render: (args) => (
@@ -36,7 +37,7 @@ export const Default: Story = {};
 export const ExitAction: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: /stop/i }));
+    await userEvent.click(canvas.getByRole('button', { name: /stop following maya patel/i }));
     await expect(onExitSpy).toHaveBeenCalledTimes(1);
   },
 };

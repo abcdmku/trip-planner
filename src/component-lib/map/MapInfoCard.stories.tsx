@@ -11,7 +11,13 @@ const addSpy = fn();
 const editSpy = fn();
 const deleteSpy = fn();
 
-const place = createPlaceSearchResultFixture({
+const previewImageUrls = [
+  'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+];
+
+const basePlace = createPlaceSearchResultFixture({
   name: 'Chicago Cultural Center',
   address: '78 E Washington St, Chicago, IL 60602',
   rating: 4.8,
@@ -23,6 +29,12 @@ const place = createPlaceSearchResultFixture({
   googleMapsUrl: 'https://maps.google.com',
   editorialSummary: 'Historic landmark with free exhibitions, a dramatic dome, and public performances.',
   weekdayText: ['Monday: 10:00 AM - 5:00 PM', 'Tuesday: 10:00 AM - 5:00 PM'],
+  photoUrls: [],
+});
+
+const placeWithMultiplePreviewImages = createPlaceSearchResultFixture({
+  ...basePlace,
+  photoUrls: previewImageUrls,
 });
 
 const meta = {
@@ -30,7 +42,7 @@ const meta = {
   component: MapInfoCard,
   tags: ['autodocs'],
   args: {
-    place,
+    place: basePlace,
     item: null,
     day: {
       date: '2026-05-12',
@@ -74,6 +86,7 @@ export const ErrorState: Story = {
 
 export const ItineraryItem: Story = {
   args: {
+    place: placeWithMultiplePreviewImages,
     item: createItemFixture({
       type: 'activity',
       placeName: 'Architecture boat tour',
@@ -81,6 +94,43 @@ export const ItineraryItem: Story = {
       scheduledEnd: '2026-05-12T11:30:00.000Z',
       durationMinutes: 90,
     }),
+  },
+};
+
+export const MultiplePreviewImages: Story = {
+  args: {
+    place: placeWithMultiplePreviewImages,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole('img', { name: 'Chicago Cultural Center image 1' }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole('img', { name: 'Chicago Cultural Center image 2' }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole('img', { name: 'Chicago Cultural Center image 3' }),
+    ).toBeInTheDocument();
+
+    await expect(canvas.getByText('+ 1 more day')).toBeVisible();
+    await userEvent.click(canvas.getByText('Hours of operation - CDT'));
+    await expect(canvas.getByText('Tuesday: 10:00 AM - 5:00 PM')).toBeVisible();
+    await expect(canvas.getByText('+ 1 more day')).not.toBeVisible();
+
+    await expect(canvas.getByRole('link', { name: 'Call (312) 744-6630' })).toBeVisible();
+    await expect(canvas.getByRole('link', { name: 'Open website' })).toBeVisible();
+    await expect(canvas.getByRole('link', { name: 'Open directions' })).toBeVisible();
+  },
+};
+
+export const NoPreviewImages: Story = {
+  args: {
+    place: basePlace,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryAllByRole('img')).toHaveLength(0);
   },
 };
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Palette, X } from 'lucide-react';
+import { DateInput } from '@/component-lib/shared/DateInput';
 import type { Day } from '@/types/trip';
 import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
 import { getAutoDayLabel, isDefaultNumberedDayLabel } from '@/lib/day-labels';
@@ -133,12 +134,10 @@ export function DayEditor({
             <label htmlFor="day-date" className="mb-1 block text-sm font-medium text-theme-secondary">
               Date
             </label>
-            <input
+            <DateInput
               id="day-date"
-              type="date"
               value={date}
               onChange={(event) => handleDateChange(event.target.value)}
-              className="input"
             />
           </div>
 

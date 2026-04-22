@@ -16,6 +16,7 @@ const baseReadyArgs = {
         'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=128&q=80',
     },
     onLogout: fn(),
+    onHomeClick: fn(),
     participantStrip: (
       <div className="rounded-xl border border-theme bg-theme-elevated px-3 py-2 text-sm text-theme">
         Participant strip

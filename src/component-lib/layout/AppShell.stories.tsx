@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { AppShell, type AppShellProps } from './AppShell';
 import { StatusMessage } from '@/component-lib/sync/StatusMessage';
+import { FollowModeBanner } from '@/component-lib/presence/FollowModeBanner';
 
 function avatarDataUri(label: string, background: string): string {
   const initials = label
@@ -202,57 +203,127 @@ const multiDayTimeline = (
 );
 
 const map = (
-  <div className="flex h-full w-full flex-col justify-between overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.35),_transparent_35%),linear-gradient(135deg,_rgba(249,250,251,1),_rgba(229,231,235,1))] p-6 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.2),_transparent_35%),linear-gradient(135deg,_rgba(23,23,23,1),_rgba(38,38,38,1))]">
-    <div className="flex items-start justify-between gap-4">
-      <div className="rounded-2xl border border-theme bg-theme/90 px-4 py-3 shadow-theme-lg backdrop-blur">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-theme-tertiary">
-          Live map
-        </p>
-        <p className="text-sm font-semibold text-theme">Downtown planning canvas</p>
-      </div>
-      <div className="rounded-full border border-theme bg-theme/90 px-3 py-1.5 text-xs font-medium text-theme-secondary shadow-theme-sm backdrop-blur">
-        12 pins
-      </div>
-    </div>
-    <div className="grid flex-1 grid-cols-3 gap-3 px-8 py-6">
-      {['Morning cluster', 'River route', 'Evening handoff'].map((label, index) => (
-        <div
-          key={label}
-          className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 shadow-theme-sm backdrop-blur dark:border-white/10 dark:bg-black/20"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-theme-tertiary">
-            {label}
-          </p>
-          <p className="mt-1 text-sm font-semibold text-theme">
-            {index === 0
-              ? 'Museum Campus'
-              : index === 1
-                ? 'Riverwalk leg'
-                : 'Wicker Park shortlist'}
-          </p>
-        </div>
+  <div className="relative h-full w-full overflow-hidden bg-[linear-gradient(160deg,#edf5ef_0%,#e3efe8_44%,#d7e6de_100%)] dark:bg-[linear-gradient(160deg,#0f1715_0%,#12201b_44%,#183029_100%)]">
+    <div className="absolute inset-0 opacity-50 [background-image:linear-gradient(rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.06)_1px,transparent_1px)] [background-size:52px_52px]" />
+    <div className="absolute -left-20 top-8 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+    <div className="absolute right-[-8%] top-20 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
+
+    <svg
+      className="absolute inset-0 h-full w-full opacity-80"
+      viewBox="0 0 900 700"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M78 472 C180 430 228 324 322 308 C446 286 516 362 602 350 C694 336 760 258 820 190"
+        fill="none"
+        stroke="rgba(245,158,11,0.8)"
+        strokeWidth="16"
+        strokeLinecap="round"
+      />
+      <path
+        d="M86 468 C194 424 238 318 332 302 C456 280 530 362 612 344 C706 324 778 256 834 182"
+        fill="none"
+        stroke="rgba(255,255,255,0.7)"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray="10 12"
+      />
+      {[
+        { cx: 112, cy: 454 },
+        { cx: 304, cy: 314 },
+        { cx: 516, cy: 354 },
+        { cx: 788, cy: 238 },
+      ].map((pin) => (
+        <g key={`${pin.cx}-${pin.cy}`}>
+          <circle cx={pin.cx} cy={pin.cy} r="16" fill="rgba(15,23,42,0.14)" />
+          <circle cx={pin.cx} cy={pin.cy} r="12" fill="#ffffff" />
+          <circle cx={pin.cx} cy={pin.cy} r="7" fill="#f59e0b" />
+        </g>
       ))}
+    </svg>
+
+    <div className="absolute left-4 top-4 max-w-[220px] rounded-[28px] border border-white/60 bg-theme/88 px-4 py-3 shadow-theme-lg backdrop-blur">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-theme-tertiary">
+        Live Map
+      </p>
+      <p className="mt-1 text-sm font-semibold text-theme">Downtown planning canvas</p>
+      <p className="mt-1 text-xs text-theme-secondary">Museum Campus to Wicker Park via the river corridor.</p>
     </div>
-    <div className="flex justify-end">
-      <div className="rounded-2xl border border-theme bg-theme/90 px-4 py-3 shadow-theme-lg backdrop-blur">
-        <p className="text-sm font-semibold text-theme">Lakefront route</p>
-        <p className="text-xs text-theme-secondary">18 min walking between afternoon stops</p>
+
+    <div className="absolute right-4 top-4 rounded-full border border-white/60 bg-theme/88 px-3 py-1.5 text-xs font-medium text-theme-secondary shadow-theme-sm backdrop-blur">
+      12 pins
+    </div>
+
+    {[
+      {
+        label: 'Morning cluster',
+        detail: 'Museum Campus',
+        className: 'left-[10%] top-[34%]',
+      },
+      {
+        label: 'River route',
+        detail: 'Riverwalk leg',
+        className: 'left-[42%] top-[24%]',
+      },
+      {
+        label: 'Evening handoff',
+        detail: 'Wicker Park shortlist',
+        className: 'left-[65%] top-[48%]',
+      },
+    ].map((callout) => (
+      <div
+        key={callout.label}
+        className={`absolute ${callout.className} rounded-2xl border border-white/70 bg-white/72 px-3 py-2 shadow-theme-sm backdrop-blur dark:border-white/10 dark:bg-black/28`}
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-theme-tertiary">
+          {callout.label}
+        </p>
+        <p className="mt-1 text-sm font-semibold text-theme">{callout.detail}</p>
+      </div>
+    ))}
+
+    <div className="absolute bottom-6 left-4 right-4 rounded-[28px] border border-white/60 bg-theme/92 p-4 shadow-theme-lg backdrop-blur">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-theme-tertiary">
+            Active route
+          </p>
+          <p className="mt-1 text-sm font-semibold text-theme">Lakefront route</p>
+          <p className="text-xs text-theme-secondary">18 min walk between the afternoon anchors.</p>
+        </div>
+        <span className="rounded-full bg-accent/12 px-3 py-1 text-xs font-semibold text-accent">
+          Ready to review
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {['Museum Campus', 'Riverwalk', 'West Loop transfer', 'Wicker Park'].map((stop) => (
+          <span
+            key={stop}
+            className="rounded-full border border-theme-subtle bg-theme px-2.5 py-1 text-xs font-medium text-theme-secondary"
+          >
+            {stop}
+          </span>
+        ))}
       </div>
     </div>
   </div>
 );
 
 const participantStrip = (
-  <div className="hidden items-center gap-1 rounded-full border border-theme bg-theme px-2 py-1 md:flex">
-    {collaborators.slice(0, 2).map((collaborator) => (
-      <img
-        key={collaborator.userId}
-        src={collaborator.picture}
-        alt={collaborator.name}
-        className="h-5 w-5 rounded-full border border-white"
-      />
-    ))}
-    <span className="pl-1 text-xs font-medium text-theme-secondary">3 live</span>
+  <div className="flex items-center gap-2">
+    <button
+      type="button"
+      className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+    >
+      Follow teammate
+    </button>
+    <button
+      type="button"
+      className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+    >
+      Jump to selection
+    </button>
   </div>
 );
 
@@ -266,9 +337,7 @@ const shareControl = (
 );
 
 const followStatus = (
-  <div className="hidden md:block">
-    <StatusMessage label="Following Maya on map" tone="info" variant="badge" />
-  </div>
+  <FollowModeBanner name="Maya Patel" contextLabel="Map" onExit={fn()} />
 );
 
 const topBanner = (
@@ -309,6 +378,7 @@ const baseArgs = {
   syncStatus: 'synced',
   user,
   onLogout: fn(),
+  onHomeClick: fn(),
   participantStrip,
   shareControl,
   activeCollaborators: collaborators,
@@ -349,6 +419,7 @@ const meta = {
     onActiveTabChange: { control: false },
     onTripNameChange: { control: false },
     onLogout: { control: false },
+    onHomeClick: { control: false },
     onDesktopLayoutModeChange: { control: false },
     onDesktopLeftPanelWidthChange: { control: false },
     onItineraryScroll: { control: false },
@@ -384,9 +455,7 @@ export const CollaborativeOverlay: Story = {
     topBanner,
     workspaceOverlay,
     followStatus: (
-      <div className="hidden rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-theme md:block">
-        Following Nora on timeline
-      </div>
+      <FollowModeBanner name="Nora Kim" contextLabel="Timeline" onExit={fn()} />
     ),
   },
   render: (args) => renderShell(args, 'max-w-[1180px]'),
@@ -407,16 +476,7 @@ export const ConstrainedDesktopStress: Story = {
     syncStatus: 'error',
     topBanner,
     workspaceOverlay,
-    followStatus: (
-      <div className="hidden md:block">
-        <StatusMessage
-          label="Following Nora on timeline"
-          detail="Review mode"
-          tone="info"
-          variant="badge"
-        />
-      </div>
-    ),
+    followStatus: <FollowModeBanner name="Nora Kim" contextLabel="Timeline" onExit={fn()} />,
   },
   render: (args) => renderShell(args, 'max-w-[960px]'),
 };

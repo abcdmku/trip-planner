@@ -36,6 +36,7 @@ export interface NavbarProps {
   syncStatus?: SyncStatus;
   user?: LayoutUser;
   onLogout?: () => void | Promise<void>;
+  onHomeClick?: () => void;
   participantStrip?: ReactNode;
   shareControl?: ReactNode;
   activeCollaborators?: ActiveCollaborator[];
@@ -57,6 +58,7 @@ export interface AppShellProps {
   syncStatus?: SyncStatus;
   user?: LayoutUser;
   onLogout?: () => void | Promise<void>;
+  onHomeClick?: () => void;
   participantStrip?: ReactNode;
   shareControl?: ReactNode;
   activeCollaborators?: ActiveCollaborator[];

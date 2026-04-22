@@ -1,39 +1,13 @@
-import { Clock3, Globe, Loader2, Pencil, Phone, Plus, Star, Trash2, X } from 'lucide-react';
+import { ChevronDown, Globe, Loader2, MapPinned, Pencil, Phone, Plus, Trash2, X } from 'lucide-react';
+import { PhotoGallery } from '@/component-lib/shared/PhotoGallery';
 import {
   buildHoursOfOperationLines,
   buildHoursOfOperationSummary,
   buildTimeRangeParts,
   getDayTimezoneLabel,
 } from '@/lib/day-time-display';
-import type { Day, Item, ItemType } from '@/types/trip';
+import type { Day, Item } from '@/types/trip';
 import type { PlaceSearchResult } from '@/services/maps-repository';
-
-const TYPE_BADGE: Record<ItemType, { className: string; label: string }> = {
-  attraction: {
-    className: 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
-    label: 'Attraction',
-  },
-  restaurant: {
-    className: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300',
-    label: 'Restaurant',
-  },
-  hotel: {
-    className: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-    label: 'Hotel',
-  },
-  transport: {
-    className: 'border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300',
-    label: 'Transport',
-  },
-  activity: {
-    className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    label: 'Activity',
-  },
-  other: {
-    className: 'border-theme bg-theme-subtle text-theme-secondary',
-    label: 'Other',
-  },
-};
 
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
@@ -42,29 +16,35 @@ function formatDuration(minutes: number): string {
   return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
-function formatTypeLabel(type: string): string {
-  return type
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 function formatPriceLevel(level?: number): string | null {
   if (!level || level < 1) return null;
   return '$'.repeat(level);
 }
 
-function getRatingBadgeClasses(rating: number, userRatingsTotal?: number): string {
-  if (rating >= 4.7 && (userRatingsTotal ?? 0) > 100) {
-    return 'border-teal-400/40 bg-teal-500/15 text-teal-700 shadow-[0_0_14px_rgba(20,184,166,0.45)] dark:text-teal-300 dark:shadow-[0_0_16px_rgba(45,212,191,0.35)]';
+function formatReviewCount(userRatingsTotal?: number): string | null {
+  if (!userRatingsTotal) return null;
+  return new Intl.NumberFormat('en-US').format(userRatingsTotal);
+}
+
+function buildPlaceFactLine(place: PlaceSearchResult): string[] {
+  const facts: string[] = [];
+  const rating = place.rating !== undefined ? place.rating.toFixed(1) : null;
+  const reviewCount = formatReviewCount(place.userRatingsTotal);
+  const price = formatPriceLevel(place.priceLevel);
+
+  if (place.openNow !== undefined) {
+    facts.push(place.openNow ? 'Open' : 'Closed');
   }
-  if (rating >= 4) {
-    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+
+  if (rating) {
+    facts.push(reviewCount ? `${rating} \u2605 (${reviewCount})` : `${rating} \u2605`);
   }
-  if (rating >= 3) {
-    return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+
+  if (price) {
+    facts.push(price);
   }
-  return 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300';
+
+  return facts;
 }
 
 export interface MapInfoCardProps {
@@ -94,9 +74,13 @@ export function MapInfoCard({
 }: MapInfoCardProps) {
   const isItineraryItem = Boolean(item);
   const renderedItem = displayItem ?? item;
-  const badge = item ? TYPE_BADGE[item.type] ?? TYPE_BADGE.other : null;
-  const photo = place?.photoUrls?.[0] ?? place?.photoRef;
-  const price = formatPriceLevel(place?.priceLevel);
+  const photos = place?.photoUrls?.length
+    ? place.photoUrls
+    : place?.photoRef
+      ? [place.photoRef]
+      : [];
+  const photo = photos[0];
+  const hasPhoto = Boolean(photo);
   const displayName = place?.name || item?.placeName || 'Unnamed place';
   const displayAddress = place?.address || item?.address;
   const dayTimezoneLabel = getDayTimezoneLabel(day);
@@ -112,215 +96,263 @@ export function MapInfoCard({
     weekdayText: place?.weekdayText,
     mapsAvailabilityWindows: place?.mapsAvailabilityWindows,
   });
+  const hiddenHoursCount = Math.max(0, hoursLines.length - 1);
+  const placeFacts = place ? buildPlaceFactLine(place) : [];
+  const placeSummary = place?.editorialSummary ? (
+    <div className="space-y-0.5">
+      <p className="line-clamp-2 text-sm leading-6 text-theme-secondary">
+        {place.editorialSummary}
+      </p>
+    </div>
+  ) : null;
+  const scheduleCard =
+    item && (timeRange || item.durationMinutes > 0) ? (
+      <div className="grid gap-3 rounded-theme-surface bg-theme px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        {timeRange ? (
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-theme-tertiary">
+              Scheduled
+            </p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-2">
+              <p className="text-sm font-medium text-theme">{timeRange.rangeLabel}</p>
+              {timeRange.timezoneLabel ? (
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-tertiary">
+                  {timeRange.timezoneLabel}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {item.durationMinutes > 0 ? (
+          <div className={timeRange ? 'sm:text-right' : ''}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-theme-tertiary">
+              Duration
+            </p>
+            <p className="mt-1 text-sm font-medium text-theme">
+              {formatDuration(item.durationMinutes)}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
   return (
-    <div className="relative max-h-[440px] min-w-[260px] max-w-[360px] overflow-y-auto rounded-xl border border-theme bg-theme-elevated p-3 text-theme shadow-theme-sm">
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="absolute right-4 top-4 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/35 bg-black text-white transition-colors hover:bg-zinc-900"
-      >
-        <X className="h-4 w-4" />
-      </button>
-
-      {isLoading && (
-        <div className="flex items-center gap-2 py-4 text-sm text-theme-secondary">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Loading place details...</span>
-        </div>
-      )}
-
-      {!isLoading && error && !place && !item && <p className="py-4 text-sm text-red-600">{error}</p>}
-
-      {(!isLoading || item) && (
-        <>
-          {photo && (
-            <img
-              src={photo}
-              alt={displayName}
-              className="mb-2 h-36 w-full rounded-lg object-cover"
-              loading="lazy"
-            />
-          )}
-
-          <h3 className="text-base font-semibold leading-tight text-theme">{displayName}</h3>
-          {displayAddress && <p className="mt-0.5 text-xs leading-snug text-theme-secondary">{displayAddress}</p>}
-
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {badge && (
-              <span
-                className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge.className}`}
-              >
-                {badge.label}
-              </span>
-            )}
-
-            {place?.rating !== undefined && (
-              <span
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${getRatingBadgeClasses(
-                  place.rating,
-                  place.userRatingsTotal,
-                )}`}
-              >
-                <Star className="h-3 w-3" />
-                {place.rating.toFixed(1)}
-                {place.userRatingsTotal ? ` (${place.userRatingsTotal})` : ''}
-              </span>
-            )}
-
-            {price && (
-              <span className="rounded-full border border-theme bg-theme-subtle px-2 py-0.5 text-[10px] font-medium text-theme-secondary">
-                {price}
-              </span>
-            )}
-
-            {place?.openNow !== undefined && (
-              <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                  place.openNow
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                    : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
-                }`}
-              >
-                {place.openNow ? 'Open now' : 'Closed now'}
-              </span>
-            )}
+    <div className="min-w-[280px] max-w-[372px] rounded-theme-shell border border-theme bg-theme-elevated text-theme shadow-theme-lg">
+      <div className="space-y-2 px-4 pb-4 pt-4">
+        {hasPhoto ? (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-0.5">
+              <h3 className="min-w-0 text-xl font-semibold leading-tight text-theme">{displayName}</h3>
+              {displayAddress ? (
+                <p className="text-sm leading-5 text-theme-secondary">{displayAddress}</p>
+              ) : null}
+              {placeFacts.length > 0 ? (
+                <p className="text-xs font-medium leading-relaxed text-theme-secondary">
+                  {placeFacts.join(' \u00b7 ')}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-theme-control bg-theme text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
+        ) : null}
 
-          {item && (timeRange || item.durationMinutes > 0) && (
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-theme-secondary">
-              {timeRange && (
-                <span className="flex items-center gap-1">
-                  <Clock3 className="h-3 w-3 flex-shrink-0" />
-                  <span>{timeRange.rangeLabel}</span>
-                  {timeRange.timezoneLabel ? (
-                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] opacity-70">
-                      {' '}
-                      {timeRange.timezoneLabel}
-                    </span>
-                  ) : null}
-                </span>
-              )}
-              {item.durationMinutes > 0 && (
-                <span className="flex items-center gap-1">
-                  <Clock3 className="h-3 w-3 flex-shrink-0" />
-                  {formatDuration(item.durationMinutes)}
-                </span>
-              )}
+        {hasPhoto ? null : (
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
+              <h3 className="min-w-0 text-xl font-semibold leading-tight text-theme">{displayName}</h3>
+              {displayAddress ? (
+                <p className="text-sm leading-5 text-theme-secondary">{displayAddress}</p>
+              ) : null}
+              {placeFacts.length > 0 ? (
+                <p className="text-xs font-medium leading-relaxed text-theme-secondary">
+                  {placeFacts.join(' \u00b7 ')}
+                </p>
+              ) : null}
             </div>
-          )}
 
-          {isLoading && item && (
-            <div className="mt-2 inline-flex items-center gap-2 text-xs text-theme-secondary">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading place details...
-            </div>
-          )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-theme-control bg-theme text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
-          {!isLoading && error && item && <p className="mt-2 text-xs text-theme-tertiary">{error}</p>}
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-theme-surface border border-theme bg-theme-subtle px-3 py-3 text-sm text-theme-secondary">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading place details...</span>
+          </div>
+        )}
 
-          {place && (
-            <>
-              {hoursLines.length > 0 && (
-                <details className="mt-2 rounded-md border border-theme bg-theme-subtle p-2 text-xs text-theme-secondary">
-                  <summary className="cursor-pointer font-medium">{hoursSummary}</summary>
-                  <ul className="mt-1 space-y-0.5">
-                    {hoursLines.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+        {!isLoading && error && !place && !item ? (
+          <p className="rounded-theme-surface border border-red-500/20 bg-red-500/8 px-3 py-3 text-sm text-red-600 dark:text-red-300">
+            {error}
+          </p>
+        ) : null}
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-                {place.phoneNumber && (
-                  <a
-                    href={`tel:${place.phoneNumber}`}
-                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    {place.phoneNumber}
-                  </a>
-                )}
-                {place.website && (
-                  <a
-                    href={place.website}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <Globe className="h-3.5 w-3.5" />
-                    Website
-                  </a>
-                )}
-                {place.googleMapsUrl && (
-                  <a
-                    href={place.googleMapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    Open in Google Maps
-                  </a>
-                )}
+        {(!isLoading || item) && (
+          <>
+            {photo ? (
+              <div className="space-y-1">
+                <PhotoGallery urls={photos} altBase={displayName} />
+                {scheduleCard}
+                {placeSummary}
               </div>
+            ) : null}
 
-              {place.editorialSummary && (
-                <p className="mt-2 text-xs leading-snug text-theme-secondary">{place.editorialSummary}</p>
-              )}
+            {!photo ? scheduleCard : null}
+            {!photo ? placeSummary : null}
 
-              {place.types.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {place.types.slice(0, 4).map((type) => (
-                    <span
-                      key={type}
-                      className="rounded-full border border-theme bg-theme-subtle px-2 py-0.5 text-[10px] font-medium text-theme-secondary"
-                    >
-                      {formatTypeLabel(type)}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+            {isLoading && item ? (
+              <div className="inline-flex items-center gap-2 text-xs text-theme-secondary">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading place details...
+              </div>
+            ) : null}
 
-          <div className="mt-3 flex items-center gap-2">
-            {isItineraryItem && item && onEditItem && (
-              <button
-                type="button"
-                onClick={() => onEditItem(item.itemId)}
-                className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit Event
-              </button>
-            )}
+            {!isLoading && error && item ? (
+              <p className="text-xs text-theme-tertiary">{error}</p>
+            ) : null}
 
-            {isItineraryItem && item && onDeleteItem && (
-              <button
-                type="button"
-                onClick={() => onDeleteItem(item.itemId)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-theme bg-theme-subtle px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-500"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Remove
-              </button>
-            )}
+            {place ? (
+              <div className="space-y-2 pt-0">
+                {(place.phoneNumber || place.website || place.googleMapsUrl) ? (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-theme-secondary">
+                    {place.phoneNumber ? (
+                      <a
+                        href={`tel:${place.phoneNumber}`}
+                        aria-label={`Call ${place.phoneNumber}`}
+                        title="Call"
+                        className="inline-flex items-center gap-1.5 text-theme-tertiary transition-colors duration-200 ease-out hover:text-theme-secondary"
+                      >
+                        <Phone className="h-3.5 w-3.5" />
+                        <span>Call</span>
+                      </a>
+                    ) : null}
+                    {place.website ? (
+                      <>
+                        {place.phoneNumber ? (
+                          <span aria-hidden="true" className="text-theme-tertiary">
+                            &middot;
+                          </span>
+                        ) : null}
+                        <a
+                          href={place.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Open website"
+                          title="Website"
+                          className="inline-flex items-center gap-1.5 text-theme-tertiary transition-colors duration-200 ease-out hover:text-theme-secondary"
+                        >
+                          <Globe className="h-3.5 w-3.5" />
+                          <span>Website</span>
+                        </a>
+                      </>
+                    ) : null}
+                    {place.googleMapsUrl ? (
+                      <>
+                        {place.phoneNumber || place.website ? (
+                          <span aria-hidden="true" className="text-theme-tertiary">
+                            &middot;
+                          </span>
+                        ) : null}
+                        <a
+                          href={place.googleMapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Open directions"
+                          title="Directions"
+                          className="inline-flex items-center gap-1.5 text-theme-tertiary transition-colors duration-200 ease-out hover:text-theme-secondary"
+                        >
+                          <MapPinned className="h-3.5 w-3.5" />
+                          <span>Directions</span>
+                        </a>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
 
-            {!isItineraryItem && place && onAddToItinerary && (
-              <button
-                type="button"
-                onClick={() => onAddToItinerary(place)}
-                className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add to itinerary
-              </button>
-            )}
-          </div>
-        </>
-      )}
+                {hoursLines.length > 0 ? (
+                  <details className="group">
+                    <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-theme-tertiary">
+                          {hoursSummary}
+                        </p>
+                        <p className="text-[11px] leading-4 text-theme-secondary">{hoursLines[0]}</p>
+                        {hiddenHoursCount > 0 ? (
+                          <p className="text-[10px] font-medium text-theme-tertiary group-open:hidden">
+                            + {hiddenHoursCount} more {hiddenHoursCount === 1 ? 'day' : 'days'}
+                          </p>
+                        ) : null}
+                      </div>
+                      {hoursLines.length > 1 ? (
+                        <ChevronDown className="mt-1 h-3.5 w-3.5 shrink-0 text-theme-tertiary transition-transform group-open:rotate-180" />
+                      ) : null}
+                    </summary>
+                    {hoursLines.length > 1 ? (
+                      <ul className="mt-0.5 space-y-0 text-[11px] leading-4 text-theme-secondary">
+                        {hoursLines.slice(1).map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </details>
+                ) : null}
+
+              </div>
+            ) : null}
+
+            <div className="pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {isItineraryItem && item && onEditItem ? (
+                  <button
+                    type="button"
+                    onClick={() => onEditItem(item.itemId)}
+                    className="btn-primary inline-flex h-10 items-center gap-1.5 rounded-theme-control px-4 text-xs font-semibold"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Event
+                  </button>
+                ) : null}
+
+                {isItineraryItem && item && onDeleteItem ? (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteItem(item.itemId)}
+                    className="inline-flex h-10 items-center gap-1.5 rounded-theme-control bg-theme px-4 text-xs font-medium text-theme-secondary transition-colors hover:bg-red-500/10 hover:text-red-500"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                ) : null}
+
+                {!isItineraryItem && place && onAddToItinerary ? (
+                  <button
+                    type="button"
+                    onClick={() => onAddToItinerary(place)}
+                    className="btn-primary inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-theme-control px-4 text-xs font-semibold"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add to itinerary
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

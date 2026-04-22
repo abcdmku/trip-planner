@@ -27,6 +27,7 @@ export interface AppShellProps {
   syncStatus?: 'synced' | 'syncing' | 'error' | 'offline';
   user?: { name: string; picture: string };
   onLogout?: () => void;
+  onHomeClick?: () => void;
   participantStrip?: ReactNode;
   shareControl?: ReactNode;
   activeCollaborators?: Array<{ userId: string; name: string; picture: string; color: string }>;
@@ -71,6 +72,7 @@ export function AppShell({
   syncStatus,
   user,
   onLogout,
+  onHomeClick,
   participantStrip,
   shareControl,
   activeCollaborators,
@@ -303,6 +305,7 @@ export function AppShell({
         syncStatus={syncStatus}
         user={user}
         onLogout={onLogout}
+        onHomeClick={onHomeClick}
         participantStrip={participantStrip}
         shareControl={shareControl}
         activeCollaborators={activeCollaborators}

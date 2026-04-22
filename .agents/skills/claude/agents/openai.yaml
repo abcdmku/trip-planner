@@ -1,0 +1,6 @@
+interface:
+  display_name: "Claude"
+  short_description: "Run the current task through the local Claude CLI"
+  default_prompt: "Use $claude to send the current request to the local Claude CLI with Opus and max effort, then return the result."
+policy:
+  allow_implicit_invocation: false

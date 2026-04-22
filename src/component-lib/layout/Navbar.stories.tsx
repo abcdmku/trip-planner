@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { Navbar, type NavbarProps } from './Navbar';
-import { StatusMessage } from '@/component-lib/sync/StatusMessage';
+import { FollowModeBanner } from '@/component-lib/presence/FollowModeBanner';
 
 function avatarDataUri(label: string, background: string): string {
   const initials = label
@@ -46,16 +46,19 @@ const user = {
 };
 
 const participantStrip = (
-  <div className="hidden items-center gap-1 rounded-full border border-theme bg-theme px-2 py-1 md:flex">
-    {collaborators.slice(0, 2).map((collaborator) => (
-      <img
-        key={collaborator.userId}
-        src={collaborator.picture}
-        alt={collaborator.name}
-        className="h-5 w-5 rounded-full border border-white"
-      />
-    ))}
-    <span className="pl-1 text-xs font-medium text-theme-secondary">3 live</span>
+  <div className="flex items-center gap-2">
+    <button
+      type="button"
+      className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+    >
+      Follow teammate
+    </button>
+    <button
+      type="button"
+      className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
+    >
+      Jump to selection
+    </button>
   </div>
 );
 
@@ -64,15 +67,11 @@ const shareControl = (
     type="button"
     className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
   >
-    Share
+    Share Workspace
   </button>
 );
 
-const followStatus = (
-  <div className="hidden md:block">
-    <StatusMessage label="Following Maya" tone="info" variant="badge" />
-  </div>
-);
+const followStatus = <FollowModeBanner name="Maya Patel" contextLabel="Map" onExit={fn()} />;
 
 function renderNavbar(args: NavbarProps, widthClass = 'w-full') {
   return (
@@ -90,6 +89,7 @@ const baseArgs = {
   syncStatus: 'synced',
   user,
   onLogout: fn(),
+  onHomeClick: fn(),
   participantStrip,
   shareControl,
   activeCollaborators: collaborators,
@@ -117,6 +117,7 @@ const meta = {
     followStatus: { control: false },
     onTripNameChange: { control: false },
     onLogout: { control: false },
+    onHomeClick: { control: false },
     onThemeChange: { control: false },
   },
   args: baseArgs,
@@ -128,6 +129,15 @@ export default meta;
 type Story = StoryObj<NavbarProps>;
 
 export const Default: Story = {};
+
+export const HomeNavigation: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: /go to trips home/i }));
+
+    await expect(args.onHomeClick).toHaveBeenCalledTimes(1);
+  },
+};
 
 export const SyncingCollaborative: Story = {
   args: {
@@ -164,24 +174,7 @@ export const HeaderStress: Story = {
         color: '#14B8A6',
       },
     ],
-    followStatus: (
-      <div className="hidden md:block">
-        <StatusMessage
-          label="Following Nora on timeline"
-          detail="Review mode"
-          tone="info"
-          variant="badge"
-        />
-      </div>
-    ),
-    shareControl: (
-      <button
-        type="button"
-        className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
-      >
-        Share Workspace
-      </button>
-    ),
+    followStatus: <FollowModeBanner name="Nora Kim" contextLabel="Timeline" onExit={fn()} />,
   },
   render: (args) => renderNavbar(args, 'max-w-[860px]'),
 };
@@ -193,7 +186,7 @@ export const MobileStress: Story = {
     participantStrip: undefined,
     followStatus: undefined,
   },
-  render: (args) => renderNavbar(args, 'w-[430px]'),
+  render: (args) => renderNavbar(args, 'max-w-[320px]'),
 };
 
 export const NoTripContext: Story = {
@@ -213,7 +206,7 @@ export const UserMenu: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: /avery stone/i }));
+    await userEvent.click(canvas.getByRole('button', { name: /open profile menu for avery stone/i }));
     await userEvent.click(canvas.getByRole('button', { name: /sign out/i }));
 
     await expect(args.onLogout).toHaveBeenCalledTimes(1);
@@ -227,8 +220,8 @@ export const ThemeSelection: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: /toggle theme/i }));
-    await userEvent.click(canvas.getByRole('button', { name: /dark/i }));
+    await userEvent.click(canvas.getByRole('button', { name: /open profile menu for avery stone/i }));
+    await userEvent.click(canvas.getByRole('button', { name: /dark theme/i }));
 
     await expect(args.onThemeChange).toHaveBeenCalledWith('dark');
   },

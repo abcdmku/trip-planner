@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Loader2, Plane, X } from 'lucide-react';
 import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
+import { DateInput } from '@/component-lib/shared/DateInput';
 import { COMMON_TIMEZONES, formatTimezoneOptionLabel } from '@/lib/timezone';
 
 export interface CreateTripDialogProps {
@@ -81,30 +82,26 @@ export function CreateTripDialog({ isOpen, onClose, onCreate }: CreateTripDialog
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="start-date" className="mb-1 block text-sm font-medium text-theme-secondary">
                 Start Date
               </label>
-              <input
+              <DateInput
                 id="start-date"
-                type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
-                className="input"
               />
             </div>
             <div>
               <label htmlFor="end-date" className="mb-1 block text-sm font-medium text-theme-secondary">
                 End Date
               </label>
-              <input
+              <DateInput
                 id="end-date"
-                type="date"
                 value={endDate}
                 min={startDate}
                 onChange={(event) => setEndDate(event.target.value)}
-                className="input"
               />
             </div>
           </div>

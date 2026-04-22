@@ -985,6 +985,9 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         syncStatus,
         user: user ? { name: user.name, picture: user.picture } : undefined,
         onLogout: () => void logout(),
+        onHomeClick: () => {
+          window.location.assign('/');
+        },
         participantStrip: (
           <ParticipantStrip
             participants={tripParticipants}
@@ -1018,6 +1021,13 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
         followStatus: followedParticipant ? (
           <FollowModeBanner
             name={followedParticipant.name}
+            contextLabel={
+              activeTab === 'timeline'
+                ? 'Timeline'
+                : activeTab === 'itinerary'
+                  ? 'Itinerary'
+                  : 'Map'
+            }
             onExit={() => setFollowedConnectionId(null)}
           />
         ) : null,
