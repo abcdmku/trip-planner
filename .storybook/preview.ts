@@ -1,5 +1,6 @@
 import type { Preview } from '@storybook/react-vite';
 import { withAppProviders } from '../src/app/storybook/decorators';
+import { storybookViewportOptions } from '../src/storybook/viewports';
 import '../src/index.css';
 
 const preview: Preview = {
@@ -32,6 +33,9 @@ const preview: Preview = {
       test: 'todo',
     },
     layout: 'fullscreen',
+    viewport: {
+      options: storybookViewportOptions,
+    },
   },
 };
 

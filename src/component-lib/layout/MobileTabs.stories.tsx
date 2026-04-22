@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { MobileTabs } from './MobileTabs';
+import { mobileStoryGlobals } from '@/storybook/viewports';
 
 type MobileTabsProps = ComponentProps<typeof MobileTabs>;
 
@@ -35,17 +36,9 @@ function MobileTabsStoryHarness({
       data-mobile-tabs-story
       className="min-h-[720px] bg-theme text-theme-primary"
     >
-      <style>{`
-        @media (min-width: 768px) {
-          [data-mobile-tabs-story] .md\\:hidden {
-            display: block !important;
-          }
-        }
-      `}</style>
-
       <main
         id="main-content"
-        className="mx-auto flex min-h-[720px] max-w-sm flex-col gap-4 px-4 py-6 pb-28"
+        className="mx-auto flex min-h-[720px] w-full max-w-sm flex-col gap-4 px-4 py-6 pb-28"
       >
         <header className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-theme-tertiary">
@@ -71,7 +64,7 @@ function MobileTabsStoryHarness({
             <h2 className="text-sm font-semibold">Storybook note</h2>
             <p className="mt-2 text-sm text-theme-secondary">
               This story keeps the fixed mobile-only bar visible so its states
-              remain reviewable in a desktop Storybook canvas.
+              remain reviewable in a dedicated mobile Storybook canvas.
             </p>
           </article>
         </section>
@@ -88,16 +81,17 @@ function MobileTabsStoryHarness({
   );
 }
 
-const meta: Meta<typeof MobileTabs> = {
+const meta = {
   title: 'Component Lib/Layout/MobileTabs',
   component: MobileTabs,
   tags: ['autodocs'],
+  globals: mobileStoryGlobals,
   parameters: {
     layout: 'fullscreen',
     docs: {
       description: {
         component:
-          'Fixed mobile tab bar for switching between the primary planner workspaces. The story harness provides mobile-sized content and keeps the `md:hidden` navigation reviewable inside Storybook.',
+          'Fixed mobile tab bar for switching between the primary planner workspaces. Stories lock a mobile viewport so the responsive `md:hidden` navigation renders in its real mobile state.',
       },
     },
   },
@@ -115,7 +109,7 @@ const meta: Meta<typeof MobileTabs> = {
     onTabChange: fn(),
   },
   render: (args) => <MobileTabsStoryHarness {...args} />,
-};
+} as Meta<typeof MobileTabs>;
 
 export default meta;
 

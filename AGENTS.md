@@ -101,6 +101,13 @@ For any UI-related change:
 4. Keep runtime-specific wiring out of component stories by using decorators, loaders, args, and mocks.
 5. If Storybook MCP is configured and available, use it before making UI changes so the current stories and docs drive the implementation.
 
+For responsive and mobile UI work:
+
+- use Storybook viewport support as the source of truth for mobile rendering
+- prefer shared viewport presets and story-level `globals.viewport` configuration for mobile variants
+- do not fake mobile behavior with canvas width hacks, breakpoint-bypassing CSS overrides, or desktop-only wrappers when the goal is to verify responsive breakpoints
+- only use width-constraining wrappers for natural content framing, not to force `sm`/`md`/`lg` state changes that should come from the actual viewport
+
 ## Story requirements
 
 Every component-lib component and every route-lib screen must have typed Storybook stories in TypeScript.
@@ -120,6 +127,8 @@ At minimum, stories must cover the relevant set of:
 - collaborative/presence states when applicable
 
 Use Storybook `args` to represent variants instead of duplicating similar story implementations.
+
+When a story is meant to represent a mobile-specific or responsive breakpoint state, the story must activate that state through Storybook viewport configuration instead of relying on ad hoc container widths alone.
 
 Use `play` functions for user interaction coverage whenever behavior depends on clicks, typing, keyboard flow, drag state, popovers, dialogs, or async transitions.
 

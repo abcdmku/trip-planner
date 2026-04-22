@@ -3,6 +3,7 @@ import { expect, fn, userEvent, within } from 'storybook/test';
 import { AppShell, type AppShellProps } from './AppShell';
 import { StatusMessage } from '@/component-lib/sync/StatusMessage';
 import { FollowModeBanner } from '@/component-lib/presence/FollowModeBanner';
+import { mobileStoryGlobals } from '@/storybook/viewports';
 
 function avatarDataUri(label: string, background: string): string {
   const initials = label
@@ -481,7 +482,7 @@ export const ConstrainedDesktopStress: Story = {
   render: (args) => renderShell(args, 'max-w-[960px]'),
 };
 
-export const MobileStress: Story = {
+export const MobileStress = {
   args: {
     activeTab: 'map',
     syncStatus: 'offline',
@@ -490,5 +491,6 @@ export const MobileStress: Story = {
     topBanner,
     workspaceOverlay: undefined,
   },
-  render: (args) => renderShell(args, 'w-[430px]'),
-};
+  globals: mobileStoryGlobals,
+  render: (args: AppShellProps) => renderShell(args),
+} as Story;

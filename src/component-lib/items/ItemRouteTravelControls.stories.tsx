@@ -5,6 +5,7 @@ import {
   ItemRouteTravelControls,
   type ItemRouteTravelControlsProps,
 } from './ItemRouteTravelControls';
+import { mobileStoryGlobals } from '@/storybook/viewports';
 
 const changeSpy = fn();
 const calculateSpy = fn();
@@ -66,19 +67,20 @@ export const Compact: Story = {
   },
 };
 
-export const CompactMobile: Story = {
+export const CompactMobile = {
   args: {
     compact: true,
   },
+  globals: mobileStoryGlobals,
   render: (args: ItemRouteTravelControlsProps) => (
-    <InteractiveControlsStory args={args} containerClassName="max-w-[360px] bg-theme p-4" />
+    <InteractiveControlsStory args={args} containerClassName="w-full bg-theme p-4" />
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText('Walk')).not.toBeInTheDocument();
     await expect(canvas.getByRole('button', { name: 'Walk' })).toBeInTheDocument();
   },
-};
+} as Story;
 
 export const StraightLineOnly: Story = {
   args: {

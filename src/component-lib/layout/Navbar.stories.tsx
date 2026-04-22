@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { Navbar, type NavbarProps } from './Navbar';
 import { FollowModeBanner } from '@/component-lib/presence/FollowModeBanner';
+import { mobileStoryGlobals } from '@/storybook/viewports';
 
 function avatarDataUri(label: string, background: string): string {
   const initials = label
@@ -190,7 +191,7 @@ export const HeaderStress: Story = {
   render: (args) => renderNavbar(args, 'max-w-[860px]'),
 };
 
-export const MobileStress: Story = {
+export const MobileStress = {
   args: {
     tripName: 'Chicago Sprint Planning',
     syncStatus: 'offline',
@@ -198,12 +199,13 @@ export const MobileStress: Story = {
     participantStrip: undefined,
     followStatus: undefined,
   },
+  globals: mobileStoryGlobals,
   render: (args) =>
-    renderNavbar(args, 'w-full max-w-[320px]', {
+    renderNavbar(args, 'w-full', {
       outerClassName: 'min-h-screen bg-theme p-0',
       shellClassName: 'overflow-visible border-b border-theme bg-theme',
     }),
-};
+} as Story;
 
 export const NoTripContext: Story = {
   args: {

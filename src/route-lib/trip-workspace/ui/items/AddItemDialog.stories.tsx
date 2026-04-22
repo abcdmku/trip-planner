@@ -3,6 +3,7 @@ import { expect, fn, userEvent, within } from 'storybook/test';
 import { AddItemDialog } from './AddItemDialog';
 import { MockMapsRepositoryBoundary } from '@/component-lib/story-support/maps-mocks';
 import { createPlaceSearchResultFixture } from '@/component-lib/story-support/trip-fixtures';
+import { mobileStoryGlobals } from '@/storybook/viewports';
 
 const museum = createPlaceSearchResultFixture({
   placeId: 'place-art-museum',
@@ -23,8 +24,12 @@ const riverwalk = createPlaceSearchResultFixture({
 });
 
 const addItemSpy = fn();
+type AddItemDialogStoryArgs = Parameters<typeof AddItemDialog>[0];
 
-function renderDialog(args: any, widthClass = 'max-w-[760px]', heightClass = 'min-h-screen') {
+function renderDialog(
+  args: AddItemDialogStoryArgs,
+  heightClass = 'min-h-screen',
+) {
   return (
     <MockMapsRepositoryBoundary
       options={{
@@ -43,9 +48,7 @@ function renderDialog(args: any, widthClass = 'max-w-[760px]', heightClass = 'mi
       }}
     >
       <div className={`${heightClass} bg-theme p-6`}>
-        <div className={widthClass}>
-          <AddItemDialog {...args} />
-        </div>
+        <AddItemDialog {...args} />
       </div>
     </MockMapsRepositoryBoundary>
   );
@@ -68,7 +71,7 @@ const meta = {
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<typeof AddItemDialog>;
 
 export const Default: Story = {
   args: {
@@ -163,7 +166,7 @@ export const CustomPinRequiresName: Story = {
   },
 };
 
-export const CompactViewport: Story = {
+export const CompactViewport = {
   args: {
     initialPlace: museum,
     initialDestination: riverwalk,
@@ -171,5 +174,6 @@ export const CompactViewport: Story = {
     initialTransportMode: 'walking',
     initialRouteType: 'directions',
   },
-  render: (args) => renderDialog(args, 'w-[430px]', 'min-h-[760px]'),
-};
+  globals: mobileStoryGlobals,
+  render: (args: AddItemDialogStoryArgs) => renderDialog(args, 'min-h-[760px]'),
+} as Story;
