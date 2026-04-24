@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 
 /**
- * A predefined set of 10 distinctive, accessible colors for day theming.
+ * A predefined set of 9 distinctive, accessible colors for day theming.
  * Colors are chosen to be visually distinguishable from each other and to
  * meet WCAG contrast guidelines when paired with white text.
  */
@@ -25,7 +25,6 @@ export const DAY_COLORS: string[] = [
   '#06B6D4', // cyan
   '#F97316', // orange
   '#6366F1', // indigo
-  '#14B8A6', // teal
 ];
 
 // ---------------------------------------------------------------------------

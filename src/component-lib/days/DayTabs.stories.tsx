@@ -60,7 +60,15 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('May 12')).toBeVisible();
+    await expect(canvas.getByText('May 13')).toBeVisible();
+    await expect(canvas.queryByText('2026-05-12')).toBeNull();
+  },
+};
 
 export const DragTargetState: Story = {
   args: {
@@ -84,7 +92,7 @@ export const InteractsWithTabs: Story = {
 
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'All Days' }));
-    await userEvent.click(canvas.getByRole('button', { name: 'Museum Day' }));
+    await userEvent.click(canvas.getByRole('button', { name: /Museum Day/i }));
     await userEvent.click(canvas.getByRole('button', { name: 'Add day' }));
 
     await expect(selectSpy).toHaveBeenCalledWith('day-2');

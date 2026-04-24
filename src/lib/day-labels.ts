@@ -13,6 +13,12 @@ export function getWeekdayLabel(date: string): string {
   return format(parsed, 'EEEE');
 }
 
+export function getShortDateLabel(date: string): string {
+  const parsed = parseISO(date);
+  if (!isValid(parsed)) return date;
+  return format(parsed, 'MMM d');
+}
+
 export function getAutoDayLabel(date: string, fallbackLabel = ''): string {
   return getWeekdayLabel(date) || fallbackLabel.trim();
 }

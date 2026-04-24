@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
-import { AuthGuardScreen, type AuthGuardScreenProps } from './AuthGuardScreen';
+import { mobileStoryGlobals } from '@/storybook/viewports';
+import { AuthGuardScreen } from './AuthGuardScreen';
 
 const onLoginSpy = fn();
 
@@ -13,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Full-screen authenticated entry state. Stories cover the loading shell and the signed-out sign-in CTA so the auth gate can be reviewed in isolation.',
+          'Full-screen auth threshold for the planner shell. Stories cover the atmospheric signed-out state, the loading handoff, custom copy, and a dedicated mobile viewport so the responsive spacing can be reviewed in isolation.',
       },
     },
   },
@@ -30,7 +31,7 @@ const meta = {
 
 export default meta;
 
-type Story = StoryObj<AuthGuardScreenProps>;
+type Story = StoryObj<typeof meta>;
 
 export const SignedOut: Story = {};
 
@@ -48,6 +49,16 @@ export const CustomCopy: Story = {
     supportNote: 'Authentication happens through the backend session.',
   },
 };
+
+export const DarkSignedOut = {
+  globals: {
+    theme: 'dark',
+  },
+} as Story;
+
+export const MobileSignedOut = {
+  globals: mobileStoryGlobals,
+} as Story;
 
 export const SignInInteraction: Story = {
   play: async ({ canvasElement }) => {

@@ -10,6 +10,17 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+function syncDocumentFavicon(resolvedTheme: 'light' | 'dark') {
+  const faviconLink = document.getElementById('app-favicon');
+
+  if (!(faviconLink instanceof HTMLLinkElement)) return;
+
+  const nextHref = resolvedTheme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg';
+  if (faviconLink.getAttribute('href') === nextHref) return;
+
+  faviconLink.setAttribute('href', nextHref);
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'system';
@@ -37,6 +48,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       } else {
         root.classList.remove('dark');
       }
+
+      syncDocumentFavicon(resolved);
     };
 
     updateTheme();

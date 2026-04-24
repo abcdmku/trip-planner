@@ -244,3 +244,12 @@ export const ThemeSelection: Story = {
     await expect(args.onThemeChange).toHaveBeenCalledWith('dark');
   },
 };
+
+export const DarkTheme: Story = {
+  args: {
+    theme: 'dark',
+  },
+  globals: {
+    theme: 'dark',
+  },
+} as Story;

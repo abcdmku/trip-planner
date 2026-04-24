@@ -3,6 +3,7 @@ import { Palette, X } from 'lucide-react';
 import { DateInput } from '@/component-lib/shared/DateInput';
 import type { Day } from '@/types/trip';
 import { useEscapeHotkey } from '@/hooks/useEscapeHotkey';
+import { DAY_COLORS } from '@/lib/day-colors';
 import { getAutoDayLabel, isDefaultNumberedDayLabel } from '@/lib/day-labels';
 import { COMMON_TIMEZONES, formatTimezoneOptionLabel } from '@/lib/timezone';
 
@@ -15,19 +16,6 @@ export interface DayEditorProps {
   onClose: () => void;
   onSave: (day: Partial<Day> & { dayId: string }) => void;
 }
-
-const DAY_COLORS = [
-  '#3B82F6',
-  '#EF4444',
-  '#10B981',
-  '#F59E0B',
-  '#8B5CF6',
-  '#EC4899',
-  '#06B6D4',
-  '#F97316',
-  '#6366F1',
-  '#14B8A6',
-];
 
 export function DayEditor({
   day,

@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { TimezoneBadge } from '@/component-lib/timezone/TimezoneBadge';
 import type { Day } from '@/types/trip';
-import { getDayDisplayLabel } from '@/lib/day-labels';
+import { getDayDisplayLabel, getShortDateLabel } from '@/lib/day-labels';
 import { resolveDraggedItemId } from '@/lib/timeline-drop';
 
 export interface DayTabsProps {
@@ -102,13 +102,16 @@ export function DayTabs({
         const isDropTarget = Boolean(draggingItemId) && !isSelected;
         const isValidTarget = dropValidityByDay?.[day.dayId] ?? true;
         const displayLabel = getDayDisplayLabel(day);
+        const shortDateLabel = getShortDateLabel(day.date);
         const badge = (
-          <TimezoneBadge
-            timezone={day.timezone}
-            baseTimezone={baseTimezone}
-            date={day.date}
-            variant={isSelected ? 'onColor' : 'embedded'}
-          />
+          <span className="inline-flex [&>span]:px-1 [&>span]:py-0">
+            <TimezoneBadge
+              timezone={day.timezone}
+              baseTimezone={baseTimezone}
+              date={day.date}
+              variant={isSelected ? 'onColor' : 'embedded'}
+            />
+          </span>
         );
 
         return (
@@ -139,11 +142,13 @@ export function DayTabs({
                   style={!isSelected ? { backgroundColor: day.colorHex } : undefined}
                 />
                 <span className="truncate whitespace-nowrap">{displayLabel}</span>
+              </div>
+              <div className="flex items-center gap-0.5 leading-tight">
+                <span className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-theme-tertiary'}`}>
+                  {shortDateLabel}
+                </span>
                 {!onEditDay ? badge : null}
               </div>
-              <span className={`text-[10px] leading-tight ${isSelected ? 'text-white/70' : 'text-theme-tertiary'}`}>
-                {day.date}
-              </span>
             </button>
 
             {onEditDay ? (
@@ -151,7 +156,7 @@ export function DayTabs({
                 type="button"
                 data-day-tab-timezone-id={day.dayId}
                 onClick={() => onEditDay(day)}
-                className="absolute right-1 top-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                className="absolute bottom-1 right-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 aria-label={`Edit timezone for ${displayLabel}`}
               >
                 {badge}

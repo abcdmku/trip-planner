@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, House, LogOut, Monitor, Moon, Sun, Users } from 'lucide-react';
+import { ChevronDown, LogOut, Monitor, Moon, Sun, Users } from 'lucide-react';
+import { TripPlannerLogo } from '../shared/TripPlannerLogo';
 export type NavbarTheme = 'light' | 'dark' | 'system';
 
 export interface NavbarProps {
@@ -179,7 +180,7 @@ export function Navbar({
   const homeButtonClassName = compact
     ? 'flex h-8 w-8 items-center justify-center rounded-theme-control bg-theme shadow-theme-sm transition-colors hover:bg-theme-subtle'
     : 'flex h-10 w-10 items-center justify-center rounded-theme-control bg-theme shadow-theme-sm transition-colors hover:bg-theme-subtle';
-  const homeIconClassName = compact ? 'h-3.5 w-3.5 text-accent' : 'h-4 w-4 text-accent';
+  const homeIconClassName = compact ? 'h-5 w-5' : 'h-6 w-6';
   const titleButtonClassName = compact
     ? 'max-w-full truncate text-left text-[13px] font-semibold text-theme transition-colors hover:text-accent'
     : 'max-w-full truncate text-left text-sm font-semibold text-theme transition-colors hover:text-accent sm:text-base';
@@ -204,7 +205,7 @@ export function Navbar({
             aria-label="Go to trips home"
             title="Back to trips"
           >
-            <House className={homeIconClassName} />
+            <TripPlannerLogo variant="mark" decorative className={homeIconClassName} />
           </button>
         </div>
 

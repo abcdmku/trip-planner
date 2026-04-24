@@ -64,6 +64,12 @@ export const Error: Story = {
   },
 };
 
+export const DarkTheme: Story = {
+  globals: {
+    theme: 'dark',
+  },
+} as Story;
+
 export const OpensCreateDialog: Story = {
   args: {
     onCreateTrip: dashboardCreateSpy,
