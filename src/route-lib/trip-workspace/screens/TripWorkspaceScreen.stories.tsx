@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
+import { DataTransferMenu } from '@component-lib/layout/DataTransferMenu';
 import { TripWorkspaceScreen } from './TripWorkspaceScreen';
 
 const baseReadyArgs = {
@@ -26,6 +27,9 @@ const baseReadyArgs = {
       <button className="rounded-lg border border-theme px-3 py-2 text-sm text-theme">
         Share trip
       </button>
+    ),
+    dataTransferControl: (
+      <DataTransferMenu onExportData={fn()} onLoadData={fn()} />
     ),
     activeCollaborators: [
       {

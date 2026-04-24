@@ -13,6 +13,7 @@ export interface NavbarProps {
   onHomeClick?: () => void;
   participantStrip?: ReactNode;
   shareControl?: ReactNode;
+  dataTransferControl?: ReactNode;
   activeCollaborators?: Array<{ userId: string; name: string; picture: string; color: string }>;
   followStatus?: ReactNode;
   theme?: NavbarTheme;
@@ -122,6 +123,7 @@ export function Navbar({
   onHomeClick,
   participantStrip,
   shareControl,
+  dataTransferControl,
   activeCollaborators = [],
   followStatus,
   theme = 'system',
@@ -361,6 +363,12 @@ export function Navbar({
                         Workspace
                       </p>
                       {shareControl}
+                    </div>
+                  ) : null}
+
+                  {dataTransferControl ? (
+                    <div className={compact ? 'border-b border-theme-subtle px-3 py-2.5' : 'border-b border-theme-subtle px-4 py-3'}>
+                      {dataTransferControl}
                     </div>
                   ) : null}
 

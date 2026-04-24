@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { AppShell, type AppShellProps } from './AppShell';
+import { DataTransferMenu } from './DataTransferMenu';
 import { StatusMessage } from '@/component-lib/sync/StatusMessage';
 import { FollowModeBanner } from '@/component-lib/presence/FollowModeBanner';
 import { mobileStoryGlobals } from '@/storybook/viewports';
@@ -337,6 +338,10 @@ const shareControl = (
   </button>
 );
 
+const dataTransferControl = (
+  <DataTransferMenu onExportData={fn()} onLoadData={fn()} />
+);
+
 const followStatus = (
   <FollowModeBanner name="Maya Patel" contextLabel="Map" onExit={fn()} />
 );
@@ -382,6 +387,7 @@ const baseArgs = {
   onHomeClick: fn(),
   participantStrip,
   shareControl,
+  dataTransferControl,
   activeCollaborators: collaborators,
   followStatus,
   desktopLayoutMode: 'split',
@@ -413,6 +419,7 @@ const meta = {
     map: { control: false },
     participantStrip: { control: false },
     shareControl: { control: false },
+    dataTransferControl: { control: false },
     followStatus: { control: false },
     workspaceOverlay: { control: false },
     topBanner: { control: false },

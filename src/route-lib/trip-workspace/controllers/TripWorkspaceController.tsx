@@ -7,6 +7,7 @@ import { useRealtime } from '@/contexts/RealtimeContext';
 import { useTripCollaboration } from '@/hooks/useCollaboration';
 import { useUI } from '@/hooks/useUI';
 import { DayTabs } from '@component-lib/days/DayTabs';
+import { DataTransferMenu } from '@component-lib/layout/DataTransferMenu';
 import { FollowModeBanner } from '@component-lib/presence/FollowModeBanner';
 import { ParticipantStrip } from '@component-lib/presence/ParticipantStrip';
 import { ConflictBanner } from '@component-lib/sync/ConflictBanner';
@@ -61,6 +62,7 @@ import { useTripWorkspaceFollowSync } from './useTripWorkspaceFollowSync';
 import { useTripWorkspaceRenderItems } from './useTripWorkspaceRenderItems';
 import { useTripWorkspaceUndoSync } from './useTripWorkspaceUndoSync';
 import { useTripWorkspaceViewState } from './useTripWorkspaceViewState';
+import { useTripDataTransfer } from './useTripDataTransfer';
 
 void useParams;
 
@@ -96,6 +98,11 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
   const createInvite = useCreateTripInvite(tripId);
   const deleteInvite = useDeleteTripInvite(tripId);
   const deleteMember = useDeleteTripMember(tripId);
+  const tripDataTransfer = useTripDataTransfer({
+    tripId,
+    tripData,
+    tripName: trip?.name,
+  });
 
   useUndoRedoHotkeys(tripId);
   useTripWorkspaceUndoSync(tripId, tripData, isFetching, ensureSynced);
@@ -1017,6 +1024,15 @@ export function TripWorkspaceController({ tripId }: { tripId: string }) {
               isInviting={createInvite.isPending}
             />
           ) : null,
+        dataTransferControl: (
+          <DataTransferMenu
+            status={tripDataTransfer.status}
+            message={tripDataTransfer.message}
+            disabled={!tripData}
+            onExportData={tripDataTransfer.exportData}
+            onLoadData={tripDataTransfer.loadData}
+          />
+        ),
         activeCollaborators,
         followStatus: followedParticipant ? (
           <FollowModeBanner

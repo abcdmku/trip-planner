@@ -30,6 +30,7 @@ export interface AppShellProps {
   onHomeClick?: () => void;
   participantStrip?: ReactNode;
   shareControl?: ReactNode;
+  dataTransferControl?: ReactNode;
   activeCollaborators?: Array<{ userId: string; name: string; picture: string; color: string }>;
   followStatus?: ReactNode;
   workspaceOverlay?: ReactNode;
@@ -75,6 +76,7 @@ export function AppShell({
   onHomeClick,
   participantStrip,
   shareControl,
+  dataTransferControl,
   activeCollaborators,
   followStatus,
   workspaceOverlay,
@@ -308,6 +310,7 @@ export function AppShell({
         onHomeClick={onHomeClick}
         participantStrip={participantStrip}
         shareControl={shareControl}
+        dataTransferControl={dataTransferControl}
         activeCollaborators={activeCollaborators}
         followStatus={followStatus}
         theme={theme}

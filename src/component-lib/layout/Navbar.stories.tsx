@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { Navbar, type NavbarProps } from './Navbar';
+import { DataTransferMenu } from './DataTransferMenu';
 import { FollowModeBanner } from '@/component-lib/presence/FollowModeBanner';
 import { mobileStoryGlobals } from '@/storybook/viewports';
 
@@ -72,6 +73,10 @@ const shareControl = (
   </button>
 );
 
+const dataTransferControl = (
+  <DataTransferMenu onExportData={fn()} onLoadData={fn()} />
+);
+
 const followStatus = <FollowModeBanner name="Maya Patel" contextLabel="Map" onExit={fn()} />;
 
 function renderNavbar(
@@ -104,6 +109,7 @@ const baseArgs = {
   onHomeClick: fn(),
   participantStrip,
   shareControl,
+  dataTransferControl,
   activeCollaborators: collaborators,
   followStatus,
   theme: 'system',
@@ -126,6 +132,7 @@ const meta = {
   argTypes: {
     participantStrip: { control: false },
     shareControl: { control: false },
+    dataTransferControl: { control: false },
     followStatus: { control: false },
     onTripNameChange: { control: false },
     onLogout: { control: false },
@@ -162,6 +169,7 @@ export const OfflineMinimal: Story = {
     syncStatus: 'offline',
     participantStrip: undefined,
     shareControl: undefined,
+    dataTransferControl: undefined,
     followStatus: undefined,
     activeCollaborators: [],
   },
@@ -212,6 +220,7 @@ export const NoTripContext: Story = {
     tripName: undefined,
     participantStrip: undefined,
     shareControl: undefined,
+    dataTransferControl: undefined,
     followStatus: undefined,
     activeCollaborators: [],
     user: undefined,
@@ -228,6 +237,16 @@ export const UserMenu: Story = {
     await userEvent.click(canvas.getByRole('button', { name: /sign out/i }));
 
     await expect(args.onLogout).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const DataTransferControls: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: /open profile menu for avery stone/i }));
+
+    await expect(canvas.getByRole('button', { name: /^export$/i })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: /^load$/i })).toBeVisible();
   },
 };
 
