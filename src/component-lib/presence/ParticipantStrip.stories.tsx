@@ -90,7 +90,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Collaborator strip with follow and jump actions. Stories include the solo fallback and interactive menu paths to keep the remote-presence behavior reviewable without live networking.',
+          'Collaborator strip with inline follow and jump actions. Stories include the solo fallback and interactive row actions to keep the remote-presence behavior reviewable without live networking.',
       },
     },
   },
@@ -105,7 +105,9 @@ const meta = {
   render: (args) => (
     <div className="min-h-[320px] bg-theme p-6 text-theme">
       <div className="flex min-h-[220px] w-[1120px] items-start justify-end rounded-3xl border border-theme bg-theme-elevated p-4">
-        <ParticipantStrip {...args} />
+        <div className="w-[320px]">
+          <ParticipantStrip {...args} />
+        </div>
       </div>
     </div>
   ),
@@ -125,14 +127,24 @@ export const SoloFallback: Story = {
   },
 };
 
+export const FollowParticipant: Story = {
+  args: {
+    followedConnectionId: null,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: /follow maya patel/i }));
+    await expect(onFollowSpy).toHaveBeenCalledWith('maya');
+  },
+};
+
 export const JumpToParticipant: Story = {
   args: {
     followedConnectionId: null,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: /maya patel/i }));
-    await userEvent.click(canvas.getByRole('button', { name: /jump to user/i }));
+    await userEvent.click(canvas.getByRole('button', { name: /jump to maya patel/i }));
     await expect(onJumpToSpy).toHaveBeenCalledWith('maya');
   },
 };
@@ -143,8 +155,7 @@ export const StopFollowing: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: /maya patel/i }));
-    await userEvent.click(canvas.getByRole('button', { name: /stop following/i }));
+    await userEvent.click(canvas.getByRole('button', { name: /stop following maya patel/i }));
     await expect(onStopFollowingSpy).toHaveBeenCalledTimes(1);
   },
 };

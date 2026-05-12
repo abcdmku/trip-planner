@@ -1,7 +1,36 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import { DataTransferMenu } from '@component-lib/layout/DataTransferMenu';
+import { ParticipantStrip } from '@component-lib/presence/ParticipantStrip';
+import type { CollaborationParticipant } from '@/types/collaboration';
 import { TripWorkspaceScreen } from './TripWorkspaceScreen';
+
+const participants: CollaborationParticipant[] = [
+  {
+    connectionId: 'collab-1',
+    tripId: 'trip-1',
+    userId: 'collab-1',
+    name: 'Alex Rivera',
+    picture:
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=128&q=80',
+    color: '#0ea5e9',
+    status: 'active',
+    joinedAt: '2026-04-19T15:00:00.000Z',
+    lastSeenAt: '2026-04-19T15:01:00.000Z',
+    cursor: null,
+    itemPreview: null,
+    selection: {
+      connectionId: 'collab-1',
+      tripId: 'trip-1',
+      userId: 'collab-1',
+      objectIds: ['item-story'],
+      primaryObjectId: 'item-story',
+      updatedAt: '2026-04-19T15:01:00.000Z',
+    },
+    viewport: null,
+    manipulation: null,
+  },
+];
 
 const baseReadyArgs = {
   status: 'ready' as const,
@@ -19,9 +48,14 @@ const baseReadyArgs = {
     onLogout: fn(),
     onHomeClick: fn(),
     participantStrip: (
-      <div className="rounded-xl border border-theme bg-theme-elevated px-3 py-2 text-sm text-theme">
-        Participant strip
-      </div>
+      <ParticipantStrip
+        participants={participants}
+        localConnectionId="story-user"
+        followedConnectionId={null}
+        onFollow={fn()}
+        onJumpTo={fn()}
+        onStopFollowing={fn()}
+      />
     ),
     shareControl: (
       <button className="rounded-lg border border-theme px-3 py-2 text-sm text-theme">

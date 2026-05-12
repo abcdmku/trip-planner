@@ -4,7 +4,9 @@ import { AppShell, type AppShellProps } from './AppShell';
 import { DataTransferMenu } from './DataTransferMenu';
 import { StatusMessage } from '@/component-lib/sync/StatusMessage';
 import { FollowModeBanner } from '@/component-lib/presence/FollowModeBanner';
+import { ParticipantStrip } from '@/component-lib/presence/ParticipantStrip';
 import { mobileStoryGlobals } from '@/storybook/viewports';
+import type { CollaborationParticipant } from '@/types/collaboration';
 
 function avatarDataUri(label: string, background: string): string {
   const initials = label
@@ -47,6 +49,72 @@ const user = {
   name: 'Avery Stone',
   picture: avatarDataUri('Avery Stone', '#7C3AED'),
 };
+
+const participants: CollaborationParticipant[] = [
+  {
+    connectionId: 'maya',
+    tripId: 'trip-1',
+    userId: 'maya',
+    name: 'Maya Patel',
+    picture: collaborators[0].picture,
+    color: collaborators[0].color,
+    status: 'active',
+    joinedAt: '2026-04-19T15:00:00.000Z',
+    lastSeenAt: '2026-04-19T15:01:00.000Z',
+    cursor: null,
+    itemPreview: null,
+    selection: {
+      connectionId: 'maya',
+      tripId: 'trip-1',
+      userId: 'maya',
+      objectIds: ['item-12'],
+      primaryObjectId: 'item-12',
+      updatedAt: '2026-04-19T15:01:00.000Z',
+    },
+    viewport: null,
+    manipulation: null,
+  },
+  {
+    connectionId: 'nora',
+    tripId: 'trip-1',
+    userId: 'nora',
+    name: 'Nora Kim',
+    picture: collaborators[1].picture,
+    color: collaborators[1].color,
+    status: 'reconnecting',
+    joinedAt: '2026-04-19T15:00:30.000Z',
+    lastSeenAt: '2026-04-19T15:02:10.000Z',
+    cursor: null,
+    itemPreview: null,
+    selection: null,
+    viewport: null,
+    manipulation: {
+      connectionId: 'nora',
+      tripId: 'trip-1',
+      userId: 'nora',
+      objectId: 'leg-4',
+      kind: 'move',
+      label: 'Moving',
+      updatedAt: '2026-04-19T15:02:10.000Z',
+    },
+  },
+  {
+    connectionId: 'sam',
+    tripId: 'trip-1',
+    userId: 'sam',
+    name: 'Sam Ortega',
+    picture: collaborators[2].picture,
+    color: collaborators[2].color,
+    status: 'active',
+    joinedAt: '2026-04-19T15:01:10.000Z',
+    lastSeenAt: '2026-04-19T15:01:45.000Z',
+    cursor: null,
+    itemPreview: null,
+    selection: null,
+    viewport: null,
+    manipulation: null,
+  },
+];
 
 const dayTabs = (
   <div className="border-b border-theme bg-theme-elevated px-3 py-2">
@@ -313,20 +381,14 @@ const map = (
 );
 
 const participantStrip = (
-  <div className="flex items-center gap-2">
-    <button
-      type="button"
-      className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
-    >
-      Follow teammate
-    </button>
-    <button
-      type="button"
-      className="rounded-full border border-theme px-3 py-1.5 text-xs font-medium text-theme-secondary transition-colors hover:bg-theme-subtle hover:text-theme"
-    >
-      Jump to selection
-    </button>
-  </div>
+  <ParticipantStrip
+    participants={participants}
+    localConnectionId="avery"
+    followedConnectionId="maya"
+    onFollow={fn()}
+    onJumpTo={fn()}
+    onStopFollowing={fn()}
+  />
 );
 
 const shareControl = (

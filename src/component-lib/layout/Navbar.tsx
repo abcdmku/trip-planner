@@ -273,7 +273,13 @@ export function Navbar({
                     </p>
                   </div>
 
-                  {activeCollaborators.length > 0 ? (
+                  {participantStrip ? (
+                    <div className={compact ? 'px-3 py-2.5' : 'px-4 py-3'}>
+                      <div className="min-w-0 [&>*]:!flex [&>*]:!w-full [&>*]:!flex-col [&>*]:!gap-2">
+                        {participantStrip}
+                      </div>
+                    </div>
+                  ) : activeCollaborators.length > 0 ? (
                     <div className={compact ? 'space-y-2 px-3 py-2.5' : 'space-y-2 px-4 py-3'}>
                       {activeCollaborators.map((collaborator) => (
                         <div
@@ -299,17 +305,6 @@ export function Navbar({
                           </div>
                         </div>
                       ))}
-                    </div>
-                  ) : null}
-
-                  {participantStrip ? (
-                    <div className={compact ? 'border-t border-theme-subtle px-3 py-2.5' : 'border-t border-theme-subtle px-4 py-3'}>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-theme-tertiary">
-                        Jump Or Follow
-                      </p>
-                      <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&>*]:!flex [&>*]:!items-center [&>*]:!gap-2">
-                        {participantStrip}
-                      </div>
                     </div>
                   ) : null}
                 </div>
